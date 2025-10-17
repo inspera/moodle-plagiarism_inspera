@@ -1,0 +1,110 @@
+<?php
+
+class plagiarism_originality_observer {
+    /**
+     * Observer function to handle the assessable_uploaded event in mod_assign.
+     * @param \assignsubmission_file\event\assessable_uploaded $event
+     */
+    public static function assignsubmission_file_uploaded(
+        \assignsubmission_file\event\assessable_uploaded $event) {
+        global $CFG;
+        if (!empty(get_config('plagiarism_originality', 'enable_mod_assign'))) {
+            require_once($CFG->dirroot . '/plagiarism/originality/lib.php');
+            $eventdata = $event->get_data();
+            $eventdata['eventtype'] = 'assignsubmission_file_uploaded';
+            $originality = new plagiarism_plugin_originality();
+            $originality->event_handler($eventdata);
+        }
+    }
+    /**
+     * Observer function to handle the assessable_uploaded event in mod_forum.
+     * @param \mod_forum\event\assessable_uploaded $event
+     */
+    public static function forum_file_uploaded(
+        \mod_forum\event\assessable_uploaded $event) {
+        global $CFG;
+        if (!empty(get_config('plagiarism_originality', 'enable_mod_forum'))) {
+            require_once($CFG->dirroot . '/plagiarism/originality/lib.php');
+            $eventdata = $event->get_data();
+            $eventdata['eventtype'] = 'forum_file_uploaded';
+            $originality = new plagiarism_plugin_originality();
+            $originality->event_handler($eventdata);
+        }
+    }
+    /**
+     * Observer function to handle the assessable_uploaded event in mod_workshop.
+     * @param \mod_workshop\event\assessable_uploaded $event
+     */
+    public static function workshop_file_uploaded(
+        \mod_workshop\event\assessable_uploaded $event) {
+        global $CFG;
+        if (!empty(get_config('plagiarism_originality', 'enable_mod_workshop'))) {
+            require_once($CFG->dirroot . '/plagiarism/originality/lib.php');
+            $eventdata = $event->get_data();
+            $eventdata['eventtype'] = 'workshop_file_uploaded';
+            $originality = new plagiarism_plugin_originality();
+            $originality->event_handler($eventdata);
+        }
+    }
+    /**
+     * Observer function to handle the assessable_uploaded event in mod_assign onlinetext.
+     * @param \assignsubmission_onlinetext\event\assessable_uploaded $event
+     */
+    public static function assignsubmission_onlinetext_uploaded(
+        \assignsubmission_onlinetext\event\assessable_uploaded $event) {
+        if (!empty(get_config('plagiarism_originality', 'enable_mod_assign'))) {
+            global $CFG;
+            require_once($CFG->dirroot . '/plagiarism/originality/lib.php');
+            $eventdata = $event->get_data();
+            $eventdata['eventtype'] = 'assignsubmission_onlinetext_uploaded';
+            $originality = new plagiarism_plugin_originality();
+            $originality->event_handler($eventdata);
+        }
+    }
+    /**
+     * Observer function to handle the assessable_submitted event in mod_assign.
+     * @param \mod_assign\event\assessable_submitted $event
+     */
+    public static function assignsubmission_submitted(
+        \mod_assign\event\assessable_submitted $event) {
+        global $CFG;
+        if (!empty(get_config('plagiarism_originality', 'enable_mod_assign'))) {
+            require_once($CFG->dirroot . '/plagiarism/originality/lib.php');
+            $eventdata = $event->get_data();
+            $eventdata['eventtype'] = 'assignsubmission_submitted';
+            $originality = new plagiarism_plugin_originality();
+            $originality->event_handler($eventdata);
+        }
+    }
+
+    /**
+     * Observer function to handle the assessable_submitted event in mod_assign.
+     * @param \mod_quiz\event\attempt_submitted $event
+     */
+    public static function quiz_submitted(\mod_quiz\event\attempt_submitted $event) {
+        global $CFG;
+        if (!empty(get_config('plagiarism_originality', 'enable_mod_quiz'))) {
+            require_once($CFG->dirroot . '/plagiarism/originality/lib.php');
+            $eventdata = $event->get_data();
+            $eventdata['eventtype'] = 'quiz_submitted';
+            $originality = new plagiarism_plugin_originality();
+            $originality->event_handler($eventdata);
+        }
+    }
+
+    /**
+     * Observer function to handle the assessable_uploaded event in mod_hsuforum.
+     * @param \mod_forum\event\assessable_uploaded $event
+     */
+    public static function hsuforum_file_uploaded(
+        \mod_hsuforum\event\assessable_uploaded $event) {
+        global $CFG;
+        if (!empty(get_config('plagiarism_originality', 'enable_mod_hsuforum'))) {
+            require_once($CFG->dirroot . '/plagiarism/originality/lib.php');
+            $eventdata = $event->get_data();
+            $eventdata['eventtype'] = 'hsuforum_file_uploaded';
+            $originality = new plagiarism_plugin_originality();
+            $originality->event_handler($eventdata);
+        }
+    }
+}
