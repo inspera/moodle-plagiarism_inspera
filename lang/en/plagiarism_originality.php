@@ -70,6 +70,7 @@ $string['restrictcontenttext'] = 'Only submit in-line text';
 
 
 // === Scheduled tasks ===
+$string['sendfiles'] = 'Inspera Originality send queued files';;
 $string['processtask'] = 'Process originality submissions';
 $string['polltask'] = 'Poll originality submissions';
 $string['status'] = 'Originality status';

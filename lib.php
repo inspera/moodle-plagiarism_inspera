@@ -1,6 +1,6 @@
 <?php
 
-use plagiarism_originality\local\api_client;
+use plagiarism_originality\apiclient\api_client;
 
 defined('MOODLE_INTERNAL') || die();
 

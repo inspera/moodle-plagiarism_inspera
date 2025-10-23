@@ -4,7 +4,7 @@ namespace plagiarism_originality\task;
 defined('MOODLE_INTERNAL') || die();
 
 use core\task\scheduled_task;
-use plagiarism_originality\local\api_client;
+use plagiarism_originality\apiclient\api_client;
 
 class send_files extends scheduled_task {
 
