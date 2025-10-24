@@ -477,13 +477,13 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
     $mform->setType('use_originality', PARAM_INT);
     $mform->setType('originality_enable_ai', PARAM_INT);
     $mform->setType('originality_enable_translations', PARAM_INT);
-    $mform->setType('originality_translation_languages', PARAM_INT);
+    $mform->setType('originality_translation_languages', PARAM_TAGLIST);
     $mform->setType('originality_enable_context_similarity', PARAM_INT);
     $mform->setType('originality_context_threshold', PARAM_INT);
     $mform->setType('originality_enable_include_urls', PARAM_INT);
-    $mform->setType('originality_include_urls', PARAM_INT);
+    $mform->setType('originality_include_urls', PARAM_TEXT);
     $mform->setType('originality_enable_exclude_urls', PARAM_INT);
-    $mform->setType('originality_include_urls', PARAM_INT);
+    $mform->setType('originality_include_urls', PARAM_TEXT);
     $mform->setType('originality_exclude_urls', PARAM_INT);
     $mform->setType('originality_show_student_report', PARAM_INT);
     $mform->setType('originality_draft_submit', PARAM_INT);
@@ -621,15 +621,8 @@ function originality_get_form_elements($mform) {
 
     if ($mform->elementExists('submissiondrafts')) {
         $mform->addElement('select', 'originality_draft_submit',
-            get_string("draftsubmit", "plagiarism_originality"), $draftoptions);
+            get_string("originality_draft_submit", "plagiarism_originality"), $draftoptions);
     }
-
-    $contentoptions = array(PLAGIARISM_ORIGINALITY_RESTRICTCONTENTNO => get_string('restrictcontentno', 'plagiarism_originality'),
-        PLAGIARISM_ORIGINALITY_RESTRICTCONTENTFILES => get_string('restrictcontentfiles', 'plagiarism_originality'),
-        PLAGIARISM_ORIGINALITY_RESTRICTCONTENTTEXT => get_string('restrictcontenttext', 'plagiarism_originality'));
-    $mform->addElement('select', 'originality_restrictcontent', get_string('restrictcontent', 'plagiarism_originality'), $contentoptions);
-    $mform->addHelpButton('originality_restrictcontent', 'restrictcontent', 'plagiarism_originality');
-    $mform->setType('originality_restrictcontent', PARAM_INT);
 
     $filetypes = originality_default_allowed_file_types(true);
 
