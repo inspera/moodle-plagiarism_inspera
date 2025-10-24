@@ -8,7 +8,7 @@ class plagiarism_originality_setup_form extends moodleform {
         //$mform->addElement('html', get_string('originalityexplain', 'plagiarism_originality'));
 
         // Enable checkbox.
-        $mform->addElement('checkbox', 'enabled', get_string('useoriginality', 'plagiarism_originality'));
+        $mform->addElement('checkbox', 'enabled', get_string('use_originality', 'plagiarism_originality'));
         $mform->setDefault('enabled', 0);
 
         // Base API URL.

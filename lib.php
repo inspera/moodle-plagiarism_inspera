@@ -238,7 +238,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
             // but need to check if files from previous events need to be submitted for processing.
             $result = true;
             if (isset($plagiarismvalues['originality_draft_submit']) &&
-                $plagiarismvalues['originality_draft_submit'] == PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_FINAL) {
+                $plagiarismvalues['originality_draft_submit'] == DRAFTSUBMIT_FINAL) {
                 // Any files attached to previous events were not submitted.
                 // These files are now finalized, and should be submitted for processing.
                 require_once("$CFG->dirroot/mod/assign/locallib.php");
@@ -275,7 +275,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
         }
 
         if (isset($plagiarismvalues['originality_draft_submit']) &&
-            $plagiarismvalues['originality_draft_submit'] == PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_FINAL) {
+            $plagiarismvalues['originality_draft_submit'] == DRAFTSUBMIT_FINAL) {
             // Assignment-specific functionality:
             // Files should only be sent for checking once "finalized".
             return true;
