@@ -473,9 +473,10 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         $mform->setType('originality_selectfiletypes', PARAM_TAGLIST);
         $mform->setType('originality_allowallfile', PARAM_INT);
     }
-
     $mform->setType('use_originality', PARAM_INT);
     $mform->setType('originality_enable_ai', PARAM_INT);
+    $mform->setType('originality_draft_submit', PARAM_INT);
+    $mform->setType('originality_show_student_report', PARAM_INT);
     $mform->setType('originality_enable_translations', PARAM_INT);
     $mform->setType('originality_translation_languages', PARAM_TAGLIST);
     $mform->setType('originality_enable_context_similarity', PARAM_INT);
@@ -485,8 +486,7 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
     $mform->setType('originality_enable_exclude_urls', PARAM_INT);
     $mform->setType('originality_include_urls', PARAM_TEXT);
     $mform->setType('originality_exclude_urls', PARAM_INT);
-    $mform->setType('originality_show_student_report', PARAM_INT);
-    $mform->setType('originality_draft_submit', PARAM_INT);
+
 
     // Now set defaults.
     foreach ($plagiarismelements as $element) {
