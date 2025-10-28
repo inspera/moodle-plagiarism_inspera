@@ -416,7 +416,7 @@ function plagiarism_originality_coursemodule_edit_post_actions($data, $course) {
 }
 
 /**
- * Hook to add plagiarism specific settings to a module settings page
+ * Hook to add plagiarism specific settings to a module settings page.
  *
  * @param moodleform $formwrapper
  * @param MoodleQuickForm $mform
@@ -424,37 +424,55 @@ function plagiarism_originality_coursemodule_edit_post_actions($data, $course) {
 function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mform) {
     global $DB, $CFG;
 
+    // === 1. Guard Clauses (Early Exit) ===
+
     $plugin = new plagiarism_plugin_originality();
+    // Check if plugin is enabled globally.
     $plagiarismsettings = $plugin->get_settings();
     if (!$plagiarismsettings) {
         return;
     }
 
-    $cmid = null;
-    if ($cm = $formwrapper->get_coursemodule()) {
-        $cmid = $cm->id;
-    }
+    // Identify which module it's on (e.g. mod_assign_mod_form).
     $matches = array();
     if (!preg_match('/^mod_([^_]+)_mod_form$/', get_class($formwrapper), $matches)) {
         return;
     }
     $modulename = "mod_" . $matches[1];
     $modname = 'enable_' . $modulename;
+
+    // Check if plagiarism is enabled for this module in the admin settings.
     if (empty($plagiarismsettings[$modname])) {
         return;
     }
+
+    // === 2. Load Settings Data ===
+
+    $cmid = null;
+    if ($cm = $formwrapper->get_coursemodule()) {
+        $cmid = $cm->id;
+    }
     $context = context_course::instance($formwrapper->get_course()->id);
+    $plagiarismelements = $plugin->config_options();
+
+    // Load settings specific to this activity (if editing).
+    $plagiarismvalues = [];
     if (!empty($cmid)) {
         $plagiarismvalues = $DB->get_records_menu('plagiarism_originality_conf', array('cm' => $cmid), '', 'name, value');
     }
 
-    // Get Defaults - cmid(0) is the default list.
+    // Get Admin Defaults - cmid(0) is the default list.
     $plagiarismdefaults = $DB->get_records_menu('plagiarism_originality_conf', array('cm' => 0), '', 'name, value');
-    $plagiarismelements = $plugin->config_options();
 
+    // === 3. Add Form Elements (Based on Capability) ===
 
+    // Check user's permissions.
     if (has_capability('plagiarism/originality:enable', $context)) {
+        // User HAS permission: Build and display all the visible form fields.
+        // This helper function is responsible for both addElement() and setType().
         plagiarism_originality_get_form_elements($mform);
+
+        // Add conditional display logic for the visible form.
         if ($mform->elementExists('originality_draft_submit') && $mform->elementExists('submissiondrafts')) {
             $mform->hideif('originality_draft_submit', 'submissiondrafts', 'eq', 0);
         }
@@ -463,60 +481,75 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
             $mform->elementExists('originality_resubmit_on_close')) {
             $mform->removeElement('originality_resubmit_on_close');
         }
-        // Disable all plagiarism elements if use_plagiarism eg 0.
+
+        // Disable all sub-elements if the main 'use_originality' is set to 'No'.
         foreach ($plagiarismelements as $element) {
-            if ($element <> 'use_originality') { // Ignore this var.
+            if ($element != 'use_originality') { // Ignore the main switch itself.
                 $mform->hideif($element, 'use_originality', 'eq', 0);
             }
         }
 
         $mform->hideif('originality_selectfiletypes', 'originality_allowallfile', 'eq', 1);
-    } else { // Add plagiarism settings as hidden vars.
+
+    } else {
+        // User does NOT have permission: Add all settings as hidden fields.
         foreach ($plagiarismelements as $element) {
             $mform->addElement('hidden', $element);
         }
+
+        // We MUST set the PARAM types for these hidden fields to ensure
+        // data is cleaned securely when the form is saved by this user.
+        $mform->setType('use_originality', PARAM_INT);
         $mform->setType('originality_archive', PARAM_INT);
         $mform->setType('originality_restrictcontent', PARAM_INT);
         $mform->setType('originality_selectfiletypes', PARAM_TAGLIST);
         $mform->setType('originality_allowallfile', PARAM_INT);
+        $mform->setType('originality_enable_ai', PARAM_INT);
+        $mform->setType('originality_draft_submit', PARAM_INT);
+        $mform->setType('originality_show_student_report', PARAM_INT);
+        $mform->setType('originality_enable_translations', PARAM_INT);
+        $mform->setType('originality_translation_languages', PARAM_TAGLIST);
+        $mform->setType('originality_enable_context_similarity', PARAM_INT);
+        $mform->setType('originality_context_threshold', PARAM_INT);
+        $mform->setType('originality_enable_include_urls', PARAM_INT);
+        $mform->setType('originality_include_urls', PARAM_TEXT);
+        $mform->setType('originality_enable_exclude_urls', PARAM_INT);
+        $mform->setType('originality_exclude_urls', PARAM_TEXT);
     }
-    $mform->setType('use_originality', PARAM_INT);
-    $mform->setType('originality_enable_ai', PARAM_INT);
-    $mform->setType('originality_draft_submit', PARAM_INT);
-    $mform->setType('originality_show_student_report', PARAM_INT);
-    $mform->setType('originality_enable_translations', PARAM_INT);
-    $mform->setType('originality_translation_languages', PARAM_TAGLIST);
-    $mform->setType('originality_enable_context_similarity', PARAM_INT);
-    $mform->setType('originality_context_threshold', PARAM_INT);
-    $mform->setType('originality_enable_include_urls', PARAM_INT);
-    $mform->setType('originality_include_urls', PARAM_TEXT);
-    $mform->setType('originality_enable_exclude_urls', PARAM_INT);
-    $mform->setType('originality_include_urls', PARAM_TEXT);
-    $mform->setType('originality_exclude_urls', PARAM_INT);
 
+    // === 4. Set Default Values ===
 
-    // Now set defaults.
+    // Now that all elements exist (either visible or hidden), set their default values.
+    // Priority: 1) Specific activity values, 2) Admin defaults.
     foreach ($plagiarismelements as $element) {
-        $defaultelement = $element.'_'.str_replace('mod_', '', $modulename);
+        $defaultelement = $element . '_' . str_replace('mod_', '', $modulename);
         if (isset($plagiarismvalues[$element])) {
+            // Priority 1: Use value saved for this specific activity.
             $mform->setDefault($element, $plagiarismvalues[$element]);
         } else if (isset($plagiarismdefaults[$defaultelement])) {
+            // Priority 2: Use the admin-defined default for this module type.
             $mform->setDefault($element, $plagiarismdefaults[$defaultelement]);
         }
     }
 
+    // === 5. Handle Advanced Settings Logic ===
+
     // Show advanced elements only if allowed.
-    $defaultelementadvanced = 'originality_advanceditems_'.str_replace('mod_', '', $modulename);
+    $defaultelementadvanced = 'originality_advanceditems_' . str_replace('mod_', '', $modulename);
+
     if (!empty($plagiarismdefaults[$defaultelementadvanced])) {
         $advancedsettings = explode(',', $plagiarismdefaults[$defaultelementadvanced]);
+
         if (has_capability('plagiarism/originality:advancedsettings', $context)) {
+            // User can see advanced settings: Move them to "Show more...".
             foreach ($advancedsettings as $name) {
                 if ($mform->elementExists($name)) {
                     $mform->setAdvanced($name, true);
                 }
             }
         } else {
-            // Otherwise, put them as hidden elements.
+            // User cannot see advanced settings: Remove the visible element
+            // and replace it with a hidden one to preserve the value.
             foreach ($advancedsettings as $name) {
                 if ($mform->elementExists($name)) {
                     $element = $mform->removeElement($name);
@@ -525,10 +558,14 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
             }
         }
     }
+
+    // === 6. Handle Module-Specific Logic ===
+
     // Now handle content restriction settings.
     if ($modulename == 'mod_assign' && $mform->elementExists("submissionplugins")) { // This should be mod_assign
         $mform->hideif('originality_restrictcontent', 'assignsubmission_onlinetext_enabled');
     } else if ($modulename != 'mod_forum' && $modulename != 'mod_hsuforum') {
+        // Freeze setting for modules that don't support content type restriction.
         $mform->setDefault('originality_restrictcontent', 0);
         $mform->hardFreeze('originality_restrictcontent');
     }
