@@ -39,9 +39,26 @@ define('PLAGIARISM_ORIGINALITY_RESTRICTCONTENTTEXT', 2);
 
 define('PLAGIARISM_ORIGINALITY_MAXATTEMPTS', 28);
 
-
+/**
+ * The main plugin class for Inspera Originality.
+ *
+ * This class handles the core logic, event handling, and settings integration
+ * for the originality plagiarism plugin.
+ *
+ * @package    plagiarism_originality
+ * @copyright  1999 onwards Martin Dougiamas (http://moodle.com)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class plagiarism_plugin_originality extends plagiarism_plugin {
 
+    /**
+     * Gets the global sitewide settings for this plugin.
+     *
+     * Statically caches the settings for performance. Returns false if the plugin
+     * is disabled or not configured.
+     *
+     * @return array|false The array of config settings, or false if disabled/misconfigured.
+     */
     public static function get_settings() {
         static $plagiarismsettings;
         if (!empty($plagiarismsettings) || $plagiarismsettings === false) {
@@ -60,6 +77,12 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
         }
     }
 
+    /**
+     * Gets the activity-specific settings for a given course module ID.
+     *
+     * @param int $cmid The course module ID.
+     * @return array An array of settings (name => value) for that module.
+     */
     public static function get_settings_by_module($cmid) {
         global $DB;
         $settings = [];
@@ -73,6 +96,14 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
         return $settings;
     }
 
+    /**
+     * Returns a list of all setting names managed by this plugin.
+     *
+     * Used for saving data in the module edit form and defaults page.
+     *
+     * @param bool $adminsettings Whether to include settings only available on the admin page.
+     * @return string[] An array of setting names.
+     */
     public static function config_options($adminsettings = false) {
         $options = array(
             'use_originality',
@@ -332,6 +363,14 @@ function plagiarism_originality_charcount() {
     return $charcount;
 }
 
+/**
+ * Checks if originality is enabled for a specific course module.
+ *
+ * Caches the result statically.
+ *
+ * @param int $cmid The course module ID to check.
+ * @return array|false The settings array if enabled, false otherwise.
+ */
 function plagiarism_originality_cm_use($cmid) {
     global $DB;
     static $useoriginality = array();
@@ -355,7 +394,11 @@ function plagiarism_originality_supported_qtypes() {
     return array('essay');
 }
 
-
+/**
+ * Returns a list of Moodle modules supported by this plugin.
+ *
+ * @return string[] An array of module names (e.g., 'assign', 'quiz').
+ */
 function plagiarism_originality_supported_modules() {
     global $CFG;
     $supportedmodules = array('assign', 'forum', 'workshop', 'quiz');
@@ -730,13 +773,16 @@ function plagiarism_originality_default_allowed_file_types($checkdb = false) {
 }
 
 /**
- * Updates a originality_files record.
+ * Updates or inserts a plagiarism submission record for a file.
  *
- * @param int $cmid - course module id
- * @param int $userid - user id
- * @param stored_file|string $file - identifier for this plagiarism record - hash of file, id of quiz question etc
- * @param int $relateduserid - relateduserid if passed.
- * @return int - id of originality_files record
+ * Finds a submission based on cmid, userid, and file hash. If it
+ * doesn't exist, a new one is created.
+ *
+ * @param int $cmid course module id
+ * @param int $userid user id
+ * @param stored_file|string $file A stored_file object or a local file path (for temp files).
+ * @param int|null $relateduserid relateduserid if passed.
+ * @return stdClass The plagiarism submission record from {plagiarism_originality_subs}.
  */
 function plagiarism_originality_get_plagiarism_file($cmid, $userid, $file, $relateduserid = null) {
     global $DB;
@@ -792,13 +838,16 @@ function plagiarism_originality_get_plagiarism_file($cmid, $userid, $file, $rela
 }
 
 /**
- * Queue file for sending to ORIGINALITY
+ * Queues a specific file for processing by the plagiarism API.
  *
- * @param int $cmid - course module id
- * @param int $userid - user id
- * @param varied $file string if path to temp file or full Moodle file object.
- * @param int $relateduserid - related user if if passed. (use when sending to ORIGINALITY.
- * @return boolean
+ * This creates a record in the 'plagiarism_originality_subs' table
+ * for the scheduled task to pick up.
+ *
+ * @param int $cmid The course module ID.
+ * @param int $userid The ID of the user who submitted.
+ * @param \stored_file $file The Moodle stored_file object to process.
+ * @param int|null $relateduserid The user ID of the person submitting on behalf of (optional).
+ * @return void
  */
 function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid = null) {
     global $DB;
@@ -817,7 +866,15 @@ function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid
 }
 
 /**
- * Helper: turn text into a temporary file.
+ * Creates a temporary file from a string of text content.
+ *
+ * Used for processing online text submissions.
+ *
+ * @param int $cmid The course module ID.
+ * @param int $courseid The course ID.
+ * @param int $userid The user ID.
+ * @param string $content The text content to write to the file.
+ * @return stdClass An object with ->filepath and ->filename properties.
  */
 function plagiarism_originality_create_temp_file($cmid, $courseid, $userid, $content) {
     global $CFG;
@@ -836,6 +893,17 @@ function plagiarism_originality_create_temp_file($cmid, $courseid, $userid, $con
     return $file;
 }
 
+/**
+ * Sends a file to the Originality API.
+ *
+ * This function handles the two-step process:
+ * 1. Create a submission (metadata-only) to get a documentId and presigned URL.
+ * 2. Upload the file content to the presigned URL.
+ *
+ * @param stdClass $plagiarismfile The submission record from {plagiarism_originality_subs}.
+ * @param api_client $client An instance of the API client.
+ * @return bool|void False on failure.
+ */
 function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
     global $DB;
 
@@ -913,7 +981,16 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
     }
 }
 
-
+/**
+ * Polls the Originality API for the status of a pending submission.
+ *
+ * If the report is ready (status 1), it updates the database record
+ * with the similarity scores and other metadata.
+ *
+ * @param stdClass $plagiarismfile The submission record from {plagiarism_originality_subs}.
+ * @param api_client $client An instance of the API client.
+ * @return void
+ */
 function plagiarism_originality_poll_file_status($plagiarismfile, api_client $client) {
     global $DB;
 

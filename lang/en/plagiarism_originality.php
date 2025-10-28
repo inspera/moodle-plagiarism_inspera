@@ -14,6 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * English language strings for the Inspera Originality plagiarism plugin.
+ *
+ * @package    plagiarism_originality
+ * @copyright  2025 Your Name (Your Company)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
 $string['pluginname'] = 'Originality plagiarism plugin';
 
@@ -44,7 +51,6 @@ $string['originality_enable_ai'] = 'AI authorship detection';
 $string['originality_enable_ai_help'] = 'If enabled, the system will analyze the text for signs of AI-generated content.';
 $string['originality_archive'] = 'Archive documents';
 $string['originality_archive_help'] = 'If enabled, all submissions are archived for long-term storage and future verification.';
-$string['originality_translation_languages'] = 'Supported translation languages';
 $string['originality_enable_context_similarity'] = 'Enable contextual similarity';
 $string['originality_enable_context_similarity_help'] = 'When enabled, the system compares contextual meaning between documents. You can define a minimum similarity threshold.';
 $string['originality_context_threshold'] = 'Context similarity threshold (%)';
@@ -81,12 +87,7 @@ $string['restrictcontentno'] = 'Submit everything';
 $string['restrictcontenttext'] = 'Only submit in-line text';
 
 
-
-
-// === Scheduled tasks ===
 $string['sendfiles'] = 'Inspera Originality send queued files';;
-$string['processtask'] = 'Process originality submissions';
-$string['polltask'] = 'Poll originality submissions';
 $string['status'] = 'Originality status';
 $string['similarity'] = 'Similarity';
 $string['translation_similarity'] = 'Translation similarity';
@@ -95,9 +96,3 @@ $string['character_replacement'] = 'Character replacement detected';
 $string['hidden_text'] = 'Hidden text detected';
 $string['image_as_text'] = 'Image-as-text detected';
 $string['viewreport'] = 'View originality report';
-$string['advancedsettings'] = 'Advanced Originality Settings';
-$string['originality:manage'] = 'Manage originality plugin settings';
-$string['showwhendue'] = 'After activity due date';
-$string['showwhencutoff'] = 'After activity cut off date';
-$string['resubmitdue'] = 'Resubmit after due date';
-$string['resubmitclose'] = 'Resubmit after close date';

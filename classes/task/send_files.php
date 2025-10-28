@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * Scheduled task to send and check files with the Originality API.
+ *
+ * @package    plagiarism_originality
+ * @copyright  2025 Inspera AS
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace plagiarism_originality\task;
 
 defined('MOODLE_INTERNAL') || die();
@@ -21,6 +29,17 @@ defined('MOODLE_INTERNAL') || die();
 use core\task\scheduled_task;
 use plagiarism_originality\apiclient\api_client;
 
+/**
+ * The main scheduled task for the originality plugin.
+ *
+ * This task runs periodically (e.g., every 5 minutes) to:
+ * 1. Send new file submissions ('report_requested') to the API.
+ * 2. Poll the API for the status of pending submissions ('pending').
+ *
+ * @package    plagiarism_originality
+ * @copyright  2025 Inspera AS
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class send_files extends scheduled_task {
 
     /**

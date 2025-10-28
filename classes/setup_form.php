@@ -14,7 +14,24 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->libdir . '/formslib.php');
+
+/**
+ * The main settings form for the originality plagiarism plugin.
+ *
+ * @package    plagiarism_originality
+ * @copyright  2025 Inspera AS
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class plagiarism_originality_setup_form extends moodleform {
+
+    /**
+     * Defines the form elements for the plugin settings.
+     *
+     * @return void
+     */
     public function definition () {
         $mform = $this->_form;
 

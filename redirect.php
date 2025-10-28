@@ -14,6 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * Fetches a secure, temporary report URL from the Originality API
+ * and redirects the user to it.
+ *
+ * @package    plagiarism_originality
+ * @copyright  2025 Your Name (Your Company)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 require_once('../../config.php');
 require_once($CFG->dirroot.'/plagiarism/originality/lib.php');
 

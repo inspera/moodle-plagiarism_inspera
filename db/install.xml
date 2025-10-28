@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="plagiarism/originality/db" VERSION="20250930" COMMENT="Tables for originality plagiarism plugin">
+<XMLDB PATH="plagiarism/originality/db" VERSION="20251001" COMMENT="Tables for originality plagiarism plugin">
 
     <TABLES>
         <TABLE NAME="plagiarism_originality_subs" COMMENT="Submissions for originality check">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-                <FIELD NAME="cm" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
-                <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="cm" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
                 <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="pending"/>
                 <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true"/>
                 <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="false"/>
                 <!-- API-related fields -->
-                <FIELD NAME="externalid" TYPE="char" LENGTH="64" NOTNULL="false" COMMENT="External plagiarism service ID"/>
+                <FIELD NAME="externalid" TYPE="char" LENGTH="64" NOTNULL="false" COMMENT="External document ID identifier"/>
                 <FIELD NAME="similarity" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false"/>
                 <FIELD NAME="translation_similarity" TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false"/>
                 <FIELD NAME="ai_index" TYPE="char" LENGTH="10" NOTNULL="false"/>
@@ -37,7 +37,6 @@
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-                <KEY NAME="cm" TYPE="foreign" FIELDS="cm" REFTABLE="course_modules" REFFIELDS="id"/>
             </KEYS>
         </TABLE>
 

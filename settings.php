@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * The main admin settings page for the Inspera Originality plugin.
+ *
+ * @package    plagiarism_originality
+ * @copyright  2025 Inspera AS
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 require_once(dirname(dirname(__FILE__)) . '/../config.php');
 require_once($CFG->libdir.'/adminlib.php');
 require_once($CFG->libdir.'/plagiarismlib.php');
@@ -53,7 +61,7 @@ if (($data = $mform->get_data()) && confirm_sesskey()) {
     foreach ($data as $field => $value) {
         if ($field != 'submitbutton') { // Ignore the button.
             $value = trim($value); // Strip trailing spaces
-            if ($field == 'api') { // Strip trailing slash from api.
+            if ($field == 'baseurl') { // Strip trailing slash from api.
                 $value = rtrim($value, '/');
             }
             set_config($field, $value, 'plagiarism_originality');

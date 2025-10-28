@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * Event observers for the Inspera Originality plagiarism plugin.
+ *
+ * @package    plagiarism_originality
+ * @copyright  2025 Inspera AS
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 defined('MOODLE_INTERNAL') || die();
 
 $observers = array (
@@ -23,7 +31,7 @@ $observers = array (
     ),
     array(
         'eventname' => '\mod_workshop\event\assessable_uploaded',
-        'callback' => 'plagiarism_originality_observer::workshop_file_uploaded'
+        'callback' => '\plagiarism_originality\observer::workshop_file_uploaded'
     ),
     array(
         'eventname' => '\mod_forum\event\assessable_uploaded',

@@ -14,17 +14,40 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * API client for the Inspera Originality plagiarism service.
+ *
+ * Handles authentication (token) and all API endpoints for submitting
+ * files and retrieving reports.
+ *
+ * @package    plagiarism_originality
+ * @copyright  2025 Inspera AS
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace plagiarism_originality\apiclient;
 
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir . '/filelib.php');
 
+/**
+ * API client class.
+ *
+ * @package    plagiarism_originality
+ * @copyright  2025 Inspera AS
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class api_client {
     private $baseurl;
     private $clientid;
     private $institutionid;
 
+    /**
+     * Constructor for the API client.
+     *
+     * Loads the base configuration from the plugin settings.
+     */
     public function __construct() {
         $this->baseurl       = rtrim(get_config('plagiarism_originality', 'baseurl'), '/');
         $this->clientid      = get_config('plagiarism_originality', 'clientid');
@@ -75,7 +98,19 @@ class api_client {
     }
 
     /**
-     * Create a submission (metadata only).
+     * Create a submission (metadata only) with the API.
+     *
+     * This is the first step of a submission, which returns a
+     * documentId and a presigned URL for the file upload.
+     *
+     * @param string $title The title of the document.
+     * @param string $author The author's full name.
+     * @param string $email The author's email.
+     * @param string $doctype The file's mimetype.
+     * @param string $assignmentId The Moodle course module ID (cmid).
+     * @param array $settings The activity-level settings for this submission.
+     * @return stdClass The API response, expecting ->documentId and ->presignedS3Url.
+     * @throws \moodle_exception If the API token fails or the response is invalid JSON.
      */
     public function create_submission(
         string $title,
@@ -179,10 +214,14 @@ class api_client {
         return $data;
     }
 
-
-
     /**
-     * Upload the file to presigned S3 URL.
+     * Upload the file content to the presigned S3 URL provided by create_submission.
+     *
+     * @param string $url The presigned S3 URL.
+     * @param string $content The raw file content.
+     * @param string $mimetype The file's mimetype.
+     * @return bool True on success, false on curl error.
+     * @throws \moodle_exception If the API token fails.
      */
     public function upload_to_presigned_url(string $url, string $content, string $mimetype): bool {
         $curl = new \curl();
@@ -201,7 +240,11 @@ class api_client {
     }
 
     /**
-     * Poll document status.
+     * Poll the API for the processing status of a document.
+     *
+     * @param string $documentid The external document ID from the API.
+     * @return stdClass The API status response object.
+     * @throws \moodle_exception If the API token fails or the response is invalid JSON.
      */
     public function check_document_status(string $documentid) {
         $token = $this->get_token();
@@ -223,6 +266,13 @@ class api_client {
         return $data;
     }
 
+    /**
+     * Gets a temporary, viewable URL for a processed similarity report.
+     *
+     * @param string $documentId The external document ID from the API.
+     * @return stdClass The API response, expecting ->url.
+     * @throws \moodle_exception If the API token fails or the response is invalid JSON.
+     */
     public function get_report_url(string $documentId) {
         $token = $this->get_token();
 

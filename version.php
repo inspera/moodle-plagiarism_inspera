@@ -14,10 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * Version details for the Inspera Originality plagiarism plugin.
+ *
+ * @package    plagiarism_originality
+ * @copyright  2025 Inspera AS
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'plagiarism_originality'; // Full name of the plugin in frankenstyle.
 $plugin->version   = 2025100104;               // Plugin version (YYYYMMDDXX).
-$plugin->requires  = 2024042200;               // Minimum Moodle version (e.g., 4.5 stable).
+$plugin->requires  = 2024101400;               // Minimum Moodle version (e.g., 4.5 stable).
 $plugin->maturity  = MATURITY_ALPHA;           // MATURITY_ALPHA, MATURITY_BETA, MATURITY_RC, MATURITY_STABLE.
 $plugin->release   = '0.1.0';                  // Human-readable version.

@@ -18,8 +18,7 @@
  * originality_defaults.php - Displays default values to use inside assignments for ORIGINALITY
  *
  * @package plagiarism_originality
- * @author Dan Marsden <dan@danmarsden.com>
- * @copyright 2021 Catalyst IT
+ * @copyright 2025 Inspera AS
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 

@@ -14,8 +14,24 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->libdir . '/formslib.php');
+
+/**
+ * The settings form for module-level defaults.
+ *
+ * @package    plagiarism_originality
+ * @copyright  2025 Inspera AS
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class plagiarism_originality_defaults_form extends moodleform {
 
+    /**
+     * Defines the form elements for the module defaults.
+     *
+     * @return void
+     */
     public function definition() {
         $mform = $this->_form;
 
@@ -176,6 +192,13 @@ class plagiarism_originality_defaults_form extends moodleform {
         $this->add_action_buttons(true);
     }
 
+    /**
+     * Custom validation for the module defaults form.
+     *
+     * @param array $data The data submitted by the form.
+     * @param array $files An array of files.
+     * @return array An array of validation errors.
+     */
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
 
