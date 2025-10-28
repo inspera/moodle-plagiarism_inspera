@@ -46,7 +46,7 @@ if (($data = $mform->get_data()) && confirm_sesskey()) {
     $plagiarismplugin = new plagiarism_plugin_originality();
 
     $plagiarismelements = $plagiarismplugin->config_options(true);
-    $supportedmodules = originality_supported_modules();
+    $supportedmodules = plagiarism_originality_supported_modules();
     foreach ($supportedmodules as $sm) {
         foreach ($plagiarismelements as $element) {
             $element .= "_".$sm;

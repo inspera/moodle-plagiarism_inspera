@@ -1,11 +1,25 @@
 <?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 class plagiarism_originality_defaults_form extends moodleform {
 
     public function definition() {
-        $mform =& $this->_form;
+        $mform = $this->_form;
 
-        $supportedmodules = originality_supported_modules();
+        $supportedmodules = plagiarism_originality_supported_modules();
         $ynoptions = [0 => get_string('no'), 1 => get_string('yes')];
 
         // Supported languages for Translations
@@ -20,8 +34,8 @@ class plagiarism_originality_defaults_form extends moodleform {
         ksort($languages); // Alphabetical
 
         $draftoptions = array(
-            DRAFTSUBMIT_IMMEDIATE => get_string("submitondraft", "plagiarism_originality"),
-            DRAFTSUBMIT_FINAL => get_string("submitonfinal", "plagiarism_originality")
+            PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_IMMEDIATE => get_string("submitondraft", "plagiarism_originality"),
+            PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_FINAL => get_string("submitonfinal", "plagiarism_originality")
         );
 
         foreach ($supportedmodules as $sm) {
@@ -129,7 +143,7 @@ class plagiarism_originality_defaults_form extends moodleform {
                     get_string("originality_draft_submit", "plagiarism_originality"), $draftoptions);
             }
 
-            $filetypes = originality_default_allowed_file_types(true);
+            $filetypes = plagiarism_originality_default_allowed_file_types(true);
 
             $supportedfiles = array();
             foreach ($filetypes as $ext => $mime) {
@@ -165,7 +179,7 @@ class plagiarism_originality_defaults_form extends moodleform {
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
 
-        foreach (originality_supported_modules() as $sm) {
+        foreach (plagiarism_originality_supported_modules() as $sm) {
             $enablekey = 'originality_enable_context_similarity_' . $sm;
             $thresholdkey = 'originality_context_threshold_' . $sm;
 

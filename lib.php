@@ -1,4 +1,18 @@
 <?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 use plagiarism_originality\apiclient\api_client;
 
@@ -15,8 +29,8 @@ define('PLAGIARISM_ORIGINALITY_SHOW_ALWAYS', 1);
 define('PLAGIARISM_ORIGINALITY_SHOW_AFTER_GRADING', 2);
 define('PLAGIARISM_ORIGINALITY_SHOW_DUE_DATE', 3);
 
-define('DRAFTSUBMIT_IMMEDIATE', 0);
-define('DRAFTSUBMIT_FINAL', 1);
+define('PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_IMMEDIATE', 0);
+define('PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_FINAL', 1);
 
 // Used by content type restriction form - inline-text vs file attachments.
 define('PLAGIARISM_ORIGINALITY_RESTRICTCONTENTNO', 0);
@@ -238,7 +252,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
             // but need to check if files from previous events need to be submitted for processing.
             $result = true;
             if (isset($plagiarismvalues['originality_draft_submit']) &&
-                $plagiarismvalues['originality_draft_submit'] == DRAFTSUBMIT_FINAL) {
+                $plagiarismvalues['originality_draft_submit'] == PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_FINAL) {
                 // Any files attached to previous events were not submitted.
                 // These files are now finalized, and should be submitted for processing.
                 require_once("$CFG->dirroot/mod/assign/locallib.php");
@@ -251,7 +265,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
                     if ($files = $fs->get_area_files($modulecontext->id, 'assignsubmission_file',
                         ASSIGNSUBMISSION_FILE_FILEAREA, $eventdata['objectid'], "id", false)) {
                         foreach ($files as $file) {
-                            originality_queue_file($cmid, $userid, $file, $relateduserid);
+                            plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid);
                         }
                     }
                 }
@@ -259,23 +273,16 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
                 if ($showcontent) { // If we should be handling in-line text.
                     $submission = $DB->get_record('assignsubmission_onlinetext', array('submission' => $eventdata['objectid']));
                     if (!empty($submission) && strlen(utf8_decode(strip_tags($submission->onlinetext))) >= $charcount) {
-                        $file = originality_create_temp_file($cmid, $eventdata['courseid'], $userid, $submission->onlinetext);
-                        originality_queue_file($cmid, $userid, $file, $relateduserid);
+                        $file = plagiarism_originality_create_temp_file($cmid, $eventdata['courseid'], $userid, $submission->onlinetext);
+                        plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid);
                     }
                 }
             }
             return $result;
         }
-        if ($eventdata['eventtype'] == 'quiz_submitted') {
-            $result = true;
-
-            $attemptid = $eventdata['objectid'];
-            plagiarism_originality_quiz_queue_attempt($attemptid, true);
-            return $result;
-        }
 
         if (isset($plagiarismvalues['originality_draft_submit']) &&
-            $plagiarismvalues['originality_draft_submit'] == DRAFTSUBMIT_FINAL) {
+            $plagiarismvalues['originality_draft_submit'] == PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_FINAL) {
             // Assignment-specific functionality:
             // Files should only be sent for checking once "finalized".
             return true;
@@ -286,8 +293,8 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
         if (!empty($eventdata['other']['content']) && $showcontent &&
             strlen(utf8_decode(strip_tags($eventdata['other']['content']))) >= $charcount) {
 
-            $file = originality_create_temp_file($cmid, $eventdata['courseid'], $userid, $eventdata['other']['content']);
-            originality_queue_file($cmid, $userid, $file, $relateduserid);
+            $file = plagiarism_originality_create_temp_file($cmid, $eventdata['courseid'], $userid, $eventdata['other']['content']);
+            plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid);
         }
 
         // Normal situation: 1 or more assessable files attached to event, ready to be checked.
@@ -303,7 +310,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
                     continue;
                 }
 
-                originality_queue_file($cmid, $userid, $efile, $relateduserid);
+                plagiarism_originality_queue_file($cmid, $userid, $efile, $relateduserid);
             }
         }
         return $result;
@@ -325,7 +332,7 @@ function plagiarism_originality_charcount() {
     return $charcount;
 }
 
-function originality_cm_use($cmid) {
+function plagiarism_originality_cm_use($cmid) {
     global $DB;
     static $useoriginality = array();
     if (!isset($useoriginality[$cmid])) {
@@ -349,7 +356,7 @@ function plagiarism_originality_supported_qtypes() {
 }
 
 
-function originality_supported_modules() {
+function plagiarism_originality_supported_modules() {
     global $CFG;
     $supportedmodules = array('assign', 'forum', 'workshop', 'quiz');
     return $supportedmodules;
@@ -447,7 +454,7 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
 
 
     if (has_capability('plagiarism/originality:enable', $context)) {
-        originality_get_form_elements($mform);
+        plagiarism_originality_get_form_elements($mform);
         if ($mform->elementExists('originality_draft_submit') && $mform->elementExists('submissiondrafts')) {
             $mform->hideif('originality_draft_submit', 'submissiondrafts', 'eq', 0);
         }
@@ -533,7 +540,7 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
  *
  * @param object $mform - Moodle form object.
  */
-function originality_get_form_elements($mform) {
+function plagiarism_originality_get_form_elements($mform) {
     $ynoptions = array( 0 => get_string('no'), 1 => get_string('yes'));
 
     // Supported languages for Translations
@@ -548,8 +555,8 @@ function originality_get_form_elements($mform) {
     ksort($languages); // Alphabetical
 
     $draftoptions = array(
-        DRAFTSUBMIT_IMMEDIATE => get_string("submitondraft", "plagiarism_originality"),
-        DRAFTSUBMIT_FINAL => get_string("submitonfinal", "plagiarism_originality")
+        PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_IMMEDIATE => get_string("submitondraft", "plagiarism_originality"),
+        PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_FINAL => get_string("submitonfinal", "plagiarism_originality")
     );
 
     $mform->addElement('header', 'plagiarismdesc', get_string('originality', 'plagiarism_originality'));
@@ -624,7 +631,7 @@ function originality_get_form_elements($mform) {
             get_string("originality_draft_submit", "plagiarism_originality"), $draftoptions);
     }
 
-    $filetypes = originality_default_allowed_file_types(true);
+    $filetypes = plagiarism_originality_default_allowed_file_types(true);
 
     $supportedfiles = array();
     foreach ($filetypes as $ext => $mime) {
@@ -653,7 +660,7 @@ function originality_get_form_elements($mform) {
  * @param boolean $checkdb
  * @return array()
  */
-function originality_default_allowed_file_types($checkdb = false) {
+function plagiarism_originality_default_allowed_file_types($checkdb = false) {
     global $DB;
     $filetypes = array('doc'  => 'application/msword',
         'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -694,7 +701,7 @@ function originality_default_allowed_file_types($checkdb = false) {
  * @param int $relateduserid - relateduserid if passed.
  * @return int - id of originality_files record
  */
-function originality_get_plagiarism_file($cmid, $userid, $file, $relateduserid = null) {
+function plagiarism_originality_get_plagiarism_file($cmid, $userid, $file, $relateduserid = null) {
     global $DB;
 
     if (is_string($file)) { // This is a local file path.
@@ -756,7 +763,7 @@ function originality_get_plagiarism_file($cmid, $userid, $file, $relateduserid =
  * @param int $relateduserid - related user if if passed. (use when sending to ORIGINALITY.
  * @return boolean
  */
-function originality_queue_file($cmid, $userid, $file, $relateduserid = null) {
+function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid = null) {
     global $DB;
     $record = new \stdClass();
     $record->cm = $cmid;
@@ -775,7 +782,7 @@ function originality_queue_file($cmid, $userid, $file, $relateduserid = null) {
 /**
  * Helper: turn text into a temporary file.
  */
-function originality_create_temp_file($cmid, $courseid, $userid, $content) {
+function plagiarism_originality_create_temp_file($cmid, $courseid, $userid, $content) {
     global $CFG;
     $filename = "onlinetext_{$cmid}_{$userid}_" . time() . ".txt";
     $filepath = $CFG->tempdir . "/plagiarism_originality/" . $filename;
@@ -792,7 +799,7 @@ function originality_create_temp_file($cmid, $courseid, $userid, $content) {
     return $file;
 }
 
-function originality_send_file($plagiarismfile, api_client $client) {
+function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
     global $DB;
 
     // Step 1: Create submission if not already done
@@ -870,114 +877,7 @@ function originality_send_file($plagiarismfile, api_client $client) {
 }
 
 
-
-function originality_get_file_object($plagiarismfile) {
-    global $DB, $CFG;
-
-    $userid = $plagiarismfile->userid;
-
-    // Step 0: use related user if present (on-behalf submissions)
-    //if (!empty($plagiarismfile->relateduserid)) {
-    //    $userid = $plagiarismfile->relateduserid;
-    //}
-
-    $cm = get_coursemodule_from_id('', $plagiarismfile->cm, 0, false, MUST_EXIST);
-    $modulecontext = context_module::instance($plagiarismfile->cm);
-    $fs = get_file_storage();
-
-    // Step 1: handle assignments
-    if ($cm->modname === 'assign') {
-        require_once($CFG->dirroot . '/mod/assign/locallib.php');
-        $assign = new assign($modulecontext, null, null);
-
-        // Fetch user's submission
-        if ($assign->get_instance()->teamsubmission) {
-            $submission = $assign->get_group_submission($userid, 0, false);
-        } else {
-            $submission = $assign->get_user_submission($userid, false);
-        }
-
-        if (!$submission) {
-            return false;
-        }
-
-        $submissionplugins = $assign->get_submission_plugins();
-        foreach ($submissionplugins as $plugin) {
-            $component = $plugin->get_subtype() . '_' . $plugin->get_type();
-            $fileareas = $plugin->get_file_areas();
-
-            foreach ($fileareas as $filearea => $name) {
-                $files = $fs->get_area_files(
-                    $assign->get_context()->id,
-                    $component,
-                    $filearea,
-                    $submission->id,
-                    'timemodified',
-                    false
-                );
-                foreach ($files as $file) {
-                    mtrace("file name: " . $file->get_filename());
-                    // Match by filename or contenthash (identifier)
-                    mtrace("contenthash: " . $file->get_contenthash());
-                    mtrace("externalid: " . $plagiarismfile->externalid);
-                    if ($file->get_contenthash() === $plagiarismfile->externalid) {
-                        return $file;
-                    }
-                }
-            }
-        }
-
-        // If not found, check for online text submissions
-        $sql = "SELECT o.onlinetext
-                  FROM {assignsubmission_onlinetext} o
-                 WHERE o.submission = ?";
-        $text = $DB->get_field_sql($sql, [$submission->id]);
-        if ($text) {
-            // Create temp file
-            $tempfile = tempnam($CFG->tempdir, 'originality');
-            file_put_contents($tempfile, $text);
-
-            $file = new stdClass();
-            $file->type = 'temp';
-            $file->filename = 'submission.txt';
-            $file->filepath = $tempfile;
-            $file->mimetype = 'text/plain';
-            return $file;
-        }
-    }
-
-    // Step 2: other modules (forum, quiz, workshop)
-    if ($cm->modname === 'forum') {
-        require_once($CFG->dirroot . '/mod/forum/lib.php');
-        $posts = forum_get_user_posts($cm->instance, $userid);
-        foreach ($posts as $post) {
-            $files = $fs->get_area_files($modulecontext->id, 'mod_forum', 'attachment', $post->id, 'timemodified', false);
-            foreach ($files as $file) {
-                if ($file->get_contenthash() === $plagiarismfile->identifier) {
-                    return $file;
-                }
-            }
-        }
-    }
-
-    if ($cm->modname === 'quiz') {
-        $files = $fs->get_area_files($modulecontext->id, 'question', 'response_attachments', null, 'timemodified', false);
-        foreach ($files as $file) {
-            if ($file->get_contenthash() === $plagiarismfile->identifier) {
-                return $file;
-            }
-        }
-    }
-
-    // Add more modules here if needed (workshop, hsuforum, etc.)
-
-    // Step 3: fallback - not found
-    return false;
-}
-
-
-
-function originality_poll_file_status($plagiarismfile, api_client $client) {
+function plagiarism_originality_poll_file_status($plagiarismfile, api_client $client) {
     global $DB;
 
     if (empty($plagiarismfile->externalid) || $plagiarismfile->status !== 'pending') {
@@ -1001,9 +901,9 @@ function originality_poll_file_status($plagiarismfile, api_client $client) {
                 $plagiarismfile->translation_similarity = $status->translation_similarity ?? null;
                 $plagiarismfile->ai_index = $status->ai_index ?? null;
                 $plagiarismfile->originality = $status->originality ?? null;
-                $plagiarismfile->characterReplacement = $status->characterReplacement ?? null;
-                $plagiarismfile->hiddenText = $status->hiddenText ?? null;
-                $plagiarismfile->imageAsText = $status->imageAsText ?? null;
+                $plagiarismfile->character_replacement = $status->characterReplacement ?? null;
+                $plagiarismfile->hidden_text = $status->hiddenText ?? null;
+                $plagiarismfile->image_as_text = $status->imageAsText ?? null;
                 $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
                 break;
             case 2:

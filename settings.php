@@ -1,4 +1,18 @@
 <?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 require_once(dirname(dirname(__FILE__)) . '/../config.php');
 require_once($CFG->libdir.'/adminlib.php');
@@ -26,7 +40,7 @@ if (($data = $mform->get_data()) && confirm_sesskey()) {
         $data->enabled = 0;
     }
 
-    $supportedmodules = originality_supported_modules();
+    $supportedmodules = plagiarism_originality_supported_modules();
     foreach ($supportedmodules as $mod) {
         if (plugin_supports('mod', $mod, FEATURE_PLAGIARISM)) {
             $modstring = 'enable_mod_' . $mod;
