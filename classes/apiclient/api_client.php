@@ -147,7 +147,6 @@ class api_client {
      * @throws \moodle_exception If fetching or parsing the token fails.
      */
     private function get_token(): string {
-        // --- Corrected Cache Check Logic ---
         $token = get_config('plagiarism_originality', 'apitoken');
         $expires = (int) get_config('plagiarism_originality', 'apitoken_exp'); // Cast to int
 
@@ -155,7 +154,6 @@ class api_client {
         if (!empty($token) && $expires > (time() + 60)) {
             return $token; // Return cached token
         }
-        // --- End Corrected Logic ---
 
         // Fetch a new token if no valid cached token exists
         $payload = json_encode([
@@ -213,7 +211,7 @@ class api_client {
         $token = $this->get_token(); // Ensures we have a valid token
         $headers = ['Authorization: Bearer ' . $token];
 
-        // Build the payload exactly as before
+        // Build the payload
         $payload = [
             'documentTitle' => $title,
             'author'        => $author,
@@ -224,12 +222,10 @@ class api_client {
         if (!empty($this->institutionid)) { // Use property directly
             $payload['institutionName'] = $this->institutionid;
         }
-        // ... (Add all the logic for $settings as before) ...
         if (!empty($settings['originality_metadata_analysis'])) { $payload['metadataAnalysis'] = (bool)$settings['originality_metadata_analysis']; }
         if (!empty($settings['originality_archive'])) { $payload['archive'] = (bool)$settings['originality_archive']; }
         if (!empty($settings['originality_enable_ai'])) { $payload['enableAIDetection'] = (bool)$settings['originality_enable_ai']; }
         if (!empty($settings['originality_enable_translations'])) {
-            $payload['translationsEnabled'] = true;
             $payload['translationLanguages'] = array_values(array_filter(explode(',', $settings['originality_translation_languages'] ?? ''))); // Ensure clean array
         }
         $enablecontext = !empty($settings['originality_enable_context_similarity']);

@@ -19,17 +19,12 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 
 use plagiarism_originality\apiclient\api_client;
-// We don't need Invocation anymore
-// use PHPUnit\Framework\MockObject\Invocation;
 
 /**
  * Unit tests for the api_client class using partial mocks.
  * (Your PHPDocs here)
  */
 class plagiarism_originality_api_client_test extends advanced_testcase {
-
-    // No longer need $curlmock
-    // protected $curlmock;
 
     /** @var \PHPUnit\Framework\MockObject\MockObject|api_client */
     protected $clientmock; // Will hold the partial mock
