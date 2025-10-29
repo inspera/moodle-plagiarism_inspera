@@ -47,7 +47,7 @@ class observer {
         if (!empty(get_config('plagiarism_originality', 'enable_mod_assign'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'assignsubmission_file_uploaded';
-            $originality = new plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_originality();
             $originality->event_handler($eventdata);
         }
     }
@@ -62,7 +62,7 @@ class observer {
         if (!empty(get_config('plagiarism_originality', 'enable_mod_forum'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'forum_file_uploaded';
-            $originality = new plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_originality();
             $originality->event_handler($eventdata);
         }
     }
@@ -77,7 +77,7 @@ class observer {
         if (!empty(get_config('plagiarism_originality', 'enable_mod_workshop'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'workshop_file_uploaded';
-            $originality = new plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_originality();
             $originality->event_handler($eventdata);
         }
     }
@@ -92,7 +92,7 @@ class observer {
             global $CFG;
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'assignsubmission_onlinetext_uploaded';
-            $originality = new plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_originality();
             $originality->event_handler($eventdata);
         }
     }
@@ -107,7 +107,7 @@ class observer {
         if (!empty(get_config('plagiarism_originality', 'enable_mod_assign'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'assignsubmission_submitted';
-            $originality = new plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_originality();
             $originality->event_handler($eventdata);
         }
     }
@@ -121,7 +121,7 @@ class observer {
         if (!empty(get_config('plagiarism_originality', 'enable_mod_quiz'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'quiz_submitted';
-            $originality = new plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_originality();
             $originality->event_handler($eventdata);
         }
     }
@@ -136,7 +136,7 @@ class observer {
         if (!empty(get_config('plagiarism_originality', 'enable_mod_hsuforum'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'hsuforum_file_uploaded';
-            $originality = new plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_originality();
             $originality->event_handler($eventdata);
         }
     }

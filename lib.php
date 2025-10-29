@@ -201,32 +201,82 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
         }
 
         // ==============================
-        // 3. Generate existing links (e.g., from get_links_helper)
-        // ==============================
-        $output .= $this->get_links_helper($plagiarismvalues[$linkarray['cmid']], $linkarray);
-
-        // ==============================
         // 5. Add "View Originality Report" if finished
         // ==============================
         if (!empty($linkarray['cmid']) && !empty($linkarray['userid']) && !empty($linkarray['file'])) {
-            // $linkarray['file'] should be a stored_file object for this submission file.
+            // $linkarray['file'] should be a stored_file object.
             $file = $linkarray['file'];
 
-            // Get the plagiarism record for this specific file.
+            // Get the plagiarism record for this specific file, regardless of status.
             $record = $DB->get_record('plagiarism_originality_subs', [
                 'cm' => $linkarray['cmid'],
                 'userid' => $linkarray['userid'],
-                'storedfileid' => $file->get_id(),
-                'status' => 'finished'
+                'storedfileid' => $file->get_id()
             ]);
 
             if ($record) {
-                $url = new moodle_url('/plagiarism/originality/view.php', ['id' => $record->id]);
-                $output .= html_writer::link(
-                    $url,
-                    get_string('viewreport', 'plagiarism_originality'),
-                    ['class' => 'btn btn-secondary ml-2', 'target' => '_blank']
-                );
+                $linkcontent = '';
+                $linkclass = 'plagiarism-originality-status'; // General class for styling
+
+                switch ($record->status) {
+                    case 'finished':
+                        // IT'S READY: Create the link to redirect.php
+                        global $OUTPUT; // <-- Make sure $OUTPUT is available
+                        $url = new moodle_url('/plagiarism/originality/redirect.php', ['id' => $record->id]);
+
+                        // --- 1. Get score and threshold ---
+                        $score = round($record->similarity);
+                        $cmid = $linkarray['cmid'];
+                        // Use the loaded settings (assuming $plagiarismvalues[$cmid] exists)
+                        $threshold = (int)($plagiarismvalues[$cmid]['originality_context_threshold'] ?? 50);
+
+                        // --- 2. Determine CSS class for the score ---
+                        $scoreclass = 'originality-score';
+                        if ($score > $threshold) {
+                            $scoreclass .= ' high';
+                        } else {
+                            $scoreclass .= ' low';
+                        }
+
+                        // --- 3. Get text strings ---
+                        $linkprefix = get_string('reportlinkprefix', 'plagiarism_originality'); // e.g., "View Report"
+                        $scoretext = get_string('reportlinkscore', 'plagiarism_originality', $score); // e.g., "50%"
+
+                        // --- 4. Build HTML components ---
+                        // Create the icon HTML (using the 'logo' icon from your plugin's pix folder)
+                        $iconhtml = $OUTPUT->pix_icon('logo', $linkprefix, 'plagiarism_originality', ['class' => 'originality-logo-icon']);
+                        // Create the score span HTML
+                        $scorehtml = html_writer::tag('span', $scoretext, ['class' => $scoreclass]);
+
+                        // --- 5. Combine components for the link text ---
+                        // Result: <img...> View Report <span...>50%</span>
+                        $linkhtml = $iconhtml . ' ' . $linkprefix . ' ' . $scorehtml;
+
+                        // --- 6. Create the final link using the manual method ---
+                        $urlstring = $url->out(false); // Get the clean URL
+                        $linkcontent = '<a href="' . $urlstring . '" target="_blank">' . $linkhtml . '</a>';
+
+                        // --- 7. Set the CSS class for the surrounding div ---
+                        $linkclass = 'plagiarism-originality-reportlink'; // Class for the outer div
+                        break;
+                    case 'pending':
+                    case 'report_requested':
+                        // PENDING: Show a "pending" status message (not a link).
+                        $linkcontent = get_string('statuspending', 'plagiarism_originality');
+                        break;
+
+                    case 'error':
+                    case 'external_error':
+                        // ERROR: Show an error message (not a link).
+                        $linkcontent = get_string('statuserror', 'plagiarism_originality');
+                        $linkclass .= ' error'; // Add an error class for styling
+                        break;
+                }
+
+                // Wrap the link/message in a div to display it on its own line.
+                if (!empty($linkcontent)) {
+                    $output .= html_writer::div($linkcontent, $linkclass);
+                }
             }
         }
         return $output;

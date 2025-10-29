@@ -1,0 +1,56 @@
+/* Puts the link/status on a new line with a small icon */
+.plagiarism-originality-reportlink,
+.plagiarism-originality-status {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.9em;
+    background-repeat: no-repeat;
+    background-position: left center;
+    background-size: 16px;
+}
+
+/* Finished report link */
+.plagiarism-originality-reportlink {
+    font-weight: bold;
+}
+
+/* Pending status */
+.plagiarism-originality-status {
+    /* You could add a "pending" or "spinner" icon */
+    color: #777;
+}
+
+/* Error status */
+.plagiarism-originality-status.error {
+    /* You could add a "warning" icon */
+    color: #E00;
+    font-weight: bold;
+}
+
+.originality-score {
+    display: inline-block;
+    padding: 2px 8px; /* Vertical and horizontal padding */
+    border-radius: 4px;
+    font-weight: bold;
+    color: #FFFFFF;     /* White text for good contrast */
+    line-height: 1.2;
+    font-size: 0.95em;
+    vertical-align: middle; /* Aligns badge nicely with the link text */
+}
+
+/* Score is LOW or EQUAL (<= threshold) */
+.originality-score.low {
+    background-color: #39734A; /* Green */
+}
+
+/* Score is HIGH (> threshold) */
+.originality-score.high {
+    background-color: #9F2D27; /* Red */
+}
+
+.originality-logo-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 4px; /* Space between icon and "View Report" */
+    vertical-align: text-bottom; /* Aligns the icon nicely with the text */
+}

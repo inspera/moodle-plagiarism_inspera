@@ -49,7 +49,7 @@ if (!has_capability('mod/assign:grade', $context) && $record->userid != $USER->i
 // Page setup
 $PAGE->set_url('/plagiarism/originality/view.php', ['id' => $id]);
 $PAGE->set_context($context);
-$PAGE->set_title(get_string('originality:viewreport', 'plagiarism_originality'));
+$PAGE->set_title(get_string('viewreport', 'plagiarism_originality'));
 $PAGE->set_heading(format_string($course->fullname));
 
 echo $OUTPUT->header();

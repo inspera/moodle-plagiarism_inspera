@@ -96,3 +96,8 @@ $string['character_replacement'] = 'Character replacement detected';
 $string['hidden_text'] = 'Hidden text detected';
 $string['image_as_text'] = 'Image-as-text detected';
 $string['viewreport'] = 'View originality report';
+
+$string['reportlinkprefix'] = 'Inspera Originality Report';
+$string['reportlinkscore'] = '{$a}%';
+$string['statuspending'] = 'Inspera Originality Report: Pending...';
+$string['statuserror'] = 'Inspera Originality Report: An error occurred.';
