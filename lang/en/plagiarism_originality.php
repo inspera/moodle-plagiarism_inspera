@@ -85,6 +85,7 @@ $string['originality_restrictcontent_help'] = 'Originality can process uploaded 
 $string['restrictcontentfiles'] = 'Only submit attached files';
 $string['restrictcontentno'] = 'Submit everything';
 $string['restrictcontenttext'] = 'Only submit in-line text';
+$string['savedconfigsuccess'] = 'Plagiarism Settings Saved';
 
 
 $string['sendfiles'] = 'Inspera Originality send queued files';;
