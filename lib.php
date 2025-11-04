@@ -908,6 +908,12 @@ function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid
     $record->status = 'report_requested';
     $record->timecreated = time();
 
+
+    //TODO: before inserting, we should check if the file is already in the queue.
+    //eventually do an update instead of insert.
+    //check if file is valid file, use plagiarism_originality_default_allowed_file_types
+    // Check to see if configured "originality_allowallfile" to only send certain file-types and if this file matches.
+
     if ($file instanceof \stored_file) {
         $record->storedfileid = $file->get_id(); // store Moodle file id
     }
