@@ -215,143 +215,25 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
             ]);
 
             if ($record) {
-                $linkcontent = '';
-                $linkclass = 'plagiarism-originality-status'; // General class for styling
-
-                switch ($record->status) {
-                    case 'finished':
-                        // IT'S READY: Create the link to redirect.php
-                        global $OUTPUT; // <-- Make sure $OUTPUT is available
-                        $url = new moodle_url('/plagiarism/originality/redirect.php', ['id' => $record->id]);
-
-                        // --- 1. Get score and threshold ---
-                        $score = round($record->similarity);
-                        $cmid = $linkarray['cmid'];
-                        // Use the loaded settings (assuming $plagiarismvalues[$cmid] exists)
-                        $threshold = (int)($plagiarismvalues[$cmid]['originality_context_threshold'] ?? 50);
-
-                        // --- 2. Determine CSS class for the score ---
-                        $scoreclass = 'originality-score';
-                        if ($score > $threshold) {
-                            $scoreclass .= ' high';
-                        } else {
-                            $scoreclass .= ' low';
-                        }
-
-                        // --- 3. Get text strings ---
-                        $linkprefix = get_string('reportlinkprefix', 'plagiarism_originality'); // e.g., "View Report"
-                        $scoretext = get_string('reportlinkscore', 'plagiarism_originality', $score); // e.g., "50%"
-
-                        // --- 4. Build HTML components ---
-                        // Create the icon HTML (using the 'logo' icon from your plugin's pix folder)
-                        $iconhtml = $OUTPUT->pix_icon('logo', $linkprefix, 'plagiarism_originality', ['class' => 'originality-logo-icon']);
-                        // Create the score span HTML
-                        $scorehtml = html_writer::tag('span', $scoretext, ['class' => $scoreclass]);
-
-                        // --- 5. Combine components for the link text ---
-                        // Result: <img...> View Report <span...>50%</span>
-                        $linkhtml = $iconhtml . ' ' . $linkprefix . ' ' . $scorehtml;
-
-                        // --- 6. Create the final link using the manual method ---
-                        $urlstring = $url->out(false); // Get the clean URL
-                        $linkcontent = '<a href="' . $urlstring . '" target="_blank">' . $linkhtml . '</a>';
-
-                        // --- 7. Set the CSS class for the surrounding div ---
-                        $linkclass = 'plagiarism-originality-reportlink'; // Class for the outer div
-                        break;
-                    case 'pending':
-                    case 'report_requested':
-                        // PENDING: Show a "pending" status message (not a link).
-                        $linkcontent = get_string('statuspending', 'plagiarism_originality');
-                        break;
-
-                    case 'error':
-                    case 'external_error':
-                        // ERROR: Show an error message (not a link).
-                        $linkcontent = get_string('statuserror', 'plagiarism_originality');
-                        $linkclass .= ' error'; // Add an error class for styling
-                        break;
-                }
-
-                // Wrap the link/message in a div to display it on its own line.
-                if (!empty($linkcontent)) {
-                    $output .= html_writer::div($linkcontent, $linkclass);
-                }
+                $output .= $this->get_originality_status($record, $plagiarismvalues[$linkarray['cmid']]);
             }
         }
 
         // ==============================
-// 6. Add "View Originality Report" for ONLINE TEXT submissions (no file)
-// ==============================
-        if (!empty($linkarray['content']) && empty($linkarray['file'])) {
-
+        // 6. Add "View Originality Report" for ONLINE TEXT submissions (no file)
+        // ==============================
+        if (!empty($linkarray['content']) && !empty($linkarray['cmid']) && !empty($linkarray['userid'])) {
             // Fetch the latest plagiarism record for this user's online text in this CM
             $sql = "SELECT *
-              FROM {plagiarism_originality_subs}
-             WHERE cm = ? AND userid = ?
-          ORDER BY timecreated DESC";
+                    FROM {plagiarism_originality_subs}
+                    WHERE cm = ? AND userid = ? AND storedfileid IS NULL
+                    ORDER BY timecreated DESC";
             $textrecord = $DB->get_record_sql($sql, [$linkarray['cmid'], $linkarray['userid']], IGNORE_MULTIPLE);
 
             if ($textrecord) {
-
-                $linkclass = 'plagiarism-originality-status';
-                $linkcontent = '';
-
-                switch ($textrecord->status) {
-
-                    case 'finished':
-                        // Create link to report
-                        global $OUTPUT;
-                        $url = new moodle_url('/plagiarism/originality/redirect.php', ['id' => $textrecord->id]);
-
-                        // Score + Threshold
-                        $score = round($textrecord->similarity);
-                        $cmid = $linkarray['cmid'];
-                        $threshold = (int)($plagiarismvalues[$cmid]['originality_context_threshold'] ?? 50);
-
-                        // CSS class
-                        $scoreclass = 'originality-score';
-                        $scoreclass .= ($score > $threshold) ? ' high' : ' low';
-
-                        // Text labels
-                        $linkprefix = get_string('reportlinkprefix', 'plagiarism_originality');
-                        $scoretext  = get_string('reportlinkscore', 'plagiarism_originality', $score);
-
-                        // HTML components
-                        $iconhtml  = $OUTPUT->pix_icon('logo', $linkprefix, 'plagiarism_originality',
-                            ['class' => 'originality-logo-icon']);
-                        $scorehtml = html_writer::tag('span', $scoretext, ['class' => $scoreclass]);
-
-                        // Build link
-                        $urlstring = $url->out(false);
-                        $linkcontent = '<a href="' . s($urlstring) . '" target="_blank">' .
-                            $iconhtml . ' ' . $linkprefix . ' ' . $scorehtml .
-                            '</a>';
-
-                        $linkclass = 'plagiarism-originality-reportlink';
-                        break;
-
-                    case 'pending':
-                    case 'report_requested':
-                        // Show pending message (same as file block)
-                        $linkcontent = get_string('statuspending', 'plagiarism_originality');
-                        break;
-
-                    case 'error':
-                    case 'external_error':
-                        // Show error message
-                        $linkcontent = get_string('statuserror', 'plagiarism_originality');
-                        $linkclass .= ' error';
-                        break;
-                }
-
-                // Output the result if we have something to show
-                if (!empty($linkcontent)) {
-                    $output .= html_writer::div($linkcontent, $linkclass);
-                }
+                $output .= $this->get_originality_status($textrecord, $plagiarismvalues[$linkarray['cmid']]);
             }
         }
-
 
         return $output;
     }
@@ -469,6 +351,53 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
             }
         }
         return $result;
+    }
+
+    /**
+     * Generates HTML for a plagiarism report link/status.
+     *
+     * @param stdClass $record The plagiarism submission record
+     * @param array $settings The module settings
+     * @return string HTML output
+     */
+    private function get_originality_status($record, $settings) {
+        global $OUTPUT;
+
+        $linkclass = 'plagiarism-originality-status';
+        $linkcontent = '';
+
+        switch ($record->status) {
+            case 'finished':
+                $url = new moodle_url('/plagiarism/originality/redirect.php', ['id' => $record->id]);
+                $score = round($record->similarity);
+                $threshold = (int)($settings['originality_context_threshold'] ?? 50);
+
+                $scoreclass = 'originality-score ' . ($score > $threshold ? 'high' : 'low');
+                $linkprefix = get_string('reportlinkprefix', 'plagiarism_originality');
+                $scoretext = get_string('reportlinkscore', 'plagiarism_originality', $score);
+
+                $iconhtml = $OUTPUT->pix_icon('logo', $linkprefix, 'plagiarism_originality',
+                    ['class' => 'originality-logo-icon']);
+                $scorehtml = html_writer::tag('span', $scoretext, ['class' => $scoreclass]);
+
+                $linkcontent = html_writer::link($url, $iconhtml . ' ' . $linkprefix . ' ' . $scorehtml,
+                    ['target' => '_blank']);
+                $linkclass = 'plagiarism-originality-reportlink';
+                break;
+
+            case 'pending':
+            case 'report_requested':
+                $linkcontent = get_string('statuspending', 'plagiarism_originality');
+                break;
+
+            case 'error':
+            case 'external_error':
+                $linkcontent = get_string('statuserror', 'plagiarism_originality');
+                $linkclass .= ' error';
+                break;
+        }
+
+        return !empty($linkcontent) ? html_writer::div($linkcontent, $linkclass) : '';
     }
 
 }
@@ -991,7 +920,7 @@ function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid
     if ($file instanceof \stored_file) {
         $record->storedfileid = $file->get_id(); // store Moodle file id
         $record->identifier = null; // No temp file
-    } else if (is_object($file) && isset($file->filepath)) {
+    } else if (is_object($file) && isset($file->filepath) && pathinfo($file->filepath, PATHINFO_EXTENSION) === 'htm') {
         // Online text submission - store temp file path
         $record->storedfileid = null;
         $record->identifier = $file->filepath;
@@ -1020,8 +949,16 @@ function plagiarism_originality_create_temp_file($cmid, $courseid, $userid, $con
         mkdir(dirname($filepath), $CFG->directorypermissions, true);
     }
 
+    // Sanitize content before wrapping in HTML
+    // format_text() applies Moodle's content filters and security measures
+    $cleanedcontent = format_text($content, FORMAT_HTML, [
+        'context' => context_system::instance(),
+        'filter' => false, // Don't apply filters, just clean
+        'noclean' => false  // DO apply cleaning
+    ]);
+
     // Wrap content in basic HTML structure if not already HTML
-    $htmlcontent = $content;
+    $htmlcontent = $cleanedcontent;
     // Check if content starts with a DOCTYPE or <html> tag (ignoring whitespace)
     if (!preg_match('/^\s*(<!DOCTYPE\s+html.*?>|<html[\s>])/i', $content)) {
         $htmlcontent = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Online Text Submission</title></head><body>' . $content . '</body></html>';
@@ -1229,6 +1166,3 @@ function plagiarism_originality_poll_file_status($plagiarismfile, api_client $cl
         mtrace("Originality API poll error for fileid {$plagiarismfile->id}: " . $e->getMessage());
     }
 }
-
-
-
