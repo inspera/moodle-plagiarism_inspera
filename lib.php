@@ -1136,12 +1136,15 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
 
             // Clean up temporary file if it exists
             if (!empty($tempfilepath) && file_exists($tempfilepath)) {
-                unlink($tempfilepath);
-                mtrace("Deleted temporary file: {$tempfilepath}");
+                if (unlink($tempfilepath)) {
+                    mtrace("Deleted temporary file: {$tempfilepath}");
 
-                // Clear the identifier field since temp file is deleted
-                $plagiarismfile->identifier = null;
-                $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
+                    // Clear the identifier field since temp file is deleted
+                    $plagiarismfile->identifier = null;
+                    $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
+                } else {
+                    mtrace("Warning: Failed to delete temporary file: {$tempfilepath}");
+                }
             }
         } else {
             mtrace("Failed to upload file content for documentId: {$plagiarismfile->externalid}");
