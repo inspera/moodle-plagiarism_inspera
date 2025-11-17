@@ -1156,7 +1156,9 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
 
         // Clean up temporary file on error
         if (!empty($tempfilepath) && file_exists($tempfilepath)) {
-            unlink($tempfilepath);
+            if (!unlink($tempfilepath)) {
+                mtrace("Failed to delete temporary file during error handling: {$tempfilepath}");
+            }
         }
         return false;
     }
