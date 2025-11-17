@@ -324,7 +324,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
 
                         // Build link
                         $urlstring = $url->out(false);
-                        $linkcontent = '<a href="' . $urlstring . '" target="_blank">' .
+                        $linkcontent = '<a href="' . s($urlstring) . '" target="_blank">' .
                             $iconhtml . ' ' . $linkprefix . ' ' . $scorehtml .
                             '</a>';
 
