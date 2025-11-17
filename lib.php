@@ -1115,9 +1115,15 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
         $mimetype = $file->get_mimetype();
     }
     // Check identifier field for temporary file path (online text)
-    else if (!empty($plagiarismfile->identifier) && file_exists($plagiarismfile->identifier)) {
+    else if (!empty($plagiarismfile->identifier)) {
         $tempfilepath = $plagiarismfile->identifier;
-        $content = file_get_contents($tempfilepath);
+        $content = @file_get_contents($tempfilepath);
+        if ($content === false) {
+            mtrace("Failed to read temp file: {$tempfilepath}");
+            $plagiarismfile->status = 'error';
+            $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
+            return false;
+        }
         $mimetype = 'text/html';
         mtrace("Loading online text from temp file: {$tempfilepath}");
     }
