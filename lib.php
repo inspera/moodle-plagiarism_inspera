@@ -920,7 +920,7 @@ function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid
     if ($file instanceof \stored_file) {
         $record->storedfileid = $file->get_id(); // store Moodle file id
         $record->identifier = null; // No temp file
-    } else if (is_object($file) && isset($file->filepath) && pathinfo($file->filepath, PATHINFO_EXTENSION) === 'htm') {
+    } else if (is_object($file) && isset($file->filepath) && pathinfo($file->filepath, PATHINFO_EXTENSION) === 'html') {
         // Online text submission - store temp file path
         $record->storedfileid = null;
         $record->identifier = $file->filepath;
