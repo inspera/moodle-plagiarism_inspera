@@ -1022,7 +1022,8 @@ function plagiarism_originality_create_temp_file($cmid, $courseid, $userid, $con
 
     // Wrap content in basic HTML structure if not already HTML
     $htmlcontent = $content;
-    if (stripos($content, '<html') === false) {
+    // Check if content starts with a DOCTYPE or <html> tag (ignoring whitespace)
+    if (!preg_match('/^\s*(<!DOCTYPE\s+html.*?>|<html[\s>])/i', $content)) {
         $htmlcontent = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Online Text Submission</title></head><body>' . $content . '</body></html>';
     }
 
