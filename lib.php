@@ -215,70 +215,26 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
             ]);
 
             if ($record) {
-                $linkcontent = '';
-                $linkclass = 'plagiarism-originality-status'; // General class for styling
-
-                switch ($record->status) {
-                    case 'finished':
-                        // IT'S READY: Create the link to redirect.php
-                        global $OUTPUT; // <-- Make sure $OUTPUT is available
-                        $url = new moodle_url('/plagiarism/originality/redirect.php', ['id' => $record->id]);
-
-                        // --- 1. Get score and threshold ---
-                        $score = round($record->similarity);
-                        $cmid = $linkarray['cmid'];
-                        // Use the loaded settings (assuming $plagiarismvalues[$cmid] exists)
-                        $threshold = (int)($plagiarismvalues[$cmid]['originality_context_threshold'] ?? 50);
-
-                        // --- 2. Determine CSS class for the score ---
-                        $scoreclass = 'originality-score';
-                        if ($score > $threshold) {
-                            $scoreclass .= ' high';
-                        } else {
-                            $scoreclass .= ' low';
-                        }
-
-                        // --- 3. Get text strings ---
-                        $linkprefix = get_string('reportlinkprefix', 'plagiarism_originality'); // e.g., "View Report"
-                        $scoretext = get_string('reportlinkscore', 'plagiarism_originality', $score); // e.g., "50%"
-
-                        // --- 4. Build HTML components ---
-                        // Create the icon HTML (using the 'logo' icon from your plugin's pix folder)
-                        $iconhtml = $OUTPUT->pix_icon('logo', $linkprefix, 'plagiarism_originality', ['class' => 'originality-logo-icon']);
-                        // Create the score span HTML
-                        $scorehtml = html_writer::tag('span', $scoretext, ['class' => $scoreclass]);
-
-                        // --- 5. Combine components for the link text ---
-                        // Result: <img...> View Report <span...>50%</span>
-                        $linkhtml = $iconhtml . ' ' . $linkprefix . ' ' . $scorehtml;
-
-                        // --- 6. Create the final link using the manual method ---
-                        $urlstring = $url->out(false); // Get the clean URL
-                        $linkcontent = '<a href="' . $urlstring . '" target="_blank">' . $linkhtml . '</a>';
-
-                        // --- 7. Set the CSS class for the surrounding div ---
-                        $linkclass = 'plagiarism-originality-reportlink'; // Class for the outer div
-                        break;
-                    case 'pending':
-                    case 'report_requested':
-                        // PENDING: Show a "pending" status message (not a link).
-                        $linkcontent = get_string('statuspending', 'plagiarism_originality');
-                        break;
-
-                    case 'error':
-                    case 'external_error':
-                        // ERROR: Show an error message (not a link).
-                        $linkcontent = get_string('statuserror', 'plagiarism_originality');
-                        $linkclass .= ' error'; // Add an error class for styling
-                        break;
-                }
-
-                // Wrap the link/message in a div to display it on its own line.
-                if (!empty($linkcontent)) {
-                    $output .= html_writer::div($linkcontent, $linkclass);
-                }
+                $output .= $this->get_originality_status($record, $plagiarismvalues[$linkarray['cmid']]);
             }
         }
+
+        // ==============================
+        // 6. Add "View Originality Report" for ONLINE TEXT submissions (no file)
+        // ==============================
+        if (!empty($linkarray['content']) && !empty($linkarray['cmid']) && !empty($linkarray['userid'])) {
+            // Fetch the latest plagiarism record for this user's online text in this CM
+            $sql = "SELECT *
+                    FROM {plagiarism_originality_subs}
+                    WHERE cm = ? AND userid = ? AND storedfileid IS NULL
+                    ORDER BY timecreated DESC";
+            $textrecord = $DB->get_record_sql($sql, [$linkarray['cmid'], $linkarray['userid']], IGNORE_MULTIPLE);
+
+            if ($textrecord) {
+                $output .= $this->get_originality_status($textrecord, $plagiarismvalues[$linkarray['cmid']]);
+            }
+        }
+
         return $output;
     }
 
@@ -395,6 +351,53 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
             }
         }
         return $result;
+    }
+
+    /**
+     * Generates HTML for a plagiarism report link/status.
+     *
+     * @param stdClass $record The plagiarism submission record
+     * @param array $settings The module settings
+     * @return string HTML output
+     */
+    private function get_originality_status($record, $settings) {
+        global $OUTPUT;
+
+        $linkclass = 'plagiarism-originality-status';
+        $linkcontent = '';
+
+        switch ($record->status) {
+            case 'finished':
+                $url = new moodle_url('/plagiarism/originality/redirect.php', ['id' => $record->id]);
+                $score = round($record->similarity);
+                $threshold = (int)($settings['originality_context_threshold'] ?? 50);
+
+                $scoreclass = 'originality-score ' . ($score > $threshold ? 'high' : 'low');
+                $linkprefix = get_string('reportlinkprefix', 'plagiarism_originality');
+                $scoretext = get_string('reportlinkscore', 'plagiarism_originality', $score);
+
+                $iconhtml = $OUTPUT->pix_icon('logo', $linkprefix, 'plagiarism_originality',
+                    ['class' => 'originality-logo-icon']);
+                $scorehtml = html_writer::tag('span', $scoretext, ['class' => $scoreclass]);
+
+                $linkcontent = html_writer::link($url, $iconhtml . ' ' . $linkprefix . ' ' . $scorehtml,
+                    ['target' => '_blank']);
+                $linkclass = 'plagiarism-originality-reportlink';
+                break;
+
+            case 'pending':
+            case 'report_requested':
+                $linkcontent = get_string('statuspending', 'plagiarism_originality');
+                break;
+
+            case 'error':
+            case 'external_error':
+                $linkcontent = get_string('statuserror', 'plagiarism_originality');
+                $linkclass .= ' error';
+                break;
+        }
+
+        return !empty($linkcontent) ? html_writer::div($linkcontent, $linkclass) : '';
     }
 
 }
@@ -916,6 +919,11 @@ function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid
 
     if ($file instanceof \stored_file) {
         $record->storedfileid = $file->get_id(); // store Moodle file id
+        $record->identifier = null; // No temp file
+    } else if (is_object($file) && isset($file->filepath) && pathinfo($file->filepath, PATHINFO_EXTENSION) === 'html') {
+        // Online text submission - store temp file path
+        $record->storedfileid = null;
+        $record->identifier = $file->filepath;
     }
 
     $DB->insert_record('plagiarism_originality_subs', $record);
@@ -934,14 +942,29 @@ function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid
  */
 function plagiarism_originality_create_temp_file($cmid, $courseid, $userid, $content) {
     global $CFG;
-    $filename = "onlinetext_{$cmid}_{$userid}_" . time() . ".txt";
+    $filename = "onlinetext_{$cmid}_{$userid}_" . time() . ".html";
     $filepath = $CFG->tempdir . "/plagiarism_originality/" . $filename;
 
     if (!is_dir(dirname($filepath))) {
         mkdir(dirname($filepath), $CFG->directorypermissions, true);
     }
 
-    file_put_contents($filepath, $content);
+    // Sanitize content before wrapping in HTML
+    // format_text() applies Moodle's content filters and security measures
+    $cleanedcontent = format_text($content, FORMAT_HTML, [
+        'context' => context_system::instance(),
+        'filter' => false, // Don't apply filters, just clean
+        'noclean' => false  // DO apply cleaning
+    ]);
+
+    // Wrap content in basic HTML structure if not already HTML
+    $htmlcontent = $cleanedcontent;
+    // Check if content starts with a DOCTYPE or <html> tag (ignoring whitespace)
+    if (!preg_match('/^\s*(<!DOCTYPE\s+html.*?>|<html[\s>])/i', $content)) {
+        $htmlcontent = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Online Text Submission</title></head><body>' . $content . '</body></html>';
+    }
+
+    file_put_contents($filepath, $htmlcontent);
 
     $file = new \stdClass();
     $file->filepath = $filepath;
@@ -967,8 +990,8 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
     if (empty($plagiarismfile->externalid)) {
         $user = $DB->get_record('user', ['id' => $plagiarismfile->userid], '*', MUST_EXIST);
 
-        $filename = 'submission.txt';
-        $mimetype = 'application/octet-stream';
+        $filename = 'submission.html';
+        $mimetype = 'text/html';
 
         // If we have a Moodle stored file, use its filename/mimetype
         if (!empty($plagiarismfile->storedfileid)) {
@@ -978,6 +1001,10 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
                 $filename = $file->get_filename();
                 $mimetype = $file->get_mimetype();
             }
+        }
+        // If we have a temporary file path (online text), keep default HTML values
+        else if (!empty($plagiarismfile->identifier) && file_exists($plagiarismfile->identifier)) {
+            // filename and mimetype already set to HTML defaults
         }
 
         // Get originality settings for the course module.
@@ -989,11 +1016,12 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
             $user->firstname . ' ' . $user->lastname,
             $user->email,
             $mimetype,
-            $plagiarismfile->cm, // cmid as assignmentId,
+            $plagiarismfile->cm,
             $settings
         );
 
         // Store external document ID and presigned URL
+        // IMPORTANT: Don't overwrite identifier field - it contains the temp file path
         $plagiarismfile->externalid   = $submission->documentId;
         $plagiarismfile->presignedurl = $submission->presignedS3Url;
         $plagiarismfile->status       = 'pending';
@@ -1003,8 +1031,13 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
         mtrace("Created submission for fileid: {$plagiarismfile->id}, documentId: {$submission->documentId}");
     }
 
-    // Step 2: Upload file content if we have a stored Moodle file
+    // Step 2: Upload file content
+    $content = null;
+    $mimetype = 'text/html';
+    $tempfilepath = null;
+
     if (!empty($plagiarismfile->storedfileid)) {
+        // Regular file upload
         $fs = get_file_storage();
         $file = $fs->get_file_by_id($plagiarismfile->storedfileid);
 
@@ -1016,26 +1049,68 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
         }
 
         $content = $file->get_content();
-
-        try {
-            $success = $client->upload_to_presigned_url($plagiarismfile->presignedurl, $content, $file->get_mimetype());
-            if ($success) {
-                mtrace("Uploaded file content for documentId: {$plagiarismfile->externalid}");
-            } else {
-                mtrace("Failed to upload file content for documentId: {$plagiarismfile->externalid}");
-                $plagiarismfile->status = 'error';
-                $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
-                return false;
-            }
-        } catch (\Exception $e) {
-            mtrace("Error uploading file content for documentId: {$plagiarismfile->externalid}: " . $e->getMessage());
-            $plagiarismfile->status = 'external_error';
-            $plagiarismfile->errorresponse = $e->getMessage();
+        $mimetype = $file->get_mimetype();
+    }
+    // Check identifier field for temporary file path (online text)
+    else if (!empty($plagiarismfile->identifier)) {
+        $tempfilepath = $plagiarismfile->identifier;
+        $content = @file_get_contents($tempfilepath);
+        if ($content === false) {
+            mtrace("Failed to read temp file: {$tempfilepath}");
+            $plagiarismfile->status = 'error';
             $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
             return false;
         }
+        $mimetype = 'text/html';
+        mtrace("Loading online text from temp file: {$tempfilepath}");
+    }
+
+    if (empty($content)) {
+        mtrace("No content found for fileid: {$plagiarismfile->id}");
+        $plagiarismfile->status = 'error';
+        $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
+        return false;
+    }
+
+    try {
+        $success = $client->upload_to_presigned_url($plagiarismfile->presignedurl, $content, $mimetype);
+        if ($success) {
+            mtrace("Uploaded file content for documentId: {$plagiarismfile->externalid}");
+
+            // Clean up temporary file if it exists
+            if (!empty($tempfilepath) && file_exists($tempfilepath)) {
+                if (unlink($tempfilepath)) {
+                    mtrace("Deleted temporary file: {$tempfilepath}");
+
+                    // Clear the identifier field since temp file is deleted
+                    $plagiarismfile->identifier = null;
+                    $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
+                } else {
+                    mtrace("Warning: Failed to delete temporary file: {$tempfilepath}");
+                }
+            }
+        } else {
+            mtrace("Failed to upload file content for documentId: {$plagiarismfile->externalid}");
+            $plagiarismfile->status = 'error';
+            $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
+            return false;
+        }
+    } catch (\Exception $e) {
+        mtrace("Error uploading file content for documentId: {$plagiarismfile->externalid}: " . $e->getMessage());
+        $plagiarismfile->status = 'external_error';
+        $plagiarismfile->errorresponse = $e->getMessage();
+        $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
+
+        // Clean up temporary file on error
+        if (!empty($tempfilepath) && file_exists($tempfilepath)) {
+            if (!unlink($tempfilepath)) {
+                mtrace("Failed to delete temporary file during error handling: {$tempfilepath}");
+            }
+        }
+        return false;
     }
 }
+
 
 /**
  * Polls the Originality API for the status of a pending submission.
@@ -1091,6 +1166,3 @@ function plagiarism_originality_poll_file_status($plagiarismfile, api_client $cl
         mtrace("Originality API poll error for fileid {$plagiarismfile->id}: " . $e->getMessage());
     }
 }
-
-
-
