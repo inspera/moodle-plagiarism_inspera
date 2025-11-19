@@ -904,6 +904,49 @@ function plagiarism_originality_get_plagiarism_file($cmid, $userid, $file, $rela
  */
 function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid = null) {
     global $DB;
+
+    // Get plagiarism settings for this course module
+    $plagiarismvalues = $DB->get_records_menu('plagiarism_originality_conf',
+        array('cm' => $cmid), '', 'name, value');
+
+    // Determine filename based on file type
+    if ($file instanceof \stored_file) {
+        $filename = $file->get_filename();
+    } else if (is_object($file) && isset($file->filepath)) {
+        $filename = basename($file->filepath);
+    } else {
+        // Skip if we can't determine filename
+        return;
+    }
+
+    // Get the file extension
+    $pathinfo = pathinfo($filename);
+    if (empty($pathinfo['extension'])) {
+        return;
+    }
+
+    $ext = strtolower($pathinfo['extension']);
+
+    // Check if we should validate file types
+    if (isset($plagiarismvalues['originality_allowallfile']) &&
+        empty($plagiarismvalues['originality_allowallfile'])) {
+
+        // Get allowed file types from settings
+        $allowedtypes = !empty($plagiarismvalues['originality_selectfiletypes'])
+            ? explode(',', $plagiarismvalues['originality_selectfiletypes'])
+            : array();
+
+        // Always allow html files for online submissions
+        $allowedtypes[] = 'html';
+        $allowedtypes[] = 'htm';
+
+        // Check if this file type is allowed
+        if (!in_array($ext, $allowedtypes)) {
+            return; // Skip this file silently
+        }
+    }
+
+    // File is valid - proceed with queueing
     $record = new \stdClass();
     $record->cm = $cmid;
     $record->userid = $userid;
