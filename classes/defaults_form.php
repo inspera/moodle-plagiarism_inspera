@@ -89,9 +89,10 @@ class plagiarism_originality_defaults_form extends moodleform {
             $mform->disabledIf('originality_translation_languages_' . $sm, 'originality_enable_translations_' . $sm, 'eq', 0);
 
             // Contextual Similarity
-            $mform->addElement('advcheckbox', 'originality_enable_context_similarity_' . $sm,
-                get_string('originality_enable_context_similarity', 'plagiarism_originality'), null, ['group' => 1], [0,1]);
+            $mform->addElement('select', 'originality_enable_context_similarity_' . $sm,
+                get_string('originality_enable_context_similarity', 'plagiarism_originality'), $ynoptions);
             $mform->setType('originality_enable_context_similarity_' . $sm, PARAM_INT);
+            $mform->setDefault('originality_enable_context_similarity_' . $sm, 0);
 
             // Threshold input (always optional in the form)
             $mform->addElement('text', 'originality_context_threshold_' . $sm,
@@ -100,14 +101,15 @@ class plagiarism_originality_defaults_form extends moodleform {
             $mform->setDefault('originality_context_threshold_' . $sm, 50);
             $mform->addHelpButton('originality_context_threshold_' . $sm, 'originality_context_threshold', 'plagiarism_originality');
 
-            // Disable threshold unless checkbox is checked
-            $mform->disabledIf('originality_context_threshold_' . $sm, 'originality_enable_context_similarity_' . $sm, 'eq', 0);
+            // Hide threshold unless select is set to yes (1)
+            $mform->hideIf('originality_context_threshold_' . $sm, 'originality_enable_context_similarity_' . $sm, 'neq', 1);
 
             // ========================
             // Include URLs
             // ========================
-            $mform->addElement('advcheckbox', 'originality_enable_include_urls_' . $sm,
-                get_string('originality_enable_include_urls', 'plagiarism_originality'));
+            $mform->addElement('select', 'originality_enable_include_urls_' . $sm,
+                get_string('originality_enable_include_urls', 'plagiarism_originality'), $ynoptions);
+            $mform->setType('originality_enable_include_urls_' . $sm, PARAM_INT);
             $mform->setDefault('originality_enable_include_urls_' . $sm, 0);
 
             $mform->addElement('text', 'originality_include_urls_' . $sm,
@@ -115,14 +117,15 @@ class plagiarism_originality_defaults_form extends moodleform {
             $mform->setType('originality_include_urls_' . $sm, PARAM_TEXT);
             $mform->addHelpButton('originality_include_urls_' . $sm, 'originality_include_urls', 'plagiarism_originality');
 
-            // Disable input unless enabled
-            $mform->disabledIf('originality_include_urls_' . $sm, 'originality_enable_include_urls_' . $sm, 'eq', 0);
+            // Hide input unless enabled (set to yes/1)
+            $mform->hideIf('originality_include_urls_' . $sm, 'originality_enable_include_urls_' . $sm, 'neq', 1);
 
             // ========================
             // Exclude URLs
             // ========================
-            $mform->addElement('advcheckbox', 'originality_enable_exclude_urls_' . $sm,
-                get_string('originality_enable_exclude_urls', 'plagiarism_originality'));
+            $mform->addElement('select', 'originality_enable_exclude_urls_' . $sm,
+                get_string('originality_enable_exclude_urls', 'plagiarism_originality'), $ynoptions);
+            $mform->setType('originality_enable_exclude_urls_' . $sm, PARAM_INT);
             $mform->setDefault('originality_enable_exclude_urls_' . $sm, 0);
 
             $mform->addElement('text', 'originality_exclude_urls_' . $sm,
@@ -130,7 +133,7 @@ class plagiarism_originality_defaults_form extends moodleform {
             $mform->setType('originality_exclude_urls_' . $sm, PARAM_TEXT);
             $mform->addHelpButton('originality_exclude_urls_' . $sm, 'originality_exclude_urls', 'plagiarism_originality');
 
-            $mform->disabledIf('originality_exclude_urls_' . $sm, 'originality_enable_exclude_urls_' . $sm, 'eq', 0);
+            $mform->hideIf('originality_exclude_urls_' . $sm, 'originality_enable_exclude_urls_' . $sm, 'neq', 1);
 
             // Show student report
             $share_report_options = [
