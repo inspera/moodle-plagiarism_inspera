@@ -126,6 +126,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
         );
         if ($adminsettings) {
             $options[] = 'originality_advanceditems';
+            $options[] = 'originality_lockeditems';
         }
         return $options;
     }
@@ -628,29 +629,92 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         }
     }
 
-    // === 5. Handle Advanced Settings Logic ===
+    // === 5. Handle Advanced AND Locked Settings (3-Tier Logic) ===
 
-    // Show advanced elements only if allowed.
     $defaultelementadvanced = 'originality_advanceditems_' . str_replace('mod_', '', $modulename);
 
     if (!empty($plagiarismdefaults[$defaultelementadvanced])) {
-        $advancedsettings = explode(',', $plagiarismdefaults[$defaultelementadvanced]);
+        $targetsettings = explode(',', $plagiarismdefaults[$defaultelementadvanced]);
 
-        if (has_capability('plagiarism/originality:advancedsettings', $context)) {
-            // User can see advanced settings: Move them to "Show more...".
-            foreach ($advancedsettings as $name) {
-                if ($mform->elementExists($name)) {
-                    $mform->setAdvanced($name, true);
+        // Check permissions
+        $can_see_advanced = has_capability('plagiarism/originality:advancedsettings', $context);
+        $can_edit_locked  = has_capability('plagiarism/originality:manage_locked_settings', $context);
+
+        foreach ($targetsettings as $name) {
+            if ($mform->elementExists($name)) {
+
+                // --- CLEANUP LOGIC (Only runs if user CANNOT edit) ---
+                if (!$can_edit_locked) {
+
+                    // 1. CLEANUP FILE TYPES
+                    if ($name === 'originality_selectfiletypes') {
+                        // Check the EFFECTIVE value of 'allowallfile'
+                        $allowval = $plagiarismvalues['originality_allowallfile'] ?? null;
+                        if ($allowval === null) {
+                            $defaultkey = 'originality_allowallfile_' . str_replace('mod_', '', $modulename);
+                            $allowval = $plagiarismdefaults[$defaultkey] ?? 0;
+                        }
+
+                        // If Allow All is YES, hide the empty list completely
+                        if ($allowval == 1) {
+                            if ($element = $mform->getElement($name)) {
+                                $value = $element->getValue();
+                                $mform->removeElement($name);
+                                $mform->addElement('hidden', $name, $value);
+                            }
+                            continue; // Done with this item
+                        }
+                    }
+
+                    // 2. CLEANUP TRANSLATIONS (Optional: Makes it consistent with file types)
+                    if ($name === 'originality_translation_languages') {
+                        $transval = $plagiarismvalues['originality_enable_translations'] ?? null;
+                        if ($transval === null) {
+                            $defaultkey = 'originality_enable_translations_' . str_replace('mod_', '', $modulename);
+                            $transval = $plagiarismdefaults[$defaultkey] ?? 0;
+                        }
+
+                        // If Translations are NO, hide the list completely
+                        if ($transval == 0) {
+                            if ($element = $mform->getElement($name)) {
+                                $value = $element->getValue();
+                                $mform->removeElement($name);
+                                $mform->addElement('hidden', $name, $value);
+                            }
+                            continue; // Done with this item
+                        }
+                    }
                 }
-            }
-        } else {
-            // User cannot see advanced settings: Remove the visible element
-            // and replace it with a hidden one to preserve the value.
-            foreach ($advancedsettings as $name) {
-                if ($mform->elementExists($name)) {
-                    $element = $mform->removeElement($name);
-                    $mform->addElement('hidden', $name, $element->getValue());
+                // --- END CLEANUP LOGIC ---
+
+
+                // TIER 3: NO ACCESS (User lacks 'advancedsettings' cap)
+                if (!$can_see_advanced) {
+                    if ($element = $mform->getElement($name)) {
+                        $value = $element->getValue();
+                        // If value is null, check default
+                        if ($value === null && isset($plagiarismvalues[$name])) {
+                            $value = $plagiarismvalues[$name];
+                        }
+                        $mform->removeElement($name);
+                        $mform->addElement('hidden', $name, $value);
+                    }
+                    continue;
                 }
+
+                // If we are here, the user CAN see them.
+                $mform->setAdvanced($name, true);
+
+                // TIER 2: READ ONLY (User has 'advancedsettings' but NOT 'manage_locked_settings')
+                if (!$can_edit_locked) {
+                    $mform->freeze($name);
+                    if ($element = $mform->getElement($name)) {
+                        $mform->setConstant($name, $element->getValue());
+                    }
+                }
+
+                // TIER 1: FULL EDIT (User has 'manage_locked_settings')
+                // Do nothing.
             }
         }
     }

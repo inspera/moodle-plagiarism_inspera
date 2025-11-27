@@ -56,6 +56,15 @@ $capabilities = array(
          'teacher' => CAP_ALLOW,
          'manager' => CAP_ALLOW)
     ),
+    'plagiarism/originality:manage_locked_settings' => array(
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_COURSE,
+        'legacy' => array(
+            // We leave this EMPTY.
+            // By default, Site Admins have all capabilities.
+            // Teachers/Managers will NOT have this, so they cannot edit these settings.
+        )
+    ),
     'plagiarism/originality:resubmitallfiles' => array(
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
