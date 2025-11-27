@@ -1,11 +1,16 @@
 {
-    "name": "inspera/moodle-originality-plugin",
-    "description": "Inspera Originality Plagiarism plugin for Moodle",
-    "require": {},
-    "scripts": {
-        "sync-moodle": [
-            "echo 'Syncing plugin to Moodle directory...'",
-            "rsync -avh --delete --exclude 'vendor' --exclude '.git' --exclude '.idea' ./ ../moodle-docker/moodle/plagiarism/originality/"
-        ]
-    }
+  "name": "inspera/moodle-originality-plugin",
+  "description": "Inspera Originality Plagiarism plugin for Moodle",
+  "require": {},
+  "scripts": {
+    "sync-moodle": [
+      "echo 'Syncing plugin to Moodle directory...'",
+      "rsync -avh --delete --exclude 'vendor' --exclude '.git' --exclude '.idea' ./ ../moodle-docker/moodle/plagiarism/originality/"
+    ],
+    "build": [
+      "echo 'Building Moodle compatible ZIP archive...'",
+      "git archive -o originality.zip --prefix=originality/ HEAD",
+      "echo 'Done: originality.zip created.'"
+    ]
+  }
 }
