@@ -121,7 +121,11 @@ class plagiarism_originality_api_client_test extends advanced_testcase {
         set_config('apitoken', 'payload_test_token', 'plagiarism_originality');
         set_config('apitoken_exp', time() + 3600, 'plagiarism_originality');
 
-        $settings = [ /* ... your full settings array ... */ ];
+        // Define settings, INCLUDING the new anonymous flag
+        $settings = [
+            'originality_enable_ai' => 1,
+            'anonymous_submissions' => true
+        ];
         $expectedAssignmentId = 'cmid-999';
 
         // --- Expectation ---
@@ -130,12 +134,19 @@ class plagiarism_originality_api_client_test extends advanced_testcase {
             ->method('_do_post_request')
             ->with(
                 $this->stringContains('/create/submission'),
-                $this->callback(function($payloadJson) use ($expectedAssignmentId /*, ... other expected vars */) {
-                    // Assert payload contents (same as before)
+                $this->callback(function($payloadJson) use ($expectedAssignmentId) {
                     $payload = json_decode($payloadJson, true);
                     $this->assertIsArray($payload);
+
+                    // Standard checks
                     $this->assertEquals($expectedAssignmentId, $payload['assignmentId']);
-                    // ... ALL your payload assertions ...
+                    $this->assertTrue($payload['enableAIDetection']);
+
+                    // Check that the anonymous flag made it into the JSON payload
+                    $this->assertArrayHasKey('anonymous_submissions', $payload);
+                    $this->assertTrue($payload['anonymous_submissions']);
+                    // ---------------------
+
                     return true;
                 }),
                 $this->callback(function($headers) { // Also check headers if needed

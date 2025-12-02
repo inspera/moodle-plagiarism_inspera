@@ -1100,6 +1100,30 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
     if (empty($plagiarismfile->externalid)) {
         $user = $DB->get_record('user', ['id' => $plagiarismfile->userid], '*', MUST_EXIST);
 
+        // --- BLIND MARKING CHECK ---
+        // 1. Default Author Name
+        $authorname = $user->firstname . ' ' . $user->lastname;
+        $isblind = false;
+
+        // 2. Check if this is an Assignment with Blind Marking enabled
+        try {
+            $cm = get_coursemodule_from_id('', $plagiarismfile->cm);
+
+            if ($cm && $cm->modname === 'assign') {
+                // Fetch the assignment settings (we only need the blindmarking column)
+                $assign = $DB->get_record('assign', ['id' => $cm->instance], 'id, blindmarking');
+
+                if ($assign && !empty($assign->blindmarking)) {
+                    // Blind marking is ON: Anonymize the author
+                    $authorname = (string) $user->id;
+                    $isblind = true;
+                }
+            }
+        } catch (\Exception $e) {
+            // Fallback: If cm lookup fails, stick to the default name or log it.
+            // keeping $authorname as fullname
+        }
+
         $filename = 'submission.html';
         $mimetype = 'text/html';
 
@@ -1120,10 +1144,15 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
         // Get originality settings for the course module.
         $settings = plagiarism_plugin_originality::get_settings_by_module($plagiarismfile->cm);
 
+        // Add the blind marking flag to the settings array to pass it to the API client
+        if ($isblind) {
+            $settings['anonymous_submissions'] = true;
+        }
+
         // Create metadata-only submission
         $submission = $client->create_submission(
             $filename,
-            $user->firstname . ' ' . $user->lastname,
+            $authorname,
             $user->email,
             $mimetype,
             $plagiarismfile->cm,

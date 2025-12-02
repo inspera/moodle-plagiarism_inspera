@@ -219,6 +219,12 @@ class api_client {
             'docType'       => $doctype,
             'assignmentId'  => $assignmentId,
         ];
+
+        // --- Add Anonymous Flag ---
+        if (!empty($settings['anonymous_submissions'])) {
+            $payload['anonymous_submissions'] = true;
+        }
+
         if (!empty($this->institutionid)) { // Use property directly
             $payload['institutionName'] = $this->institutionid;
         }
