@@ -24,10 +24,13 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$strplagiarism = get_string('originality', 'plagiarism_originality');
-$strplagiarismdefaults = get_string('defaults', 'plagiarism_originality');
+$strsettings = get_string('tab_settings', 'plagiarism_originality');
+$strdefaults = get_string('tab_defaults', 'plagiarism_originality');
+$strmanagement = get_string('tab_management', 'plagiarism_originality');
 
 $tabs = array();
-$tabs[] = new tabobject('originalitysettings', 'settings.php', $strplagiarism, $strplagiarism, false);
-$tabs[] = new tabobject('originalitydefaults', 'originality_defaults.php', $strplagiarismdefaults, $strplagiarismdefaults, false);
+$tabs[] = new tabobject('originalitysettings', 'settings.php', $strsettings, $strsettings, false);
+$tabs[] = new tabobject('originalitydefaults', 'originality_defaults.php', $strdefaults, $strdefaults, false);
+$tabs[] = new tabobject('originalitydebug', 'originality_debug.php', $strmanagement, $strmanagement, false);
+
 print_tabs(array($tabs), $currenttab);

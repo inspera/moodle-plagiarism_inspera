@@ -1305,3 +1305,34 @@ function plagiarism_originality_poll_file_status($plagiarismfile, api_client $cl
         mtrace("Originality API poll error for fileid {$plagiarismfile->id}: " . $e->getMessage());
     }
 }
+
+/**
+ * Returns list of available statuses for filtering.
+ * @return array
+ */
+function plagiarism_originality_statuscodes() {
+    return array(
+        'pending' => get_string('status_pending', 'plagiarism_originality'),
+        'report_requested' => get_string('status_report_requested', 'plagiarism_originality'),
+        'finished' => get_string('status_finished', 'plagiarism_originality'),
+        'error' => get_string('status_error', 'plagiarism_originality'),
+        'external_error' => get_string('status_external_error', 'plagiarism_originality'),
+    );
+}
+
+/**
+ * Helper function to warn admin if Cron not running correctly.
+ *
+ * @throws coding_exception
+ * @throws dml_exception
+ *
+ */
+function plagiarism_originality_checkcronhealth() {
+    global $DB;
+
+    $send_files = $DB->get_record('task_scheduled', array('component' => 'plagiarism_originality',
+        'classname' => '\plagiarism_originality\task\send_files'));
+    if (empty($send_files) || $send_files->lastruntime < time() - 3600 * 0.5) { // Check if run in last 30min.
+        \core\notification::add(get_string('cronwarningsendfiles', 'plagiarism_originality'), \core\notification::ERROR);
+    }
+}
