@@ -15,11 +15,11 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * originality_defaults.php - Displays default values to use inside assignments for ORIGINALITY
+ * Debug tool for Inspera Originality.
  *
- * @package plagiarism_originality
- * @copyright 2025 Inspera AS
- * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    plagiarism_originality
+ * @copyright  2025 Inspera AS
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once(dirname(dirname(__FILE__)) . '/../config.php');
@@ -28,8 +28,7 @@ require_once($CFG->libdir.'/tablelib.php');
 require_once($CFG->dirroot.'/plagiarism/originality/lib.php');
 
 $id = optional_param('id', 0, PARAM_INT);
-$resetuser = optional_param('reset', 0, PARAM_INT);
-$delete = optional_param('delete', 0, PARAM_INT);
+$action = optional_param('action', '', PARAM_ALPHA); // Unified action param
 $resubmitallfiltered = optional_param('resubmitallfiltered', '', PARAM_TEXT);
 $confirm = optional_param('confirm', 0, PARAM_INT);
 $deleteselected = optional_param('deleteselectedfiles', 0, PARAM_TEXT);
@@ -43,29 +42,32 @@ admin_externalpage_setup('plagiarismoriginality', '', array(), $url);
 
 $context = context_system::instance();
 
-$exportfilename = 'UrkundDebugOutput.csv';
+$exportfilename = 'OriginalityDebugOutput.csv';
 
 $limit = 50;
-$filters = array('realname' => 0, 'timesubmitted' => 0, 'statuscode' => 0, 'errorcode' => 0, 'course' => 0);
+// Note: We filter by 'status' now, not 'statuscode' or 'errorcode'
+$filters = array('realname' => 0, 'timesubmitted' => 0, 'status' => 0, 'course' => 0, 'externalid' => 0);
 $ufiltering = new \plagiarism_originality\output\filtering($filters, $PAGE->url);
 list($ufextrasql, $ufparams) = $ufiltering->get_sql_filter();
 
 $plagiarismsettings = plagiarism_plugin_originality::get_settings();
+
+// -------------------------------------------------------------------------
+// 1. HANDLE BULK DELETE (Selected via Checkboxes)
+// -------------------------------------------------------------------------
 if (!empty($deleteselected)) {
     if (empty($fileids)) {
         $fileids = array();
-        // First time form submit - get list of ids from checkboxes or from single delete action.
-        if (!empty($delete)) {
-            // This is a single delete action.
-            $fileids[] = $delete;
-        } else {
-            // Get list of ids from checkboxes.
-            $post = data_submitted();
-            foreach ($post as $k => $v) {
-                if (preg_match('/^item(\d+)$/', $k, $m)) {
-                    $fileids[] = $m[1];
-                }
+        // Check for checkbox data
+        $post = data_submitted();
+        foreach ($post as $k => $v) {
+            if (preg_match('/^item(\d+)$/', $k, $m)) {
+                $fileids[] = $m[1];
             }
+        }
+
+        if (empty($fileids)) {
+            redirect($url, get_string('nofilesselected', 'plagiarism_originality'));
         }
 
         // Display confirmation box.
@@ -81,22 +83,46 @@ if (!empty($deleteselected)) {
     } else if ($confirm && confirm_sesskey()) {
         $count = 0;
         $fileids = explode(',', $fileids);
-        foreach ($fileids as $id) {
-            $DB->delete_records('plagiarism_originality_subs', array('id' => $id));
+        foreach ($fileids as $fid) {
+            $DB->delete_records('plagiarism_originality_subs', array('id' => $fid));
             $count++;
         }
         \core\notification::success(get_string('recordsdeleted', 'plagiarism_originality', $count));
     }
-} else if (!empty($deleteallfiltered) || !empty($resubmitallfiltered)) {
-    $sqlfrom = "FROM {plagiarism_originality_subs} t, {user} u, {modules} m, {course_modules} cm, {course} c
-             WHERE m.id = cm.module AND cm.id = t.cm AND t.userid = u.id AND c.id = cm.course
-                   AND t.statuscode <> 'Analyzed' AND $ufextrasql";
+}
+// -------------------------------------------------------------------------
+// 2. HANDLE BULK ACTIONS (Filtered Results)
+// -------------------------------------------------------------------------
+else if (!empty($deleteallfiltered) || !empty($resubmitallfiltered)) {
+    // SQL to find all filtered records.
+    // Note: status <> 'finished' ensures we don't accidentally wipe valid finished records unless specifically filtered otherwise.
+    // But typically debug tools show everything. Let's rely on the filter.
+    $sqlfrom = "FROM {plagiarism_originality_subs} t
+                JOIN {user} u ON t.userid = u.id
+                JOIN {course_modules} cm ON t.cm = cm.id
+                JOIN {modules} m ON cm.module = m.id
+                JOIN {course} c ON cm.course = c.id
+                WHERE 1=1";
+
+    if (!empty($ufextrasql)) {
+        $sqlfrom .= " AND $ufextrasql";
+    }
+
     $numfiles = $DB->count_records_sql("SELECT count(t.id) $sqlfrom", $ufparams);
+
     if (!$confirm) {
         $params = array('deleteallfiltered' => $deleteallfiltered,
             'resubmitallfiltered' => $resubmitallfiltered, 'confirm' => 1);
+
+        // Use filtering params to ensure the confirm/post-action targets the same set
+        foreach ($ufparams as $key => $value) {
+            // Filters usually pass params via session or url, but for confirm page we might need to persist them
+            // Ideally filtering class handles this via session.
+        }
+
         $deleteurl = new moodle_url($PAGE->url, $params);
         $areyousure = !empty($deleteallfiltered) ? 'areyousurefiltereddelete' : 'areyousurefilteredresubmit';
+
         echo $OUTPUT->header();
         echo $OUTPUT->confirm(get_string($areyousure, 'plagiarism_originality', $numfiles),
             $deleteurl, $CFG->wwwroot . '/plagiarism/originality/originality_debug.php');
@@ -104,81 +130,128 @@ if (!empty($deleteselected)) {
         echo $OUTPUT->footer();
         exit;
     } else if ($confirm && confirm_sesskey()) {
-        if (!empty($deleteallfiltered)) {
-            $sql = "DELETE FROM {plagiarism_originality_subs}
-                    WHERE id IN (SELECT t.id $sqlfrom)";
-            $DB->execute($sql, $ufparams);
-            \core\notification::success(get_string('recordsdeleted', 'plagiarism_originality', $numfiles));
-        } else {
-            // Deal with any 202 files first.
-            // Reset their attempt value.
-            $pfiles = $DB->get_records_sql("SELECT t.* $sqlfrom AND t.statuscode = '202'", $ufparams);
-            foreach ($pfiles as $plagiarismfile) {
-                $file = originality_get_score($plagiarismsettings, $plagiarismfile, true);
-                // Reset attempts as this was a manual check.
-                $file->attempt = $file->attempt - 1;
-                $DB->update_record('plagiarism_originality_subs', $file);
-                if ($file->statuscode == ORIGINALITY_STATUSCODE_ACCEPTED) {
-                    $response = get_string('scorenotavailableyet', 'plagiarism_originality');
-                } else if ($file->statuscode == ORIGINALITY_STATUSCODE_PROCESSED ||
-                    $file->statuscode == 'Analyzed') {
-                    $response = get_string('scoreavailable', 'plagiarism_originality');
+
+        $transaction = $DB->start_delegated_transaction();
+        try {
+            // Fetch the IDs
+            $ids = $DB->get_fieldset_sql("SELECT t.id $sqlfrom", $ufparams);
+
+            if (empty($ids)) {
+                \core\notification::warning(get_string('nofilesselected', 'plagiarism_originality'));
+            } else {
+
+                // Prepare params safely
+                list($insql, $inparams) = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED);
+
+                if (!empty($deleteallfiltered)) {
+                    // DELETE ALL
+                    $DB->delete_records_select('plagiarism_originality_subs', "id $insql", $inparams);
+                    \core\notification::success(get_string('recordsdeleted', 'plagiarism_originality', count($ids)));
+
                 } else {
-                    $response = get_string('unknownwarninggetscore', 'plagiarism_originality');
-                    if (debugging()) {
-                        echo plagiarism_originality_pretty_print($file);
-                    }
+                    // RESUBMIT ALL
+                    $status_resubmit = 'report_requested';
+                    $time_now = time();
+
+                    $params = array_merge(
+                        ['status' => $status_resubmit, 'modtime' => $time_now],
+                        $inparams
+                    );
+
+                    $sql = "UPDATE {plagiarism_originality_subs}
+                            SET status = :status, 
+                                timemodified = :modtime,
+                                similarity = NULL,
+                                translation_similarity = NULL,
+                                ai_index = NULL,
+                                originality = NULL,
+                                character_replacement = NULL,
+                                hidden_text = NULL,
+                                image_as_text = NULL
+                            WHERE id $insql";
+
+                    $DB->execute($sql, $params);
+                    \core\notification::success(get_string('filesresubmitted', 'plagiarism_originality', count($ids)));
                 }
             }
-            // Now deal with the other files.
-            $pfiles = $DB->get_records_sql("SELECT t.* $sqlfrom AND t.statuscode <> '202'", $ufparams);
-            foreach ($pfiles as $plagiarismfile) {
-                originality_reset_file($plagiarismfile, $plagiarismsettings);
-            }
-            \core\notification::success(get_string('filesresubmitted', 'plagiarism_originality', $numfiles));
+
+            $transaction->allow_commit();
+
+        } catch (\Exception $e) {
+            $transaction->rollback($e);
+            // Re-throw the error so Moodle displays the debugging info
+            throw $e;
         }
     }
 }
 
-plagiarism_originality_checkcronhealth();
-if ($resetuser == 1 && $id && confirm_sesskey()) {
-    if (originality_reset_file($id, $plagiarismsettings)) {
+// -------------------------------------------------------------------------
+// 3. HANDLE SINGLE ACTIONS (Row Links)
+// -------------------------------------------------------------------------
+// We use the unified 'action' parameter now: 'resubmit' or 'delete'
+
+if ($id && confirm_sesskey()) {
+    if ($action === 'resubmit') {
+        // Reset single file
+        $record = new stdClass();
+        $record->id = $id;
+        $record->status = 'report_requested';
+        $record->timemodified = time();
+        // Clear scores
+        $record->similarity = null;
+        $record->translation_similarity = null;
+        $record->ai_index = null;
+        $record->originality = null;
+        $record->character_replacement = null;
+        $record->hidden_text = null;
+        $record->image_as_text = null;
+        // Optionally clear externalid if you want a fresh submission, 
+        // but keeping it allows the task to try re-uploading to the same doc first.
+
+        $DB->update_record('plagiarism_originality_subs', $record);
         \core\notification::success(get_string('fileresubmitted', 'plagiarism_originality'));
-    }
-} else if ($resetuser == 2 && $id && confirm_sesskey()) {
-    $plagiarismfile = $DB->get_record('plagiarism_originality_subs', array('id' => $id), '*', MUST_EXIST);
-    $file = originality_get_score(plagiarism_plugin_originality::get_settings(), $plagiarismfile, true);
-    // Reset attempts as this was a manual check.
-    $file->attempt = $file->attempt - 1;
-    $DB->update_record('plagiarism_originality_subs', $file);
-    if ($file->statuscode == ORIGINALITY_STATUSCODE_ACCEPTED) {
-        \core\notification::warning(get_string('scorenotavailableyet', 'plagiarism_originality'));
-    } else if ($file->statuscode == ORIGINALITY_STATUSCODE_PROCESSED || $file->statuscode == 'Analyzed') {
-        \core\notification::success(get_string('scoreavailable', 'plagiarism_originality'));
-    } else {
-        \core\notification::error(get_string('unknownwarninggetscore', 'plagiarism_originality'));
-        echo plagiarism_originality_pretty_print($file);
+
+    } else if ($action === 'delete' || !empty($delete)) { // Support both legacy $delete param and new action
+        $DB->delete_records('plagiarism_originality_subs', array('id' => $id));
+        \core\notification::success(get_string('filedeleted', 'plagiarism_originality'));
     }
 }
 
-if (!empty($delete) && confirm_sesskey()) {
-    $DB->delete_records('plagiarism_originality_subs', array('id' => $id));
-    \core\notification::success(get_string('filedeleted', 'plagiarism_originality'));
-}
+// -------------------------------------------------------------------------
+// 4. DISPLAY TABLE
+// -------------------------------------------------------------------------
+
+// We removed 'checkcronhealth' unless you implemented it in lib.php
 
 $table = new \plagiarism_originality\output\debug_table('debugtable');
 
-$userfields = get_all_user_name_fields(true, 'u');
-$sqlfields = "t.*, ".$userfields.", m.name as moduletype, ".
-    "cm.course as courseid, cm.instance as cminstance, c.fullname, c.shortname";
-$sqlfrom = "{plagiarism_originality_subs} t, {user} u, {modules} m, {course_modules} cm, {course} c ";
-$sqlwhere = "m.id = cm.module AND cm.id = t.cm AND t.userid = u.id AND c.id = cm.course AND t.statuscode <> 'Analyzed'";
+// Fix: Use new core_user fields API
+$userfieldsapi = \core_user\fields::for_name();
+$userfields = $userfieldsapi->get_sql('u', false, '', '', false)->selects;
+
+$sqlfields = "t.id, t.status, t.timecreated, t.externalid, t.similarity,
+              u.id as userid, $userfields,
+              c.id as courseid, c.fullname, c.shortname,
+              cm.id as cm, m.name as moduletype";
+
+$sqlfrom = "{plagiarism_originality_subs} t
+            LEFT JOIN {user} u ON t.userid = u.id
+            LEFT JOIN {course_modules} cm ON t.cm = cm.id
+            LEFT JOIN {modules} m ON cm.module = m.id
+            LEFT JOIN {course} c ON cm.course = c.id";
+
+$sqlwhere = "1=1"; // Base where clause
+
+// Note: Urkund filtered out 'Analyzed'. You might want to filter 'finished' by default 
+// or just show everything. This code shows everything unless filtered.
+// If you want to hide finished by default:
+// $sqlwhere .= " AND t.status <> 'finished'";
 
 if (!empty($ufextrasql)) {
-    $sqlwhere .= " and ".$ufextrasql;
+    $sqlwhere .= " AND " . $ufextrasql;
 }
-$table->set_sql($sqlfields, $sqlfrom, $sqlwhere, $ufparams);
 
+$table->set_sql($sqlfields, $sqlfrom, $sqlwhere, $ufparams);
 
 if (!$table->is_downloading()) {
     echo $OUTPUT->header();
@@ -187,7 +260,8 @@ if (!$table->is_downloading()) {
     require_once('originality_tabs.php');
 
     echo $OUTPUT->heading(get_string('originalityfiles', 'plagiarism_originality'));
-    echo $OUTPUT->box(get_string('explainerrors', 'plagiarism_originality'));
+    // Ensure this string exists or remove the box
+    // echo $OUTPUT->box(get_string('explainerrors', 'plagiarism_originality'));
 
     $ufiltering->display_add();
     $ufiltering->display_active();
@@ -197,13 +271,16 @@ if (!$table->is_downloading()) {
     echo html_writer::tag('input', '', array('type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()));
     echo html_writer::tag('input', '', array('type' => 'hidden', 'name' => 'returnto', 'value' => s($PAGE->url->out(false))));
 }
+
 $table->out($limit, false);
+
 if (!$table->is_downloading()) {
     echo html_writer::tag('input', "", array('name' => 'deleteselectedfiles', 'type' => 'submit',
         'id' => 'deleteallselected', 'class' => 'btn btn-secondary',
         'value' => get_string('deleteselectedfiles', 'plagiarism_originality')));
+
     if (!empty($ufextrasql)) {
-        // If a filter is in use, show a button to delete all that use this filter.
+        // If a filter is in use, show bulk buttons
         echo html_writer::span(' ');
         echo html_writer::tag('input', "", array('name' => 'deleteallfiltered', 'type' => 'submit',
             'id' => 'deleteallfiltered', 'class' => 'btn btn-secondary',

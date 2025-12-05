@@ -26,7 +26,9 @@ $string['pluginname'] = 'Originality plagiarism plugin';
 
 // === Plugin settings ===
 $string['originality'] = 'Inspera Originality settings';
-$string['defaults'] = 'Plugin defaults';
+$string['tab_settings'] = 'Settings';
+$string['tab_defaults'] = 'Defaults';
+$string['tab_management'] = 'Submissions management';
 $string['baseurl'] = 'Base API URL';
 $string['baseurl_help'] = 'The root URL of the plagiarism detection API (e.g. https://api.plagiarism.com/v1).';
 $string['clientid'] = 'Client ID';
@@ -103,3 +105,40 @@ $string['reportlinkprefix'] = 'Inspera Originality Report';
 $string['reportlinkscore'] = '{$a}%';
 $string['statuspending'] = 'Inspera Originality Report: Pending...';
 $string['statuserror'] = 'Inspera Originality Report: An error occurred.';
+
+$string['courseshortname'] = 'Course shortname';
+$string['originalitydebug'] = 'Submission Management';
+$string['errorcode'] = 'Error code';
+$string['errorcode_3'] = 'Error: Document too short';
+$string['errorcode_4'] = 'Error: Deadline exceeded';
+$string['errorcode_101'] = 'Error: Document cap reached';
+$string['errorcode_5000'] = 'Error: Report generation failed';
+$string['errorcode_7001'] = 'Error: Failed to index';
+$string['errorcode_unknown'] = 'Error: {$a}';
+
+$string['status_pending'] = 'Pending';
+$string['status_report_requested'] = 'Report requested';
+$string['status_finished'] = 'Finished';
+$string['status_error'] = 'Error';
+$string['status_external_error'] = 'External Error';
+
+$string['id'] = 'ID';
+$string['identifier'] = 'Identifier';
+$string['attempts'] = 'Attempts made';
+$string['timecreated'] = 'Time created';
+$string['resubmit'] = 'Resubmit';
+$string['delete'] = 'Delete';
+$string['getscore'] = 'Get Score';
+$string['cronwarningsendfiles'] = 'The Inspera Originality plugin send files task has not been run for at least 30 min - Cron must be configured to allow Inspera Originality to function correctly.';
+$string['originalityfiles'] = 'Originality Files';
+$string['fileresubmitted'] = 'File queued for resubmission.';
+$string['filedeleted'] = 'File deleted.';
+$string['deleteselectedfiles'] = 'Delete selected files';
+$string['deleteallfiltered'] = 'Delete all filtered files';
+$string['resubmitallfiltered'] = 'Resubmit all filtered files';
+$string['areyousurebulk'] = 'Are you sure you want to delete {$a} selected files?';
+$string['areyousurefiltereddelete'] = 'Are you sure you want to delete ALL {$a} files currently listed?';
+$string['areyousurefilteredresubmit'] = 'Are you sure you want to resubmit ALL {$a} files currently listed?';
+$string['nofilesselected'] = 'No files were selected.';
+$string['recordsdeleted'] = 'No files were selected.';
+$string['filesresubmitted'] = 'Files queued for resubmission.';
