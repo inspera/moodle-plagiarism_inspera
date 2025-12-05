@@ -139,3 +139,5 @@ $string['areyousurebulk'] = 'Are you sure you want to delete {$a} selected files
 $string['areyousurefiltereddelete'] = 'Are you sure you want to delete ALL {$a} files currently listed?';
 $string['areyousurefilteredresubmit'] = 'Are you sure you want to resubmit ALL {$a} files currently listed?';
 $string['nofilesselected'] = 'No files were selected.';
+$string['recordsdeleted'] = 'No files were selected.';
+$string['filesresubmitted'] = 'Files queued for resubmission.';

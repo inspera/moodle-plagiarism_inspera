@@ -130,34 +130,57 @@ else if (!empty($deleteallfiltered) || !empty($resubmitallfiltered)) {
         echo $OUTPUT->footer();
         exit;
     } else if ($confirm && confirm_sesskey()) {
-        if (!empty($deleteallfiltered)) {
-            // DELETE ALL
-            $sql = "DELETE FROM {plagiarism_originality_subs}
-                    WHERE id IN (SELECT t.id $sqlfrom)";
-            $DB->execute($sql, $ufparams);
-            \core\notification::success(get_string('recordsdeleted', 'plagiarism_originality', $numfiles));
 
-        } else {
-            // RESUBMIT ALL
-            $status_resubmit = 'report_requested';
-            $time_now = time();
+        $transaction = $DB->start_delegated_transaction();
+        try {
+            // Fetch the IDs
+            $ids = $DB->get_fieldset_sql("SELECT t.id $sqlfrom", $ufparams);
 
-            $sql = "UPDATE {plagiarism_originality_subs}
-            SET status = ?, 
-                timemodified = ?,
-                similarity = NULL,
-                translation_similarity = NULL,
-                ai_index = NULL,
-                originality = NULL,
-                character_replacement = NULL,
-                hidden_text = NULL,
-                image_as_text = NULL
-            WHERE id IN (SELECT t.id $sqlfrom)";
+            if (empty($ids)) {
+                \core\notification::warning(get_string('nofilesselected', 'plagiarism_originality'));
+            } else {
 
-            $params = array_merge([$status_resubmit, $time_now], $ufparams);
-            $DB->execute($sql, $params);
+                // Prepare params safely
+                list($insql, $inparams) = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED);
 
-            \core\notification::success(get_string('filesresubmitted', 'plagiarism_originality', $numfiles));
+                if (!empty($deleteallfiltered)) {
+                    // DELETE ALL
+                    $DB->delete_records_select('plagiarism_originality_subs', "id $insql", $inparams);
+                    \core\notification::success(get_string('recordsdeleted', 'plagiarism_originality', count($ids)));
+
+                } else {
+                    // RESUBMIT ALL
+                    $status_resubmit = 'report_requested';
+                    $time_now = time();
+
+                    $params = array_merge(
+                        ['status' => $status_resubmit, 'modtime' => $time_now],
+                        $inparams
+                    );
+
+                    $sql = "UPDATE {plagiarism_originality_subs}
+                            SET status = :status, 
+                                timemodified = :modtime,
+                                similarity = NULL,
+                                translation_similarity = NULL,
+                                ai_index = NULL,
+                                originality = NULL,
+                                character_replacement = NULL,
+                                hidden_text = NULL,
+                                image_as_text = NULL
+                            WHERE id $insql";
+
+                    $DB->execute($sql, $params);
+                    \core\notification::success(get_string('filesresubmitted', 'plagiarism_originality', count($ids)));
+                }
+            }
+
+            $transaction->allow_commit();
+
+        } catch (\Exception $e) {
+            $transaction->rollback($e);
+            // Re-throw the error so Moodle displays the debugging info
+            throw $e;
         }
     }
 }
