@@ -141,23 +141,24 @@ class debug_table extends \table_sql {
      * Display Activity Name.
      */
     public function col_activity($row) {
-        // NOTE: The SQL query must select 'cm.id as cm' and 'm.name as moduletype'
-        if ($this->is_downloading()) {
-            return $row->moduletype . ' ' . $row->cm;
-        }
-
-        // Fix: Use $this->activitynames
-        if (!empty($this->activitynames[$row->cm])) {
+        // 1. Check local cache (Avoids re-querying the same assignment)
+        if (isset($this->activitynames[$row->cm])) {
             $coursemodulename = $this->activitynames[$row->cm];
         } else {
-            // Note: This relies on the SQL joining course_modules
-            $coursemodule = get_coursemodule_from_id($row->moduletype, $row->cm);
-            if ($coursemodule) {
+            // 2. Fetch from DB (Only happens once per unique assignment ID)
+            // We use get_coursemodule_from_id which is relatively efficient
+            try {
+                $coursemodule = get_coursemodule_from_id($row->moduletype, $row->cm);
                 $coursemodulename = $coursemodule->name;
-                $this->activitynames[$row->cm] = $coursemodule->name;
-            } else {
-                return '-';
+            } catch (\Exception $e) {
+                $coursemodulename = '-';
             }
+            // Save to cache
+            $this->activitynames[$row->cm] = $coursemodulename;
+        }
+
+        if ($coursemodulename === '-') {
+            return '-';
         }
 
         $cmurl = new moodle_url('/mod/'.$row->moduletype.'/view.php', array('id' => $row->cm));
