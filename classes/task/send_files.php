@@ -62,8 +62,14 @@ class send_files extends scheduled_task {
         // Step 1: Process new files (report_requested)
         $newfiles = $DB->get_recordset('plagiarism_originality_subs', ['status' => 'report_requested']);
         foreach ($newfiles as $file) {
-            mtrace("Processing fileid: {$file->id} (create submission + upload)");
+            // Check if we should wait for assignment due date before processing
+            if ($this->should_wait_for_due_date($file)) {
+                mtrace("Skipping fileid: {$file->id} - waiting for assignment due date");
+                unset($file);
+                continue;
+            }
 
+            mtrace("Processing fileid: {$file->id} (create submission + upload)");
             plagiarism_originality_send_file($file, $client);
 
             // allow memory cleanup
@@ -75,11 +81,77 @@ class send_files extends scheduled_task {
         $pendingfiles = $DB->get_recordset('plagiarism_originality_subs', ['status' => 'pending']);
         foreach ($pendingfiles as $file) {
             mtrace("Polling fileid: {$file->id} (check status)");
-
             plagiarism_originality_poll_file_status($file, $client);
-
             unset($file);
         }
         $pendingfiles->close();
+    }
+
+    /**
+     * Checks if we should wait for the assignment due date before processing a file.
+     *
+     * @param \stdClass $file The plagiarism submission record
+     * @return bool True if we should wait, false if we should process now
+     */
+    private function should_wait_for_due_date($file): bool {
+        global $DB;
+
+        // Static cache to store assignment details during this cron execution.
+        static $assignmentcache = [];
+
+        // Check cache first
+        if (array_key_exists($file->cm, $assignmentcache)) {
+            $assignconfig = $assignmentcache[$file->cm];
+        } else {
+            try {
+                // Use get_coursemodule_from_id for efficient lookup
+                $cm = get_coursemodule_from_id('assign', $file->cm, 0, false, MUST_EXIST);
+
+                // Fetch only required assignment fields
+                $assignment = $DB->get_record('assign',
+                    ['id' => $cm->instance],
+                    'id, duedate, submissiondrafts',
+                    MUST_EXIST
+                );
+
+                $assignmentcache[$file->cm] = $assignment;
+                $assignconfig = $assignment;
+
+            } catch (\dml_exception $e) {
+                // Module not found or not an assignment - cache and process immediately
+                mtrace("Warning: Could not load assignment for cm {$file->cm}: {$e->getMessage()}");
+                $assignmentcache[$file->cm] = false;
+                return false;
+            } catch (\moodle_exception $e) {
+                mtrace("Warning: Course module {$file->cm} not found or invalid");
+                $assignmentcache[$file->cm] = false;
+                return false;
+            }
+        }
+
+        // If lookup failed, process immediately
+        if ($assignconfig === false) {
+            return false;
+        }
+
+        // If submissiondrafts is null, 0, or empty - wait for due date
+        // If submissiondrafts is 1 - process immediately (submit button required)
+        if (empty($assignconfig->submissiondrafts)) {
+            // No due date set - process immediately
+            if (empty($assignconfig->duedate)) {
+                return false;
+            }
+
+            // Check if due date has passed
+            if (time() < $assignconfig->duedate) {
+                // Optional: verbose logging for debugging
+                if (debugging('', DEBUG_DEVELOPER)) {
+                    mtrace("Waiting for due date: " . userdate($assignconfig->duedate) . " for fileid: {$file->id}");
+                }
+                return true;
+            }
+        }
+
+        return false;
     }
 }

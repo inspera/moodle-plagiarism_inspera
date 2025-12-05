@@ -960,12 +960,13 @@ function plagiarism_originality_get_plagiarism_file($cmid, $userid, $file, $rela
 /**
  * Queues a specific file for processing by the plagiarism API.
  *
- * This creates a record in the 'plagiarism_originality_subs' table
- * for the scheduled task to pick up.
+ * This creates or updates a record in the 'plagiarism_originality_subs' table
+ * for the scheduled task to pick up. If a record already exists for this file,
+ * it will be updated instead of creating a duplicate.
  *
  * @param int $cmid The course module ID.
  * @param int $userid The ID of the user who submitted.
- * @param \stored_file $file The Moodle stored_file object to process.
+ * @param \stored_file|stdClass $file The Moodle stored_file object or temp file object to process.
  * @param int|null $relateduserid The user ID of the person submitting on behalf of (optional).
  * @return void
  */
@@ -979,8 +980,12 @@ function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid
     // Determine filename based on file type
     if ($file instanceof \stored_file) {
         $filename = $file->get_filename();
+        $storedfileid = $file->get_id();
+        $identifier = null;
     } else if (is_object($file) && isset($file->filepath)) {
         $filename = basename($file->filepath);
+        $storedfileid = null;
+        $identifier = $file->filepath;
     } else {
         // Skip if we can't determine filename
         return;
@@ -1013,30 +1018,134 @@ function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid
         }
     }
 
-    // File is valid - proceed with queueing
-    $record = new \stdClass();
-    $record->cm = $cmid;
-    $record->userid = $userid;
-    $record->relateduserid = $relateduserid;
-    $record->status = 'report_requested';
-    $record->timecreated = time();
+    // Check if a record already exists for this file/online text
+    $existingrecord = null;
 
-
-    //TODO: before inserting, we should check if the file is already in the queue.
-    //eventually do an update instead of insert.
-    //check if file is valid file, use plagiarism_originality_default_allowed_file_types
-    // Check to see if configured "originality_allowallfile" to only send certain file-types and if this file matches.
-
-    if ($file instanceof \stored_file) {
-        $record->storedfileid = $file->get_id(); // store Moodle file id
-        $record->identifier = null; // No temp file
-    } else if (is_object($file) && isset($file->filepath) && pathinfo($file->filepath, PATHINFO_EXTENSION) === 'html') {
-        // Online text submission - store temp file path
-        $record->storedfileid = null;
-        $record->identifier = $file->filepath;
+    if ($storedfileid) {
+        // For regular files, check by storedfileid
+        $existingrecord = $DB->get_record('plagiarism_originality_subs', [
+            'cm' => $cmid,
+            'userid' => $userid,
+            'storedfileid' => $storedfileid
+        ]);
+    } else if ($identifier) {
+        // For online text, check by identifier (or if no identifier, just check for null storedfileid)
+        // We want to find the latest online text submission for this user in this cm
+        $sql = "SELECT * FROM {plagiarism_originality_subs}
+                WHERE cm = ? AND userid = ? AND storedfileid IS NULL
+                ORDER BY timecreated DESC";
+        $existingrecord = $DB->get_record_sql($sql, [$cmid, $userid], IGNORE_MULTIPLE);
     }
 
-    $DB->insert_record('plagiarism_originality_subs', $record);
+    $currenttime = time();
+
+    if ($existingrecord) {
+        // Record exists - update it
+
+        // If the existing record has already been sent to the API (has externalid),
+        // and the file content has changed, we need to handle this carefully
+        if (!empty($existingrecord->externalid)) {
+            // File was already submitted to API - we need to create a NEW record
+            // because we can't update a submission that's already been sent
+            // But first, mark the old one as superseded
+            if ($existingrecord->status === 'report_requested' || $existingrecord->status === 'pending') {
+                $existingrecord->status = 'superseded';
+                $existingrecord->timemodified = $currenttime;
+                $DB->update_record('plagiarism_originality_subs', $existingrecord);
+            }
+
+            // Create new record
+            $record = new \stdClass();
+            $record->cm = $cmid;
+            $record->userid = $userid;
+            $record->relateduserid = $relateduserid;
+            $record->storedfileid = $storedfileid;
+            $record->identifier = $identifier;
+            $record->status = 'report_requested';
+            $record->timecreated = $currenttime;
+            $record->timemodified = $currenttime;
+
+            $DB->insert_record('plagiarism_originality_subs', $record);
+
+        } else {
+            // Record exists but hasn't been sent to API yet - just update it
+            $existingrecord->storedfileid = $storedfileid;
+            $existingrecord->identifier = $identifier;
+            $existingrecord->relateduserid = $relateduserid;
+            $existingrecord->status = 'report_requested';
+            $existingrecord->timemodified = $currenttime;
+            $DB->update_record('plagiarism_originality_subs', $existingrecord);
+        }
+    } else {
+        // No existing record - create new one
+        $record = new \stdClass();
+        $record->cm = $cmid;
+        $record->userid = $userid;
+        $record->relateduserid = $relateduserid;
+        $record->storedfileid = $storedfileid;
+        $record->identifier = $identifier;
+        $record->status = 'report_requested';
+        $record->timecreated = $currenttime;
+        $record->timemodified = $currenttime;
+
+        $DB->insert_record('plagiarism_originality_subs', $record);
+    }
+}
+
+/**
+ * Cleans up orphaned plagiarism records where the associated file has been deleted.
+ *
+ * This should be called periodically (e.g., from a scheduled task) to remove
+ * records for files that no longer exist in Moodle's file storage.
+ *
+ * @return int Number of records cleaned up
+ */
+function plagiarism_originality_cleanup_orphaned_records() {
+    global $DB;
+
+    $fs = get_file_storage();
+    $cleaned = 0;
+
+    // Get all records with storedfileid that haven't been sent to API yet
+    $records = $DB->get_recordset_select('plagiarism_originality_subs',
+        'storedfileid IS NOT NULL AND (status = ? OR status = ?)',
+        ['report_requested', 'pending']);
+
+    foreach ($records as $record) {
+        // Check if file still exists
+        $file = $fs->get_file_by_id($record->storedfileid);
+        if (!$file) {
+            // File was deleted - remove the record if it hasn't been sent to API
+            if (empty($record->externalid)) {
+                $DB->delete_records('plagiarism_originality_subs', ['id' => $record->id]);
+                $cleaned++;
+            } else {
+                // Mark as error since file is gone but was already submitted
+                $record->status = 'error';
+                $DB->update_record('plagiarism_originality_subs', $record);
+            }
+        }
+    }
+    $records->close();
+
+    // Clean up temporary files for online text that are too old (> 7 days)
+    $oldtime = time() - (7 * 24 * 60 * 60);
+    $oldrecords = $DB->get_recordset_select('plagiarism_originality_subs',
+        'identifier IS NOT NULL AND timecreated < ? AND (status = ? OR status = ? OR status = ?)',
+        [$oldtime, 'report_requested', 'error', 'superseded']);
+
+    foreach ($oldrecords as $record) {
+        if (!empty($record->identifier) && file_exists($record->identifier)) {
+            unlink($record->identifier);
+        }
+        if (empty($record->externalid)) {
+            $DB->delete_records('plagiarism_originality_subs', ['id' => $record->id]);
+            $cleaned++;
+        }
+    }
+    $oldrecords->close();
+
+    return $cleaned;
 }
 
 /**

@@ -33,5 +33,14 @@ $tasks = array(
         'day' => '*',
         'dayofweek' => '*',
         'month' => '*'
+    ),
+    array(
+        'classname' => 'plagiarism_originality\task\delete_orphaned_files',
+        'blocking' => 0,
+        'minute' => '0',
+        'hour' => '*/12',
+        'day' => '*',
+        'dayofweek' => '*',
+        'month' => '*'
     )
 );

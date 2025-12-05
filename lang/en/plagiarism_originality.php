@@ -88,7 +88,8 @@ $string['restrictcontenttext'] = 'Only submit in-line text';
 $string['savedconfigsuccess'] = 'Plagiarism Settings Saved';
 
 
-$string['sendfiles'] = 'Inspera Originality send queued files';;
+$string['sendfiles'] = 'Inspera Originality send queued files';
+$string['deleteorphanedfiles'] = 'Delete orphaned originality records';
 $string['status'] = 'Originality status';
 $string['similarity'] = 'Similarity';
 $string['translation_similarity'] = 'Translation similarity';
