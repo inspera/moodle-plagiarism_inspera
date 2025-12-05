@@ -152,10 +152,25 @@ class plagiarism_originality_defaults_form extends moodleform {
             }
 
             $mform->addElement('select', 'originality_advanceditems_'.$sm,
-                get_string('originality_advanceditems', 'plagiarism_originality'), $items);
+                get_string('originality_advanceditems', 'plagiarism_originality'), $items,
+                array('size' => 5));
             $mform->getElement('originality_advanceditems_'.$sm)->setMultiple(true);
             $mform->addHelpButton('originality_advanceditems_'.$sm, 'originality_advanceditems', 'plagiarism_originality');
             $mform->setType('originality_advanceditems_'.$sm, PARAM_TAGLIST);
+
+            $mform->addElement('select', 'originality_hiddenitems_'.$sm,
+                get_string('originality_hiddenitems', 'plagiarism_originality'), $items,
+                array('size' => 5));
+            $mform->getElement('originality_hiddenitems_'.$sm)->setMultiple(true);
+            $mform->setType('originality_hiddenitems_'.$sm, PARAM_TAGLIST);
+            $mform->addHelpButton('originality_hiddenitems_'.$sm, 'originality_hiddenitems', 'plagiarism_originality');
+
+            $mform->addElement('select', 'originality_lockeditems_'.$sm,
+                get_string('originality_lockeditems', 'plagiarism_originality'), $items,
+                array('size' => 5));
+            $mform->getElement('originality_lockeditems_'.$sm)->setMultiple(true);
+            $mform->setType('originality_lockeditems_'.$sm, PARAM_TAGLIST);
+            $mform->addHelpButton('originality_lockeditems_'.$sm, 'originality_lockeditems', 'plagiarism_originality');
 
             if ($sm == 'assign') {
                 $mform->addElement('select', 'originality_draft_submit_'.$sm,

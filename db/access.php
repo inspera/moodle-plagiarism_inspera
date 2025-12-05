@@ -48,14 +48,6 @@ $capabilities = array(
          'teacher' => CAP_ALLOW,
          'manager' => CAP_ALLOW)
     ),
-    'plagiarism/originality:advancedsettings' => array(
-        'captype' => 'write',
-        'contextlevel' => CONTEXT_COURSE,
-         'legacy' => array(
-         'editingteacher' => CAP_ALLOW,
-         'teacher' => CAP_ALLOW,
-         'manager' => CAP_ALLOW)
-    ),
     'plagiarism/originality:manage_locked_settings' => array(
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
