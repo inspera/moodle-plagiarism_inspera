@@ -656,7 +656,7 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         // HIDDEN ITEMS
         // Priority 1: If it is in the Hidden list AND user is NOT Admin -> Hide it.
         $hidden_map = array_flip($hidden_list);
-        if (isset($hidden_map[$name]) && !$is_admin)
+        if (isset($hidden_map[$name]) && !$is_admin) {
             if ($element = $mform->getElement($name)) {
                 $value = $element->getValue() ?? '';
                 // Fallback to default if value is not set
