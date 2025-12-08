@@ -78,4 +78,40 @@ class plagiarism_originality_setup_form extends moodleform {
         // Add form submit/cancel buttons.
         $this->add_action_buttons(true);
     }
+
+    /**
+     * Validate the form data.
+     *
+     * @param array $data The submitted data.
+     * @param array $files The submitted files.
+     * @return array An array of errors (element name => error message).
+     */
+    public function validation($data, $files) {
+        $errors = parent::validation($data, $files);
+
+        // Only validate if we have the minimum required fields filled in.
+        if (!empty($data['baseurl']) && !empty($data['clientid'])) {
+
+            // Prepare the config object for the client
+            $config = new stdClass();
+            $config->baseurl = $data['baseurl'];
+            $config->clientid = $data['clientid'];
+            $config->institutionid = $data['institutionid'] ?? '';
+
+            try {
+                // Instantiate client with UNSAVED data
+                $client = new \plagiarism_originality\apiclient\api_client($config);
+
+                // Attempt to fetch a token
+                $client->test_connection();
+
+            } catch (\Exception $e) {
+                // If it fails, mark the 'baseurl' field with the error.
+                // You could also map specific errors to clientid if you parsed the message.
+                $errors['baseurl'] = get_string('connectionerror', 'plagiarism_originality') . ': ' . $e->getMessage();
+            }
+        }
+
+        return $errors;
+    }
 }

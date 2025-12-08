@@ -27,7 +27,7 @@ namespace plagiarism_originality\apiclient;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->libdir . '/filelib.php'); // Only need one require_once
+require_once($CFG->libdir . '/filelib.php');
 
 /**
  * API client class for Inspera Originality.
@@ -42,14 +42,38 @@ class api_client {
     private $clientid;
     private $institutionid;
 
+    /** @var bool Whether the client was instantiated with temporary/unsaved settings. */
+    private $is_validating = false;
+
     /**
      * Constructor for the API client.
-     * Loads the base configuration from the plugin settings.
+     *
+     * @param \stdClass|null $config Optional config override.
      */
-    public function __construct() {
-        $this->baseurl       = rtrim(get_config('plagiarism_originality', 'baseurl'), '/');
-        $this->clientid      = get_config('plagiarism_originality', 'clientid');
-        $this->institutionid = get_config('plagiarism_originality', 'institutionid');
+    public function __construct(\stdClass $config = null) {
+        if ($config) {
+            // VALIDATION MODE
+            $this->baseurl       = rtrim($config->baseurl ?? '', '/');
+            $this->clientid      = $config->clientid ?? '';
+            $this->institutionid = $config->institutionid ?? '';
+            $this->is_validating = true;
+        } else {
+            // STANDARD MODE
+            $this->baseurl       = rtrim(get_config('plagiarism_originality', 'baseurl'), '/');
+            $this->clientid      = get_config('plagiarism_originality', 'clientid');
+            $this->institutionid = get_config('plagiarism_originality', 'institutionid');
+        }
+    }
+
+    /**
+     * Tests the API connection using the current configuration.
+     *
+     * @return bool True if connection successful.
+     * @throws \moodle_exception If connection fails.
+     */
+    public function test_connection(): bool {
+        $this->get_token();
+        return true;
     }
 
     // --- Internal Request Methods ---
@@ -60,7 +84,7 @@ class api_client {
      *
      * @param string $url The full URL endpoint.
      * @param string $payloadJson The JSON payload string.
-     * @param array $headers Optional array of additional HTTP headers (e.g., ['Authorization: Bearer xyz']).
+     * @param array $headers Optional array of additional HTTP headers.
      * @return string The raw response body from the server.
      * @throws \moodle_exception If the curl request fails or returns an error.
      */
@@ -75,12 +99,10 @@ class api_client {
         $errno = $curl->get_errno();
 
         if ($errno !== 0) {
-            // Throw exception on curl error for clear test failures
-            $error = $curl->error; // Access the public property
+            $error = $curl->error;
             throw new \moodle_exception('curlerror', 'plagiarism_originality', '', null,
                 "Curl error ({$errno}) accessing {$url}: {$error}");
         }
-        // Consider checking HTTP status code here if needed (e.g., $curl->get_info()['http_code'])
         return $response;
     }
 
@@ -107,7 +129,6 @@ class api_client {
             throw new \moodle_exception('curlerror', 'plagiarism_originality', '', null,
                 "Curl error ({$errno}) accessing {$url}: {$error}");
         }
-        // Consider checking HTTP status code here
         return $response;
     }
 
@@ -126,7 +147,6 @@ class api_client {
 
         if (!defined('PHPUNIT_TEST')) { mtrace("Uploading file to Originality S3 URL"); }
 
-        // PUT request often doesn't return a body on success
         $curl->put($url, $content);
         $errno = $curl->get_errno();
 
@@ -135,7 +155,7 @@ class api_client {
             if (!defined('PHPUNIT_TEST')) { mtrace("Upload failed ({$errno}): " . $error); }
             return false;
         }
-        return true; // Assume success if no curl error
+        return true;
     }
 
     // --- API Logic Methods ---
@@ -147,45 +167,48 @@ class api_client {
      * @throws \moodle_exception If fetching or parsing the token fails.
      */
     private function get_token(): string {
-        $token = get_config('plagiarism_originality', 'apitoken');
-        $expires = (int) get_config('plagiarism_originality', 'apitoken_exp'); // Cast to int
 
-        // Check if token exists and hasn't expired (allow 60s buffer)
-        if (!empty($token) && $expires > (time() + 60)) {
-            return $token; // Return cached token
+        // 1. CACHE CHECK
+        if (!$this->is_validating) {
+            $token = get_config('plagiarism_originality', 'apitoken');
+            $expires = (int) get_config('plagiarism_originality', 'apitoken_exp');
+
+            if (!empty($token) && $expires > (time() + 60)) {
+                return $token;
+            }
         }
 
-        // Fetch a new token if no valid cached token exists
+        // 2. FETCH NEW TOKEN
         $payload = json_encode([
             'clientId'      => $this->clientid,
             'institutionId' => $this->institutionid
         ]);
 
         try {
-            // Use the internal method for the actual HTTP call
             $response = $this->_do_post_request($this->baseurl . '/token', $payload);
         } catch (\moodle_exception $e) {
-            // Re-throw curl errors with a more specific context if desired, or let them propagate
             throw new \moodle_exception('apitokenerror', 'plagiarism_originality', '', null, 'Failed to connect to token endpoint: ' . $e->getMessage());
         }
 
         $data = json_decode($response);
 
-        // Validate the response
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \moodle_exception('invalidjson', 'plagiarism_originality', '', null, 'Token response not valid JSON: ' . $response);
         }
-        if (empty($data->token) || !isset($data->expirationTime)) {
-            throw new \moodle_exception('apitokenerror', 'plagiarism_originality', '', null, 'API response missing token or expirationTime: ' . $response);
+
+        if (empty($data->token)) {
+            // Extract readable message if available
+            $apimessage = $data->message ?? 'Unknown error';
+            throw new \moodle_exception('apitokenerror', 'plagiarism_originality', '', $apimessage);
         }
 
-        // Cache the new token
-        $newtoken = $data->token;
-        $newexpires_sec = floor((float)$data->expirationTime / 1000); // Ensure float before division
-        set_config('apitoken', $newtoken, 'plagiarism_originality');
-        set_config('apitoken_exp', $newexpires_sec, 'plagiarism_originality');
+        // 3. SAVE CACHE (Only if not validating)
+        if (!$this->is_validating && isset($data->expirationTime)) {
+            set_config('apitoken', $data->token, 'plagiarism_originality');
+            set_config('apitoken_exp', floor($data->expirationTime / 1000), 'plagiarism_originality');
+        }
 
-        return $newtoken; // Return the newly fetched token
+        return $data->token;
     }
 
     /**
@@ -208,7 +231,7 @@ class api_client {
         string $assignmentId,
         array $settings = []
     ): \stdClass {
-        $token = $this->get_token(); // Ensures we have a valid token
+        $token = $this->get_token();
         $headers = ['Authorization: Bearer ' . $token];
 
         // Build the payload
@@ -220,26 +243,27 @@ class api_client {
             'assignmentId'  => $assignmentId,
         ];
 
-        // --- Add Anonymous Flag ---
         if (!empty($settings['anonymous_submissions'])) {
             $payload['anonymous_submissions'] = true;
         }
 
-        if (!empty($this->institutionid)) { // Use property directly
+        if (!empty($this->institutionid)) {
             $payload['institutionName'] = $this->institutionid;
         }
         if (!empty($settings['originality_metadata_analysis'])) { $payload['metadataAnalysis'] = (bool)$settings['originality_metadata_analysis']; }
         if (!empty($settings['originality_archive'])) { $payload['archive'] = (bool)$settings['originality_archive']; }
         if (!empty($settings['originality_enable_ai'])) { $payload['enableAIDetection'] = (bool)$settings['originality_enable_ai']; }
         if (!empty($settings['originality_enable_translations'])) {
-            $payload['translationLanguages'] = array_values(array_filter(explode(',', $settings['originality_translation_languages'] ?? ''))); // Ensure clean array
+            $payload['translationsEnabled'] = true;
+            // Fix: Clean up array structure for API
+            $payload['translationLanguages'] = array_values(array_filter(explode(',', $settings['originality_translation_languages'] ?? '')));
         }
         $enablecontext = !empty($settings['originality_enable_context_similarity']);
         $payload['enableContextSimilarity'] = $enablecontext;
         if ($enablecontext) {
             $payload['sentenceThresholds'] = ['contextualSimilaritiesThreshold' => (int)($settings['originality_context_threshold'] ?? 50)];
         }
-        // ... (Include/Exclude URLs logic as before) ...
+
         $includesources = []; $excludesources = [];
         if (!empty($settings['originality_enable_include_urls']) && !empty(trim($settings['originality_include_urls']))) {
             $includesources = array_values(array_filter(array_map('trim', explode(',', $settings['originality_include_urls']))));
@@ -252,10 +276,8 @@ class api_client {
             if (!empty($excludesources)) $payload['sources']['excludeSources'] = $excludesources;
             if (!empty($includesources)) $payload['sources']['includeSources'] = $includesources;
         }
-        // --- End payload building ---
 
         try {
-            // Use the internal method for the HTTP call
             $response = $this->_do_post_request($this->baseurl . '/create/submission', json_encode($payload), $headers);
         } catch (\moodle_exception $e) {
             throw new \moodle_exception('apierror', 'plagiarism_originality', '', null, 'Failed to create submission: ' . $e->getMessage());
@@ -263,13 +285,14 @@ class api_client {
 
         $data = json_decode($response);
 
-        // Validate response
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \moodle_exception('invalidjson', 'plagiarism_originality', '', null, 'Create submission response not valid JSON: ' . $response);
         }
         if (empty($data->documentId) || empty($data->presignedS3Url)) {
             if (!defined('PHPUNIT_TEST')) { mtrace("API create_submission failed: " . $response); }
-            throw new \moodle_exception('apierror', 'plagiarism_originality', '', null, 'API response missing documentId or presignedS3Url: ' . $response);
+            // Extract readable message if possible
+            $apimessage = $data->message ?? 'API response missing documentId or presignedS3Url';
+            throw new \moodle_exception('apierror', 'plagiarism_originality', '', null, $apimessage);
         }
 
         return $data;
@@ -284,8 +307,6 @@ class api_client {
      * @return bool True on success, false on failure.
      */
     public function upload_to_presigned_url(string $url, string $content, string $mimetype): bool {
-        // Use the internal method for the HTTP PUT call
-        // No token needed for S3 presigned URLs
         return $this->_do_s3_put_request($url, $content, $mimetype);
     }
 
@@ -302,7 +323,6 @@ class api_client {
         $url = $this->baseurl . '/document/' . $documentid . '/checkStatus';
 
         try {
-            // Use the internal method for the HTTP GET call
             $response = $this->_do_get_request($url, $headers);
         } catch (\moodle_exception $e) {
             throw new \moodle_exception('apierror', 'plagiarism_originality', '', null, 'Failed to check document status: ' . $e->getMessage());
@@ -310,12 +330,9 @@ class api_client {
 
         $data = json_decode($response);
 
-        // Validate response
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \moodle_exception('invalidjson', 'plagiarism_originality', '', null, 'Check status response not valid JSON: ' . $response);
         }
-        // Potentially add check for expected status fields if needed
-        // if (!isset($data->status)) { ... }
 
         if (!defined('PHPUNIT_TEST')) { mtrace("Polled status for doc {$documentid}: " . $response); }
 
@@ -335,7 +352,6 @@ class api_client {
         $url = $this->baseurl . '/document/' . $documentId . '/mode/view';
 
         try {
-            // Use the internal method for the HTTP GET call
             $response = $this->_do_get_request($url, $headers);
         } catch (\moodle_exception $e) {
             throw new \moodle_exception('apierror', 'plagiarism_originality', '', null, 'Failed to get report URL: ' . $e->getMessage());
@@ -343,14 +359,14 @@ class api_client {
 
         $data = json_decode($response);
 
-        // Validate response
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \moodle_exception('invalidjson', 'plagiarism_originality', '', null, 'Report URL response not valid JSON: ' . $response);
         }
         if (empty($data->url)) {
-            throw new \moodle_exception('apierror', 'plagiarism_originality', '', null, 'API response missing report URL: ' . $response);
+            $apimessage = $data->message ?? 'API response missing report URL';
+            throw new \moodle_exception('apierror', 'plagiarism_originality', '', null, $apimessage);
         }
 
-        return $data; // expects $data->url
+        return $data;
     }
 }
