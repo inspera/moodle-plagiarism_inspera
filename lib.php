@@ -655,9 +655,10 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
 
         // HIDDEN ITEMS
         // Priority 1: If it is in the Hidden list AND user is NOT Admin -> Hide it.
-        if (in_array($name, $hidden_list) && !$is_admin) {
+        $hidden_map = array_flip($hidden_list);
+        if (isset($hidden_map[$name]) && !$is_admin)
             if ($element = $mform->getElement($name)) {
-                $value = $element->getValue();
+                $value = $element->getValue() ?? '';
                 // Fallback to default if value is not set
                 if ($value === null && isset($plagiarismvalues[$name])) {
                     $value = $plagiarismvalues[$name];
@@ -670,7 +671,8 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
 
         // LOCKED ITEMS
         // Priority 2: If it is in the Locked list AND user is NOT Admin -> Freeze it.
-        if (in_array($name, $locked_list) && !$is_admin) {
+        $locked_map = array_flip($locked_list);
+        if (isset($locked_map[$name]) && !$is_admin) {
 
             // If the item is locked, check if it's irrelevant and should be hidden instead.
             // A. Cleanup File Types
@@ -722,7 +724,8 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         // --- RULE 3: ADVANCED ITEMS ---
         // If it is in the Advanced list -> Move to "Show More".
         // (This runs for Admins too, which is correct behavior)
-        if (in_array($name, $advanced_list)) {
+        $advanced_map = array_flip($advanced_list);
+        if (isset($advanced_map[$name])) {
             $mform->setAdvanced($name, true);
         }
     }
