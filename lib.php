@@ -108,13 +108,9 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
         $options = array(
             'use_originality',
             'originality_allowallfile',
-            'originality_archive',
             'originality_restrictcontent',
             'originality_selectfiletypes',
             'originality_metadata_analysis',
-            'originality_enable_ai',
-            'originality_enable_translations',
-            'originality_translation_languages',
             'originality_enable_context_similarity',
             'originality_context_threshold',
             'originality_enable_include_urls',
@@ -774,21 +770,6 @@ function plagiarism_originality_get_form_elements($mform) {
     $mform->addElement('select', 'originality_metadata_analysis', get_string('originality_metadata_analysis', 'plagiarism_originality'), $ynoptions);
     $mform->addHelpButton('originality_metadata_analysis', 'originality_metadata_analysis', 'plagiarism_originality');
     $mform->setType('originality_metadata_analysis', PARAM_INT);
-    // AI Authorship
-    $mform->addElement('select', 'originality_enable_ai', get_string('originality_enable_ai', 'plagiarism_originality'), $ynoptions);
-    $mform->addHelpButton('originality_enable_ai', 'originality_enable_ai', 'plagiarism_originality');
-    $mform->setType('originality_enable_ai', PARAM_INT);
-    // Archive Documents
-    $mform->addElement('select', 'originality_archive', get_string('originality_archive', 'plagiarism_originality'), $ynoptions);
-    $mform->addHelpButton('originality_archive', 'originality_archive', 'plagiarism_originality');
-    $mform->setType('originality_archive', PARAM_INT);
-    // Translations
-    $mform->addElement('select', 'originality_enable_translations', get_string('originality_enable_translations', 'plagiarism_originality'), $ynoptions);
-    $mform->addHelpButton('originality_enable_translations', 'originality_enable_translations', 'plagiarism_originality');
-    $mform->setType('originality_enable_translations', PARAM_INT);
-    $mform->addElement('select', 'originality_translation_languages', get_string('originality_translation_languages', 'plagiarism_originality'), $languages, ['multiple' => true]);
-    $mform->setType('originality_translation_languages', PARAM_TAGLIST);
-    $mform->disabledIf('originality_translation_languages', 'originality_enable_translations', 'eq', 0);
 
     // Contextual Similarity
     $mform->addElement('select', 'originality_enable_context_similarity',
