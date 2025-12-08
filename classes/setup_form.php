@@ -63,13 +63,23 @@ class plagiarism_originality_setup_form extends moodleform {
         $mform->setType('institutionid', PARAM_ALPHANUMEXT);
         $mform->setDefault('institutionid', '');
 
+        // Get the list from our single source of truth in lib.php
+        $modules = plagiarism_originality_supported_modules();
 
-        $mods = core_component::get_plugin_list('mod');
-        foreach ($mods as $mod => $modname) {
+        foreach ($modules as $mod) {
+            // Double check that the module is actually installed on this site
+            if (!core_component::get_component_directory("mod_$mod")) {
+                continue;
+            }
+
+            // Check if Moodle considers this module to support plagiarism
+            // (Assignments usually do by default)
             if (plugin_supports('mod', $mod, FEATURE_PLAGIARISM)) {
                 $modstring = 'enable_mod_' . $mod;
-                $mform->addElement('checkbox', $modstring, get_string('enableplugin', 'plagiarism_originality', $mod));
-                if ($modname == 'assign') {
+                $modhuman = get_string('pluginname', 'mod_' . $mod);
+                $mform->addElement('checkbox', $modstring, get_string('enableplugin', 'plagiarism_originality', $modhuman));
+                // Default to checked for 'assign'
+                if ($mod == 'assign') {
                     $mform->setDefault($modstring, 1);
                 }
             }

@@ -455,7 +455,7 @@ function plagiarism_originality_supported_qtypes() {
  */
 function plagiarism_originality_supported_modules() {
     global $CFG;
-    $supportedmodules = array('assign', 'forum', 'workshop', 'quiz');
+    $supportedmodules = array('assign');
     return $supportedmodules;
 }
 
