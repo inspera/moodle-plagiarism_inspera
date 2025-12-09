@@ -107,6 +107,7 @@ $string['viewreport'] = 'View originality report';
 
 $string['reportlinkprefix'] = 'Inspera Originality Report';
 $string['reportlinkscore'] = '{$a}%';
+$string['statusrequested'] = 'Inspera Originality Report: Report Requested';
 $string['statuspending'] = 'Inspera Originality Report: Pending...';
 $string['statuserror'] = 'Inspera Originality Report: An error occurred.';
 

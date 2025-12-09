@@ -98,6 +98,7 @@ class send_files extends scheduled_task {
 
         // Static cache to store assignment details during this cron execution.
         static $assignmentcache = [];
+        static $userextensionscache = [];
 
         // Check cache first
         if (array_key_exists($file->cm, $assignmentcache)) {
@@ -134,22 +135,47 @@ class send_files extends scheduled_task {
             return false;
         }
 
-        // If submissiondrafts is null, 0, or empty - wait for due date
         // If submissiondrafts is 1 - process immediately (submit button required)
-        if (empty($assignconfig->submissiondrafts)) {
-            // No due date set - process immediately
-            if (empty($assignconfig->duedate)) {
-                return false;
-            }
+        if (!empty($assignconfig->submissiondrafts)) {
+            return false;
+        }
 
-            // Check if due date has passed
-            if (time() < $assignconfig->duedate) {
-                // Optional: verbose logging for debugging
-                if (debugging('', DEBUG_DEVELOPER)) {
-                    mtrace("Waiting for due date: " . userdate($assignconfig->duedate) . " for fileid: {$file->id}");
-                }
-                return true;
+        // Get the actual due date for this specific user
+        $duedate = $assignconfig->duedate;
+
+        // Check for user-specific extension
+        $cachekey = $assignconfig->id . '_' . $file->userid;
+        if (array_key_exists($cachekey, $userextensionscache)) {
+            $extensiondate = $userextensionscache[$cachekey];
+        } else {
+            // Check assign_user_flags for individual extensions
+            $userflags = $DB->get_record('assign_user_flags',
+                ['assignment' => $assignconfig->id, 'userid' => $file->userid],
+                'extensionduedate'
+            );
+
+            $extensiondate = $userflags && !empty($userflags->extensionduedate) ? $userflags->extensionduedate : null;
+            $userextensionscache[$cachekey] = $extensiondate;
+        }
+
+        // Use extension date if available, otherwise use assignment due date
+        if ($extensiondate !== null) {
+            $duedate = $extensiondate;
+        }
+
+        // No due date set - process immediately
+        if (empty($duedate)) {
+            return false;
+        }
+
+        // Check if due date has passed
+        if (time() < $duedate) {
+            // Optional: verbose logging for debugging
+            if (debugging('', DEBUG_DEVELOPER)) {
+                $duetype = $extensiondate !== null ? 'extension' : 'assignment';
+                mtrace("Waiting for {$duetype} due date: " . userdate($duedate) . " for fileid: {$file->id}");
             }
+            return true;
         }
 
         return false;

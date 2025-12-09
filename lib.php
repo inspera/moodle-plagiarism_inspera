@@ -383,8 +383,11 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
                 $linkclass = 'plagiarism-originality-reportlink';
                 break;
 
-            case 'pending':
             case 'report_requested':
+                $linkcontent = get_string('statusrequested', 'plagiarism_originality');
+                break;
+
+            case 'pending':
                 $linkcontent = get_string('statuspending', 'plagiarism_originality');
                 break;
 
@@ -626,6 +629,27 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         }
     }
 
+    // Special handling for originality_show_student_report in assignments
+    // If the default is set to an option not available for assignments (1 or 2), default to 3 (Due date)
+    if ($modulename == 'mod_assign' && $mform->elementExists('submissiondrafts')) {
+        $suffix = '_' . str_replace('mod_', '', $modulename);
+        $defaultelement = 'originality_show_student_report' . $suffix;
+
+        // Check what default was set (either from activity values or admin defaults)
+        $currentdefault = null;
+        if (isset($plagiarismvalues['originality_show_student_report'])) {
+            $currentdefault = $plagiarismvalues['originality_show_student_report'];
+        } else if (isset($plagiarismdefaults[$defaultelement])) {
+            $currentdefault = $plagiarismdefaults[$defaultelement];
+        }
+
+        if ($currentdefault == 1 || $currentdefault == 2) {
+            // Default was "Immediately" (1) or "After grading" (2), which aren't available for assignments
+            // Change to "After due date" (3)
+            $mform->setDefault('originality_show_student_report', 3);
+        }
+    }
+
     // === 5. Handle Hidden, Locked, and Advanced Settings ===
 
     $suffix = '_' . str_replace('mod_', '', $modulename);
@@ -809,12 +833,21 @@ function plagiarism_originality_get_form_elements($mform) {
     $mform->hideIf('originality_exclude_urls', 'originality_enable_exclude_urls', 'neq', 1);
 
     // Show student report
-    $share_report_options = [
-        0 => get_string("showstudentreport_not_shared", "plagiarism_originality"),
-        1 => get_string("showstudentreport_immediately", "plagiarism_originality"),
-        2 => get_string("showstudentreport_after_grading", "plagiarism_originality"),
-        3 => get_string("showstudentreport_due_date", "plagiarism_originality")
-    ];
+    // For assignments with submissiondrafts, only show "Not shared" and "After due date"
+    if ($mform->elementExists('submissiondrafts')) {
+        // This is an assignment form
+        $share_report_options = [
+            0 => get_string("showstudentreport_not_shared", "plagiarism_originality"),
+            3 => get_string("showstudentreport_due_date", "plagiarism_originality")
+        ];
+    } else {
+        $share_report_options = [
+            0 => get_string("showstudentreport_not_shared", "plagiarism_originality"),
+            1 => get_string("showstudentreport_immediately", "plagiarism_originality"),
+            2 => get_string("showstudentreport_after_grading", "plagiarism_originality"),
+            3 => get_string("showstudentreport_due_date", "plagiarism_originality")
+        ];
+    }
     $mform->addElement('select', 'originality_show_student_report', get_string('originality_show_student_report', 'plagiarism_originality'), $share_report_options);
     $mform->addHelpButton('originality_show_student_report', 'originality_show_student_report', 'plagiarism_originality');
 
