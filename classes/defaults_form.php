@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-global $CFG;
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir . '/formslib.php');
@@ -69,6 +68,25 @@ class plagiarism_originality_defaults_form extends moodleform {
             $mform->addElement('select', 'originality_metadata_analysis_' . $sm, get_string('originality_metadata_analysis', 'plagiarism_originality'), $ynoptions);
             $mform->addHelpButton('originality_metadata_analysis_' . $sm, 'originality_metadata_analysis', 'plagiarism_originality');
             $mform->setType('originality_metadata_analysis_' . $sm, PARAM_INT);
+
+            // AI Authorship
+            $mform->addElement('select', 'originality_enable_ai_' . $sm, get_string('originality_enable_ai', 'plagiarism_originality'), $ynoptions);
+            $mform->addHelpButton('originality_enable_ai_' . $sm, 'originality_enable_ai', 'plagiarism_originality');
+            $mform->setType('originality_enable_ai_' . $sm, PARAM_INT);
+
+            // Archive Documents
+            $mform->addElement('select', 'originality_archive_' . $sm, get_string('originality_archive', 'plagiarism_originality'), $ynoptions);
+            $mform->addHelpButton('originality_archive_' . $sm, 'originality_archive', 'plagiarism_originality');
+            $mform->setType('originality_archive_' . $sm, PARAM_INT);
+
+            // Translations
+            $mform->addElement('select', 'originality_enable_translations_' . $sm, get_string('originality_enable_translations', 'plagiarism_originality'), $ynoptions);
+            $mform->addHelpButton('originality_enable_translations_' . $sm, 'originality_enable_translations', 'plagiarism_originality');
+            $mform->setType('originality_enable_translations_' . $sm, PARAM_INT);
+
+            $mform->addElement('select', 'originality_translation_languages_' . $sm, get_string('originality_translation_languages', 'plagiarism_originality'), $languages, ['multiple' => true]);
+            $mform->setType('originality_translation_languages_' . $sm, PARAM_TAGLIST);
+            $mform->disabledIf('originality_translation_languages_' . $sm, 'originality_enable_translations_' . $sm, 'eq', 0);
 
             // Contextual Similarity
             $mform->addElement('select', 'originality_enable_context_similarity_' . $sm,
