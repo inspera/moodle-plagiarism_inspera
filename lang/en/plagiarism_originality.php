@@ -22,7 +22,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$string['pluginname'] = 'Originality plagiarism plugin';
+$string['pluginname'] = 'Inspera Originality Plugin';
 
 // === Plugin settings ===
 $string['originality'] = 'Inspera Originality settings';
@@ -30,15 +30,19 @@ $string['tab_settings'] = 'Settings';
 $string['tab_defaults'] = 'Defaults';
 $string['tab_management'] = 'Submissions management';
 $string['baseurl'] = 'Base API URL';
-$string['baseurl_help'] = 'The root URL of the plagiarism detection API (e.g. https://api.plagiarism.com/v1).';
+$string['baseurl_help'] = 'The root URL of the originality detection API (e.g. https://api.originality.com/v1).';
 $string['clientid'] = 'Client ID';
 $string['clientid_help'] = 'Your assigned client ID for API authentication.';
 $string['institutionid'] = 'Institution ID';
-$string['institutionid_help'] = 'Your institution identifier provided by the plagiarism detection service.';
+$string['institutionid_help'] = 'Your institution identifier provided by the Originality detection service.';
 $string['enableplugin'] = 'Enable Inspera Originality for {$a}';
 
 // === Plugin Defaults ===
-$string['use_originality'] = 'Enable Originality plagiarism check';
+$string['use_originality'] = 'Enable Originality check';
+$string['use_originality_admin'] = 'Enable Originality check';
+$string['use_originality_admin_help'] = 'if the originality check should be enabled by default';
+$string['use_originality_teachers'] = 'Enable Originality check';
+$string['use_originality_teachers_help'] = 'if enabled, an originality report will be generated';
 $string['originalitydefaults_assign'] = 'Default assign settings';
 $string['originalitydefaults_forum'] = 'Default forum settings';
 $string['originalitydefaults_workshop'] = 'Default workshop settings';
@@ -46,33 +50,35 @@ $string['originalitydefaults_quiz'] = 'Default quiz settings';
 $string['defaultsdesc'] = 'The following settings are the defaults set when enabling Inspera Originality within an Activity Module';
 $string['defaultupdated'] = 'Default values updated';
 $string['originality_enable_translations'] = 'Translations';
-$string['originality_enable_translations_help'] = 'Enable cross-language similarity checks. If enabled, teachers may select target languages.';
+$string['originality_enable_translations_help'] = 'the selected languages will be checked in the originality analysis. Up to three languages can be selected.';
 $string['originality_metadata_analysis'] = 'Metadata analysis';
-$string['originality_metadata_analysis_help'] = 'Enable analysis of document metadata for additional plagiarism insights.';
+$string['originality_metadata_analysis_help'] = 'Enable analysis of the metadata for additional originality insights.';
 $string['originality_enable_ai'] = 'AI authorship detection';
-$string['originality_enable_ai_help'] = 'If enabled, the system will analyze the text for signs of AI-generated content.';
+$string['originality_enable_ai_help'] = 'If enabled, the originality check will include the analysis on whether AI was used to create the file.';
 $string['originality_archive'] = 'Archive documents';
-$string['originality_archive_help'] = 'If enabled, all submissions are archived for long-term storage and future verification.';
+$string['originality_archive_help'] = 'If enabled, the submissions will be stored to be included in future originality analysis.';
 $string['originality_enable_context_similarity'] = 'Enable contextual similarity';
-$string['originality_enable_context_similarity_help'] = 'When enabled, the system compares contextual meaning between documents. You can define a minimum similarity threshold.';
+$string['originality_enable_context_similarity_help'] = 'The minimal percentage of contextual similarity required to trigger a similarity alert.';
 $string['originality_context_threshold'] = 'Context similarity threshold (%)';
-$string['originality_context_threshold_help'] = 'The minimum percentage of contextual similarity required to trigger a similarity alert (must be 50% or greater).';
+$string['originality_context_threshold_help'] = 'The minimal percentage of contextual similarity required to trigger a similarity alert.';
 $string['contextthresholdmin'] = 'The threshold must be at least 50%.';
 $string['originality_translation_languages'] = 'Select supported translation languages';
-$string['originality_translation_languages_help'] = 'Select one or more target languages into which submitted content can be translated for similarity analysis. Enabling translations allows the system to compare content across multiple languages, improving detection of cross-language similarities and translations. For example, if a submission is in Spanish and “English” is selected here, the system will also analyze an English translation of the text for potential matches.';
+$string['originality_translation_languages_help'] = 'the selected languages will be checked in the originality analysis. Up to three languages can be selected';
 $string['originality_enable_include_urls'] = 'Include URLs';
+$string['originality_enable_include_urls_help'] = 'if enabled, the specified URLs will be included in the originality check.';
 $string['originality_include_urls'] = 'URLs to include';
-$string['originality_include_urls_help'] = 'If enabled, the specified URLs will be included in the originality check. Enter multiple URLs separated by commas.';
+$string['originality_include_urls_help'] = 'Multiple urls should be separated by commas.';
 $string['originality_enable_exclude_urls'] = 'Exclude URLs';
+$string['originality_enable_exclude_urls_help'] = 'if enabled, the specified URLs will be excluded from the originality check.';
 $string['originality_exclude_urls'] = 'URLs to exclude';
-$string['originality_exclude_urls_help'] = 'If enabled, the specified URLs will be excluded from the originality check. Enter multiple URLs separated by commas.';
+$string['originality_exclude_urls_help'] = 'Multiple urls should be separated by commas.';
 $string['errorincludeurls'] = 'Please enter at least one URL to include.';
 $string['errorexcludeurls'] = 'Please enter at least one URL to exclude.';
 $string['originality_allowallfile'] = 'Allow all supported file types';
-$string['originality_allowallfile_help'] = 'Select settings to hide behind the "Show more" link. For non-administrators, these settings will also be locked (read-only) to the default value.';
+$string['originality_allowallfile_help'] = 'if disabled, only the selected file types will be supported';
 $string['originality_show_student_report'] = 'Share report with the student';
-$string['originality_show_student_report_help'] = 'selecting this means that the teacher will have the option to share the report with the students. If/when that’s shared is defined by the dropdown';
-$string['showstudentreport_not_shared'] = 'Not shared';
+$string['originality_show_student_report_help'] = 'define if and when the report should be shared with the students';
+$string['showstudentreport_not_shared'] = 'Never shared';
 $string['showstudentreport_immediately'] = 'Immediately after it is available';
 $string['showstudentreport_after_grading'] = 'After grading';
 $string['showstudentreport_due_date'] = 'Due date';
@@ -87,11 +93,11 @@ $string['submitondraft'] = 'Submit file when first uploaded';
 $string['submitonfinal'] = 'Submit file when student sends for marking';
 $string['originality_selectfiletypes'] = 'File types to submit';
 $string['originality_restrictcontent'] = 'Submit attached files and in-line text';
-$string['originality_restrictcontent_help'] = 'Originality can process uploaded files but can also process in-line text from forum posts and text from the online text assignment submission type. You can decide which components to send to Originality.';
+$string['originality_restrictcontent_help'] = 'Whether originality should be checked for uploaded files and/or texts';
 $string['restrictcontentfiles'] = 'Only submit attached files';
 $string['restrictcontentno'] = 'Submit everything';
 $string['restrictcontenttext'] = 'Only submit in-line text';
-$string['savedconfigsuccess'] = 'Plagiarism Settings Saved';
+$string['savedconfigsuccess'] = 'Originality Settings Saved';
 
 
 $string['sendfiles'] = 'Inspera Originality send queued files';
@@ -107,7 +113,7 @@ $string['viewreport'] = 'View originality report';
 
 $string['reportlinkprefix'] = 'Inspera Originality Report';
 $string['reportlinkscore'] = '{$a}%';
-$string['statusrequested'] = 'Inspera Originality Report: Report Requested';
+$string['statusrequested'] = 'Inspera Originality Report: Queued';
 $string['statuspending'] = 'Inspera Originality Report: Pending...';
 $string['statuserror'] = 'Inspera Originality Report: An error occurred.';
 
