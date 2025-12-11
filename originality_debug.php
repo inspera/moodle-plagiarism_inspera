@@ -205,8 +205,7 @@ if ($id && confirm_sesskey()) {
         $record->character_replacement = null;
         $record->hidden_text = null;
         $record->image_as_text = null;
-        // Optionally clear externalid if you want a fresh submission, 
-        // but keeping it allows the task to try re-uploading to the same doc first.
+        $record->externalid = null;
 
         $DB->update_record('plagiarism_originality_subs', $record);
         \core\notification::success(get_string('fileresubmitted', 'plagiarism_originality'));
