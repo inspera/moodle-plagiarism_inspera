@@ -26,8 +26,8 @@ $string['pluginname'] = 'Inspera Originality Plugin';
 
 // === Plugin settings ===
 $string['originality'] = 'Inspera Originality settings';
-$string['tab_settings'] = 'Settings';
-$string['tab_defaults'] = 'Defaults';
+$string['tab_settings'] = 'Connection Settings';
+$string['tab_defaults'] = 'Default Settings';
 $string['tab_management'] = 'Submissions management';
 $string['baseurl'] = 'Base API URL';
 $string['baseurl_help'] = 'The root URL of the originality detection API (e.g. https://api.originality.com/v1).';
