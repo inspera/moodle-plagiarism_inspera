@@ -80,10 +80,11 @@ class plagiarism_originality_defaults_form extends moodleform {
 
             $mform->addElement('select', 'originality_selectfiletypes_'.$sm, get_string('originality_selectfiletypes', 'plagiarism_originality'),
                 $supportedfiles, array('multiple' => true));
+            $mform->addHelpButton('originality_selectfiletypes_'.$sm, 'originality_selectfiletypes', 'plagiarism_originality');
             $mform->setType('originality_selectfiletypes_'.$sm, PARAM_TAGLIST);
 
-            // Disable file type selection when "Allow all" is YES
-            $mform->disabledIf('originality_selectfiletypes_' . $sm, 'originality_allowallfile_' . $sm, 'eq', 1);
+            // Hide file type selection when "Allow all" is YES (value 1)
+            $mform->hideIf('originality_selectfiletypes_' . $sm, 'originality_allowallfile_' . $sm, 'eq', 1);
 
             // AI Authorship
             $mform->addElement('select', 'originality_enable_ai_' . $sm, get_string('originality_enable_ai', 'plagiarism_originality'), $ynoptions);
@@ -175,19 +176,18 @@ class plagiarism_originality_defaults_form extends moodleform {
 
             $mform->addElement('select', 'originality_translation_languages_' . $sm, get_string('originality_translation_languages', 'plagiarism_originality'), $languages, ['multiple' => true]);
             $mform->setType('originality_translation_languages_' . $sm, PARAM_TAGLIST);
-            $mform->disabledIf('originality_translation_languages_' . $sm, 'originality_enable_translations_' . $sm, 'eq', 0);
+            $mform->hideIf('originality_translation_languages_' . $sm, 'originality_enable_translations_' . $sm, 'eq', 0);
+
+            if ($sm == 'assign') {
+                $mform->addElement('select', 'originality_draft_submit_'.$sm,
+                    get_string("originality_draft_submit", "plagiarism_originality"), $draftoptions);
+                $mform->addHelpButton('originality_draft_submit_'.$sm, 'originality_draft_submit', 'plagiarism_originality');
+            }
 
             $items = array();
             foreach (plagiarism_plugin_originality::config_options() as $setting) {
                 $items[$setting] = get_string($setting, 'plagiarism_originality');
             }
-
-            $mform->addElement('select', 'originality_advanceditems_'.$sm,
-                get_string('originality_advanceditems', 'plagiarism_originality'), $items,
-                array('size' => 5));
-            $mform->getElement('originality_advanceditems_'.$sm)->setMultiple(true);
-            $mform->addHelpButton('originality_advanceditems_'.$sm, 'originality_advanceditems', 'plagiarism_originality');
-            $mform->setType('originality_advanceditems_'.$sm, PARAM_TAGLIST);
 
             $mform->addElement('select', 'originality_hiddenitems_'.$sm,
                 get_string('originality_hiddenitems', 'plagiarism_originality'), $items,
@@ -203,10 +203,12 @@ class plagiarism_originality_defaults_form extends moodleform {
             $mform->setType('originality_lockeditems_'.$sm, PARAM_TAGLIST);
             $mform->addHelpButton('originality_lockeditems_'.$sm, 'originality_lockeditems', 'plagiarism_originality');
 
-            if ($sm == 'assign') {
-                $mform->addElement('select', 'originality_draft_submit_'.$sm,
-                    get_string("originality_draft_submit", "plagiarism_originality"), $draftoptions);
-            }
+            $mform->addElement('select', 'originality_advanceditems_'.$sm,
+                get_string('originality_advanceditems', 'plagiarism_originality'), $items,
+                array('size' => 5));
+            $mform->getElement('originality_advanceditems_'.$sm)->setMultiple(true);
+            $mform->addHelpButton('originality_advanceditems_'.$sm, 'originality_advanceditems', 'plagiarism_originality');
+            $mform->setType('originality_advanceditems_'.$sm, PARAM_TAGLIST);
 
         }
 

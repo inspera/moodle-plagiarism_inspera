@@ -807,7 +807,11 @@ function plagiarism_originality_get_form_elements($mform) {
     $mform->setType('originality_allowallfile', PARAM_INT);
 
     $mform->addElement('select', 'originality_selectfiletypes', get_string('originality_selectfiletypes', 'plagiarism_originality'), $supportedfiles, array('multiple' => true));
+    $mform->addHelpButton('originality_selectfiletypes', 'originality_selectfiletypes', 'plagiarism_originality');
     $mform->setType('originality_selectfiletypes', PARAM_TAGLIST);
+
+    // Hide file type selection when "Allow all" is YES (value 1)
+    $mform->hideIf('originality_selectfiletypes', 'originality_allowallfile', 'eq', 1);
 
     // AI Authorship
     $mform->addElement('select', 'originality_enable_ai', get_string('originality_enable_ai', 'plagiarism_originality'), $ynoptions);
@@ -892,7 +896,7 @@ function plagiarism_originality_get_form_elements($mform) {
 
     $mform->addElement('select', 'originality_translation_languages', get_string('originality_translation_languages', 'plagiarism_originality'), $languages, ['multiple' => true]);
     $mform->setType('originality_translation_languages', PARAM_TAGLIST);
-    $mform->disabledIf('originality_translation_languages', 'originality_enable_translations', 'eq', 0);
+    $mform->hideIf('originality_translation_languages', 'originality_enable_translations', 'eq', 0);
 
     $contentoptions = array(PLAGIARISM_ORIGINALITY_RESTRICTCONTENTNO => get_string('restrictcontentno', 'plagiarism_originality'), PLAGIARISM_ORIGINALITY_RESTRICTCONTENTFILES => get_string('restrictcontentfiles', 'plagiarism_originality'), PLAGIARISM_ORIGINALITY_RESTRICTCONTENTTEXT => get_string('restrictcontenttext', 'plagiarism_originality'));
 

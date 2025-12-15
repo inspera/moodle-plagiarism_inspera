@@ -32,9 +32,9 @@ $string['tab_management'] = 'Submissions management';
 $string['baseurl'] = 'Base API URL';
 $string['baseurl_help'] = 'The root URL of the originality detection API (e.g. https://api.originality.com/v1).';
 $string['clientid'] = 'Client ID';
-$string['clientid_help'] = 'Your assigned client ID for API authentication.';
+$string['clientid_help'] = 'Please contact your account manager to obtain this value.';
 $string['institutionid'] = 'Institution ID';
-$string['institutionid_help'] = 'Your institution identifier provided by the Originality detection service.';
+$string['institutionid_help'] = 'Please contact your account manager to obtain this value.';
 $string['enableplugin'] = 'Enable Inspera Originality for {$a}';
 
 // === Plugin Defaults ===
@@ -60,7 +60,7 @@ $string['originality_archive_help'] = 'If enabled, the submissions will be store
 $string['originality_enable_context_similarity'] = 'Enable contextual similarity';
 $string['originality_enable_context_similarity_help'] = 'The minimal percentage of contextual similarity required to trigger a similarity alert.';
 $string['originality_context_threshold'] = 'Context similarity threshold (%)';
-$string['originality_context_threshold_help'] = 'The minimal percentage of contextual similarity required to trigger a similarity alert.';
+$string['originality_context_threshold_help'] = ' Must be 50 or greater';
 $string['contextthresholdmin'] = 'The threshold must be at least 50%.';
 $string['originality_translation_languages'] = 'Select supported translation languages';
 $string['originality_translation_languages_help'] = 'the selected languages will be checked in the originality analysis. Up to three languages can be selected';
@@ -88,10 +88,12 @@ $string['originality_hiddenitems'] = 'Hidden settings';
 $string['originality_hiddenitems_help'] = 'These settings will be completely hidden from non-administrators. The default value will be used.';
 $string['originality_lockeditems'] = 'Locked settings';
 $string['originality_lockeditems_help'] = 'These settings will be visible to non-administrators but read-only (frozen). They will also be automatically moved to the "Show more" section.';
-$string['originality_draft_submit'] = 'When should the file be submitted';
+$string['originality_draft_submit'] = 'When should the file be submitted for originality check';
+$string['originality_draft_submit_help'] = 'select when the file should be sent for originality checking. the option "when student sends for marking" will only be available in activities in which the students need to click submit';
 $string['submitondraft'] = 'Submit file when first uploaded';
 $string['submitonfinal'] = 'Submit file when student sends for marking';
 $string['originality_selectfiletypes'] = 'File types to submit';
+$string['originality_selectfiletypes_help'] = 'Select which file types should be submitted for originality checking. Click <a href="https://support.inspera.com/hc/en-us/articles/15852514280093-What-types-of-questions-and-file-formats-does-it-apply-to" target="_blank">here</a> to see the supported file types.';
 $string['originality_restrictcontent'] = 'Submit attached files and in-line text';
 $string['originality_restrictcontent_help'] = 'Whether originality should be checked for uploaded files and/or texts';
 $string['restrictcontentfiles'] = 'Only submit attached files';
@@ -128,7 +130,7 @@ $string['errorcode_7001'] = 'Error: Failed to index';
 $string['errorcode_unknown'] = 'Error: {$a}';
 
 $string['status_pending'] = 'Pending';
-$string['status_report_requested'] = 'Report requested';
+$string['status_report_requested'] = 'Queued';
 $string['status_finished'] = 'Finished';
 $string['status_error'] = 'Error';
 $string['status_external_error'] = 'External Error';
