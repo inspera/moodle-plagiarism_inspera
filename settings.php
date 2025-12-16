@@ -37,7 +37,8 @@ $mform = new plagiarism_originality_setup_form();
 $plagiarismplugin = new plagiarism_plugin_originality();
 
 if ($mform->is_cancelled()) {
-    redirect('');
+    //Redirects to current page
+    redirect(new moodle_url('/plagiarism/originality/settings.php'));
 }
 
 echo $OUTPUT->header();
