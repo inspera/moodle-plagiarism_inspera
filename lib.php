@@ -764,6 +764,10 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         $mform->setDefault('originality_restrictcontent', 0);
         $mform->hardFreeze('originality_restrictcontent');
     }
+
+    // === 7. UX fix: Advanced toggle visibility and ordering ===
+    global $PAGE;
+    $PAGE->requires->js(new moodle_url('/plagiarism/originality/originality_form_behaviour.js'));
 }
 
 
