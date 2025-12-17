@@ -838,6 +838,11 @@ function plagiarism_originality_get_form_elements($mform) {
     $mform->setType('originality_context_threshold', PARAM_INT);
     $mform->setDefault('originality_context_threshold', 50);
     $mform->addHelpButton('originality_context_threshold', 'originality_context_threshold', 'plagiarism_originality');
+    $mform->addRule('originality_context_threshold', get_string('contextthresholdmin', 'plagiarism_originality'),
+        'callback',
+        function($value) {
+            return $value >= 50 && $value <= 100;
+        });
     // Hide threshold unless select is set to yes
     $mform->hideIf('originality_context_threshold', 'originality_enable_context_similarity', 'neq', 1);
 

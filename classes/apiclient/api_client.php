@@ -89,6 +89,22 @@ class api_client {
      * @throws \moodle_exception If the curl request fails or returns an error.
      */
     protected function _do_post_request(string $url, string $payloadJson, array $headers = []): string {
+        // --- DEBUG START ---
+        if (!defined('PHPUNIT_TEST')) {
+            mtrace("------------------------------------------------");
+            mtrace("DEBUG: API POST Request to: [{$url}]");
+            // Check if Authorization header is present (masked)
+            $auth_status = 'Missing';
+            foreach ($headers as $h) {
+                if (strpos($h, 'Authorization:') === 0) {
+                    $auth_status = 'Present (Bearer ...)';
+                }
+            }
+            mtrace("DEBUG: Auth Header: {$auth_status}");
+            mtrace("DEBUG: Payload: " . substr($payloadJson, 0, 500) . (strlen($payloadJson) > 500 ? '...' : ''));
+        }
+        // -------------------
+
         $curl = new \curl(['timeout' => 60]); // Add a reasonable timeout
         $curl->setHeader('Content-Type: application/json');
         foreach ($headers as $header) {
@@ -96,13 +112,33 @@ class api_client {
         }
 
         $response = $curl->post($url, $payloadJson);
+        $info = $curl->get_info();          // 1. Get the transfer info
+        $http_code = $info['http_code'] ?? 0; // 2. Extract the code
         $errno = $curl->get_errno();
 
+        // --- DEBUG RESPONSE ---
+        if (!defined('PHPUNIT_TEST')) {
+            mtrace("DEBUG: HTTP Status Code: [{$http_code}]");
+            if ($http_code >= 400 || $errno !== 0) {
+                mtrace("DEBUG: Error Response: " . substr($response, 0, 1000));
+            }
+            mtrace("------------------------------------------------");
+        }
+        // ----------------------
+
+        // 1. Connection Errors (DNS, Timeout)
         if ($errno !== 0) {
             $error = $curl->error;
             throw new \moodle_exception('curlerror', 'plagiarism_originality', '', null,
-                "Curl error ({$errno}) accessing {$url}: {$error}");
+                "Curl connection error ({$errno}) accessing {$url}: {$error}");
         }
+
+        // 2. API Logic Errors (401 Unauthorized, 403 Forbidden, 500 Server Error)
+        if ($http_code >= 400) {
+            throw new \moodle_exception('apierror', 'plagiarism_originality', '', null,
+                "API returned HTTP {$http_code}: " . $response);
+        }
+
         return $response;
     }
 
@@ -122,6 +158,9 @@ class api_client {
         }
 
         $response = $curl->get($url);
+
+        $info = $curl->get_info();
+        $http_code = $info['http_code'] ?? 0;
         $errno = $curl->get_errno();
 
         if ($errno !== 0) {
@@ -129,6 +168,12 @@ class api_client {
             throw new \moodle_exception('curlerror', 'plagiarism_originality', '', null,
                 "Curl error ({$errno}) accessing {$url}: {$error}");
         }
+
+        if ($http_code >= 400) {
+            throw new \moodle_exception('apierror', 'plagiarism_originality', '', null,
+                "API returned HTTP {$http_code} on GET: " . $response);
+        }
+
         return $response;
     }
 
@@ -148,13 +193,22 @@ class api_client {
         if (!defined('PHPUNIT_TEST')) { mtrace("Uploading file to Originality S3 URL"); }
 
         $curl->put($url, $content);
+        $info = $curl->get_info();
+        $http_code = $info['http_code'] ?? 0;
         $errno = $curl->get_errno();
 
         if ($errno !== 0) {
             $error = $curl->error;
-            if (!defined('PHPUNIT_TEST')) { mtrace("Upload failed ({$errno}): " . $error); }
+            if (!defined('PHPUNIT_TEST')) { mtrace("Upload failed (Curl {$errno}): " . $error); }
             return false;
         }
+
+        // S3 returns 200 or 201 on success. 400+ is a failure.
+        if ($http_code >= 400) {
+            if (!defined('PHPUNIT_TEST')) { mtrace("Upload failed (HTTP {$http_code})"); }
+            return false;
+        }
+
         return true;
     }
 
@@ -168,12 +222,21 @@ class api_client {
      */
     private function get_token(): string {
 
+        // Generate a signature of the current credentials.
+        // If the admin changes the ClientID/InstID, this hash changes, invalidating the old cache.
+        $current_cred_hash = md5($this->clientid . '|' . $this->institutionid);
+
         // 1. CACHE CHECK
         if (!$this->is_validating) {
             $token = get_config('plagiarism_originality', 'apitoken');
             $expires = (int) get_config('plagiarism_originality', 'apitoken_exp');
+            $cached_hash = get_config('plagiarism_originality', 'apitoken_hash');
 
-            if (!empty($token) && $expires > (time() + 60)) {
+            // Logic: Token must be valid, not expiring soon, AND belong to these credentials
+            if (!empty($token) &&
+                $expires > (time() + 60) &&
+                $cached_hash === $current_cred_hash) {
+
                 return $token;
             }
         }
@@ -206,6 +269,9 @@ class api_client {
         if (!$this->is_validating && isset($data->expirationTime)) {
             set_config('apitoken', $data->token, 'plagiarism_originality');
             set_config('apitoken_exp', floor($data->expirationTime / 1000), 'plagiarism_originality');
+
+            // Save the hash of the credentials that generated this token
+            set_config('apitoken_hash', $current_cred_hash, 'plagiarism_originality');
         }
 
         return $data->token;
