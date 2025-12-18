@@ -406,16 +406,21 @@ class api_client {
     }
 
     /**
-     * Gets a temporary, viewable URL for a processed similarity report from the API.
+     * Gets a temporary URL for the report, specifying the view mode.
      *
-     * @param string $documentId The external document ID from the API.
-     * @return \stdClass The API response object, expecting ->url property.
-     * @throws \moodle_exception If the API call fails or returns invalid data.
+     * @param string $documentId The external document ID.
+     * @param string $mode 'view' for students, 'edit' for teachers/admins.
+     * @return \stdClass API response object.
      */
-    public function get_report_url(string $documentId): \stdClass {
+    public function get_report_url(string $documentId, string $mode = 'view'): \stdClass {
+        // Security: Whitelist allowed modes
+        if ($mode !== 'edit') {
+            $mode = 'view';
+        }
+
         $token = $this->get_token();
         $headers = ['Authorization: Bearer ' . $token];
-        $url = $this->baseurl . '/document/' . $documentId . '/mode/view';
+        $url = $this->baseurl . '/document/' . $documentId . '/mode/' . $mode;
 
         try {
             $response = $this->_do_get_request($url, $headers);

@@ -40,7 +40,11 @@ $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
 // Security
 $context = context_module::instance($cm->id);
 require_login($course, true, $cm);
-if (!has_capability('mod/assign:grade', $context) && $record->userid != $USER->id) {
+
+$is_grader = has_capability('mod/assign:grade', $context);
+
+// Access Control: You must be a grader OR the owner of the submission
+if (!$is_grader && $record->userid != $USER->id) {
     print_error('nopermission', 'plagiarism_originality');
 }
 
@@ -51,8 +55,11 @@ if ($record->status !== 'finished' || empty($record->externalid)) {
 
 $client = new api_client();
 
+// Determine Mode: Graders get "edit", Students get "view"
+$mode = $is_grader ? 'edit' : 'view';
+
 try {
-    $response = $client->get_report_url($record->externalid);
+    $response = $client->get_report_url($record->externalid, $mode);
 
     if (!is_object($response) || empty($response->url)) {
         throw new moodle_exception('errornourl', 'plagiarism_originality', '', null,
