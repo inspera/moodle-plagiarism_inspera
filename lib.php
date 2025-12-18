@@ -1510,7 +1510,7 @@ function plagiarism_originality_poll_file_status($plagiarismfile, api_client $cl
             case 1:
                 // processed successfully → update record with returned data
                 $plagiarismfile->status = 'finished';
-                $plagiarismfile->similarity = $status->similarity ?? null;
+                $plagiarismfile->similarity = $status->originality_percentage ?? null;
                 $plagiarismfile->translation_similarity = $status->translation_similarity ?? null;
                 $plagiarismfile->ai_index = $status->ai_index ?? null;
                 $plagiarismfile->originality = $status->originality ?? null;
