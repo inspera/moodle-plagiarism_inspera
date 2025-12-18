@@ -1379,14 +1379,22 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
         }
 
         // Create metadata-only submission
-        $submission = $client->create_submission(
-            $filename,
-            $authorname,
-            $user->email,
-            $mimetype,
-            $plagiarismfile->cm,
-            $settings
-        );
+        try {
+            $submission = $client->create_submission(
+                $filename,
+                $authorname,
+                $user->email,
+                $mimetype,
+                $plagiarismfile->cm,
+                $settings
+            );
+        } catch (\Throwable $e) {
+            // If there is any API error while creating submission
+            mtrace("Error creating submission for fileid: {$plagiarismfile->id}: " . $e->getMessage());
+            $plagiarismfile->status = 'error';
+            $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
+            return false;
+        }
 
         // Store external document ID and presigned URL
         // IMPORTANT: Don't overwrite identifier field - it contains the temp file path
