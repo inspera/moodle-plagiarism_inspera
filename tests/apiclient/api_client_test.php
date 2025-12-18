@@ -166,6 +166,63 @@ class plagiarism_originality_api_client_test extends advanced_testcase {
     }
 
 
+    public function test_create_submission_includes_educators_and_student_email_top_level() {
+        // --- Setup ---
+        set_config('apitoken', 'payload_test_token2', 'plagiarism_originality');
+        set_config('apitoken_exp', time() + 3600, 'plagiarism_originality');
+
+        $studentEmail = 'student@example.com';
+        $educators = [
+            ['id' => 10, 'name' => 'Teacher One', 'email' => 't1@example.com'],
+            ['id' => '20', 'name' => 'Teacher Two', 'email' => 't2@example.com'],
+            // This malformed entry should be ignored by normalization
+            ['id' => null, 'name' => 'No Id', 'email' => 'noid@example.com'],
+        ];
+
+        $expectedAssignmentId = 'cmid-123';
+
+        // Expect _do_post_request to capture the payload
+        $this->clientmock->expects($this->once())
+            ->method('_do_post_request')
+            ->with(
+                $this->stringContains('/create/submission'),
+                $this->callback(function($payloadJson) use ($studentEmail, $educators, $expectedAssignmentId) {
+                    $payload = json_decode($payloadJson, true);
+                    $this->assertIsArray($payload);
+
+                    // Student email must be at top-level and equal to provided email
+                    $this->assertArrayHasKey('email', $payload);
+                    $this->assertEquals($studentEmail, $payload['email']);
+
+                    // Assignment id should be present
+                    $this->assertEquals($expectedAssignmentId, $payload['assignmentId']);
+
+                    // Educators must be present as normalized array
+                    $this->assertArrayHasKey('educators', $payload);
+                    $this->assertIsArray($payload['educators']);
+                    // Two valid educators expected (the malformed one ignored)
+                    $this->assertCount(2, $payload['educators']);
+                    $this->assertEquals(['id' => '10', 'name' => 'Teacher One', 'email' => 't1@example.com'], $payload['educators'][0]);
+                    $this->assertEquals(['id' => '20', 'name' => 'Teacher Two', 'email' => 't2@example.com'], $payload['educators'][1]);
+                    return true;
+                }),
+                $this->callback(function($headers) {
+                    $this->assertContains('Authorization: Bearer payload_test_token2', $headers);
+                    return true;
+                })
+            )
+            ->willReturn('{"documentId":"mockDocId2","presignedS3Url":"mockS3Url2"}');
+
+        // --- Action ---
+        $response = $this->clientmock->create_submission(
+            'My Doc', 'Student Name', $studentEmail, 'text/html', $expectedAssignmentId, [], $educators
+        );
+
+        // --- Assert ---
+        $this->assertEquals('mockDocId2', $response->documentId);
+    }
+
+
     public function test_upload_to_presigned_url_failure() {
         // --- Expectation ---
         // Expect _do_s3_put_request to be called once and return false

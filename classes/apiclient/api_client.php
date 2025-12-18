@@ -27,7 +27,7 @@ namespace plagiarism_originality\apiclient;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->libdir . '/filelib.php');
+require_once($GLOBALS['CFG']->libdir . '/filelib.php');
 
 /**
  * API client class for Inspera Originality.
@@ -295,7 +295,8 @@ class api_client {
         string $email,
         string $doctype,
         string $assignmentId,
-        array $settings = []
+        array $settings = [],
+        array $educators = []
     ): \stdClass {
         $token = $this->get_token();
         $headers = ['Authorization: Bearer ' . $token];
@@ -308,6 +309,23 @@ class api_client {
             'docType'       => $doctype,
             'assignmentId'  => $assignmentId,
         ];
+
+        // Add educators list if present
+        if (!empty($educators) && is_array($educators)) {
+            $normalized = [];
+            foreach ($educators as $ed) {
+                if (!is_array($ed)) { continue; }
+                $id = isset($ed['id']) ? (string)$ed['id'] : null;
+                $name = $ed['name'] ?? null;
+                $mail = $ed['email'] ?? null;
+                if ($id !== null && !empty($name) && !empty($mail)) {
+                    $normalized[] = ['id' => $id, 'name' => $name, 'email' => $mail];
+                }
+            }
+            if (!empty($normalized)) {
+                $payload['educators'] = $normalized;
+            }
+        }
 
         if (!empty($settings['anonymous_submissions'])) {
             $payload['anonymous_submissions'] = true;

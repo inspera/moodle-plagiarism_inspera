@@ -1378,6 +1378,39 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
             $settings['anonymous_submissions'] = true;
         }
 
+        // Build educators list (teachers for this assignment)
+        $educators = [];
+        try {
+            $cm = get_coursemodule_from_id(null, $plagiarismfile->cm, 0, false, MUST_EXIST);
+            $context = \context_module::instance($plagiarismfile->cm);
+
+            $users = [];
+            $fields = 'u.id, u.firstname, u.lastname, u.email';
+            // Prefer assignment grading capability when module is assign
+            if (!empty($cm->modname) && $cm->modname === 'assign') {
+                $users = get_enrolled_users($context, 'mod/assign:grade', 0, $fields);
+            }
+            // Fallback to course editing capability if none found or module is different
+            if (empty($users)) {
+                $coursecontext = \context_course::instance($cm->course);
+                $users = get_enrolled_users($coursecontext, 'moodle/course:update', 0, $fields);
+            }
+
+            if (!empty($users)) {
+                foreach ($users as $u) {
+                    // Ensure we have required fields
+                    if (empty($u->id) || empty($u->email)) { continue; }
+                    $educators[] = [
+                        'id' => (string)$u->id,
+                        'name' => fullname($u),
+                        'email' => $u->email,
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal if educator fetching fails; proceed without educators
+        }
+
         // Create metadata-only submission
         try {
             $submission = $client->create_submission(
