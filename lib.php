@@ -138,7 +138,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
      * @return string
      */
     public function get_links($linkarray) {
-        global $DB;
+        global $DB, $USER;
 
         static $plagiarismvalues = [];
         $fullquizlist = false;
@@ -217,7 +217,12 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
             ]);
 
             if ($record) {
-                $output .= $this->get_originality_status($record, $plagiarismvalues[$linkarray['cmid']]);
+                // Determine if viewer is allowed to see this status/link.
+                $cmcontext = \context_module::instance($linkarray['cmid']);
+                $isgrader = has_capability('mod/assign:grade', $cmcontext);
+                if ($isgrader || plagiarism_originality_should_show_report($linkarray['cmid'], $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $record)) {
+                    $output .= $this->get_originality_status($record, $plagiarismvalues[$linkarray['cmid']]);
+                }
             }
         }
 
@@ -233,7 +238,11 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
             $textrecord = $DB->get_record_sql($sql, [$linkarray['cmid'], $linkarray['userid']], IGNORE_MULTIPLE);
 
             if ($textrecord) {
-                $output .= $this->get_originality_status($textrecord, $plagiarismvalues[$linkarray['cmid']]);
+                $cmcontext = \context_module::instance($linkarray['cmid']);
+                $isgrader = has_capability('mod/assign:grade', $cmcontext);
+                if ($isgrader || plagiarism_originality_should_show_report($linkarray['cmid'], $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $textrecord)) {
+                    $output .= $this->get_originality_status($textrecord, $plagiarismvalues[$linkarray['cmid']]);
+                }
             }
         }
 
@@ -294,10 +303,13 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
                 $plagiarismvalues['originality_draft_submit'] == PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_FINAL) {
                 // Any files attached to previous events were not submitted.
                 // These files are now finalized, and should be submitted for processing.
+                mtrace("Originality: Final submission detected (cmid={$cmid}, userid={$userid}). Queuing finalized content due to FINAL mode.");
                 require_once("$CFG->dirroot/mod/assign/locallib.php");
                 require_once("$CFG->dirroot/mod/assign/submission/file/locallib.php");
 
                 $modulecontext = context_module::instance($cmid);
+                $queuedfiles = 0;
+                $queuedtext = 0;
 
                 if ($showfiles) { // If we should be handling files.
                     $fs = get_file_storage();
@@ -305,6 +317,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
                         ASSIGNSUBMISSION_FILE_FILEAREA, $eventdata['objectid'], "id", false)) {
                         foreach ($files as $file) {
                             plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid);
+                            $queuedfiles++;
                         }
                     }
                 }
@@ -314,8 +327,11 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
                     if (!empty($submission) && strlen(utf8_decode(strip_tags($submission->onlinetext))) >= $charcount) {
                         $file = plagiarism_originality_create_temp_file($cmid, $eventdata['courseid'], $userid, $submission->onlinetext);
                         plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid);
+                        $queuedtext++;
                     }
                 }
+
+                mtrace("Originality: Queued {$queuedfiles} file(s) and {$queuedtext} text item(s) on final submit (cmid={$cmid}, userid={$userid}).");
             }
             return $result;
         }
@@ -324,6 +340,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
             $plagiarismvalues['originality_draft_submit'] == PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_FINAL) {
             // Assignment-specific functionality:
             // Files should only be sent for checking once "finalized".
+            mtrace("Originality: Skipping draft event because FINAL mode is enabled (cmid={$cmid}, userid={$userid}). No rows created.");
             return true;
         }
 
@@ -441,6 +458,68 @@ function plagiarism_originality_cm_use($cmid) {
         }
     }
     return $useoriginality[$cmid];
+}
+
+/**
+ * Determines whether a student should be shown the originality report link.
+ *
+ * Conditions:
+ * - Report must exist and be finished.
+ * - Sharing option controls visibility: not shared (never), immediately (always),
+ *   after grading (only once graded), due date (after due date passes).
+ *
+ * Teachers/graders bypass this check in get_links() and always see the status.
+ *
+ * @param int $cmid Course module id
+ * @param int $userid User id owning the submission
+ * @param array $settings Plagiarism settings for the CM (records_menu name=>value)
+ * @param stdClass $record The plagiarism record from {plagiarism_originality_subs}
+ * @return bool
+ */
+function plagiarism_originality_should_show_report(int $cmid, int $userid, array $settings, \stdClass $record): bool {
+    global $DB;
+
+    // Must have a finished report to show to students.
+    if (empty($record) || $record->status !== 'finished') {
+        return false;
+    }
+
+    $shareopt = isset($settings['originality_show_student_report']) ? (int)$settings['originality_show_student_report'] : 0;
+    switch ($shareopt) {
+        case 0: // Not shared
+            return false;
+        case 1: // Immediately after it is available
+            return true;
+        case 2: // After grading
+            // Determine if there is a grade for this assignment instance for this user.
+            // Resolve course module and instance.
+            $cm = get_coursemodule_from_id(false, $cmid, 0, false, MUST_EXIST);
+            if ($cm->modname === 'assign') {
+                // Use the grade API to see if a grade exists and is not null.
+                require_once($GLOBALS['CFG']->libdir . '/gradelib.php');
+                $grades = grade_get_grades($cm->course, 'mod', 'assign', $cm->instance, $userid);
+                if (!empty($grades->items[0]->grades)) {
+                    $g = reset($grades->items[0]->grades);
+                    // Show if there is a grade and it is not null (or overridden).
+                    if ($g && ($g->str_grade !== '-' && $g->grade !== null)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        case 3: // Due date
+            // Show after due date passes (for assign only).
+            $cm = get_coursemodule_from_id(false, $cmid, 0, false, MUST_EXIST);
+            if ($cm->modname === 'assign') {
+                $assign = $DB->get_record('assign', ['id' => $cm->instance], 'id,duedate', IGNORE_MISSING);
+                if (!empty($assign) && !empty($assign->duedate) && time() >= (int)$assign->duedate) {
+                    return true;
+                }
+            }
+            return false;
+        default:
+            return false;
+    }
 }
 
 /**
@@ -574,9 +653,7 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         plagiarism_originality_get_form_elements($mform);
 
         // Add conditional display logic for the visible form.
-        if ($mform->elementExists('originality_draft_submit') && $mform->elementExists('submissiondrafts')) {
-            $mform->hideif('originality_draft_submit', 'submissiondrafts', 'eq', 0);
-        }
+        // Show draft submit selector in all cases; value will be enforced in save if drafts are disabled.
 
         if (!has_capability('plagiarism/originality:resubmitonclose', $context) &&
             $mform->elementExists('originality_resubmit_on_close')) {
@@ -630,27 +707,6 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         } else if (isset($plagiarismdefaults[$defaultelement])) {
             // Priority 2: Use the admin-defined default for this module type.
             $mform->setDefault($element, $plagiarismdefaults[$defaultelement]);
-        }
-    }
-
-    // Special handling for originality_show_student_report in assignments
-    // If the default is set to an option not available for assignments (1 or 2), default to 3 (Due date)
-    if ($modulename == 'mod_assign' && $mform->elementExists('submissiondrafts')) {
-        $suffix = '_' . str_replace('mod_', '', $modulename);
-        $defaultelement = 'originality_show_student_report' . $suffix;
-
-        // Check what default was set (either from activity values or admin defaults)
-        $currentdefault = null;
-        if (isset($plagiarismvalues['originality_show_student_report'])) {
-            $currentdefault = $plagiarismvalues['originality_show_student_report'];
-        } else if (isset($plagiarismdefaults[$defaultelement])) {
-            $currentdefault = $plagiarismdefaults[$defaultelement];
-        }
-
-        if ($currentdefault == 1 || $currentdefault == 2) {
-            // Default was "Immediately" (1) or "After grading" (2), which aren't available for assignments
-            // Change to "After due date" (3)
-            $mform->setDefault('originality_show_student_report', 3);
         }
     }
 
@@ -875,27 +931,31 @@ function plagiarism_originality_get_form_elements($mform) {
     $mform->setType('originality_metadata_analysis', PARAM_INT);
 
     // Show student report
-    // For assignments with submissiondrafts, only show "Not shared" and "After due date"
-    if ($mform->elementExists('submissiondrafts')) {
-        // This is an assignment form
-        $share_report_options = [
-            0 => get_string("showstudentreport_not_shared", "plagiarism_originality"),
-            3 => get_string("showstudentreport_due_date", "plagiarism_originality")
-        ];
-    } else {
-        $share_report_options = [
-            0 => get_string("showstudentreport_not_shared", "plagiarism_originality"),
-            1 => get_string("showstudentreport_immediately", "plagiarism_originality"),
-            2 => get_string("showstudentreport_after_grading", "plagiarism_originality"),
-            3 => get_string("showstudentreport_due_date", "plagiarism_originality")
-        ];
-    }
-
+    $share_report_options = [
+        0 => get_string("showstudentreport_not_shared", "plagiarism_originality"),
+        1 => get_string("showstudentreport_immediately", "plagiarism_originality"),
+        2 => get_string("showstudentreport_after_grading", "plagiarism_originality"),
+        3 => get_string("showstudentreport_due_date", "plagiarism_originality")
+    ];
     $mform->addElement('select', 'originality_show_student_report', get_string('originality_show_student_report', 'plagiarism_originality'), $share_report_options);
     $mform->addHelpButton('originality_show_student_report', 'originality_show_student_report', 'plagiarism_originality');
 
+    // originality_draft_submit options depend on whether submission drafts are supported.
+    // If submissiondrafts exists and is enabled, show both options; otherwise, show only Immediate.
+    $draftoptions_final = [
+        PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_IMMEDIATE => get_string("submitondraft", "plagiarism_originality"),
+        PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_FINAL => get_string("submitonfinal", "plagiarism_originality")
+    ];
+    $draftoptions_immediate = [
+        PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_IMMEDIATE => get_string("submitondraft", "plagiarism_originality")
+    ];
     if ($mform->elementExists('submissiondrafts')) {
-        $mform->addElement('select', 'originality_draft_submit', get_string("originality_draft_submit", "plagiarism_originality"), $draftoptions);
+        // We cannot reliably read the runtime value here, so present both, but enforce on save.
+        // However, when the module does not support drafts at all, the element won't exist.
+        $mform->addElement('select', 'originality_draft_submit', get_string("originality_draft_submit", "plagiarism_originality"), $draftoptions_final);
+    } else {
+        $mform->addElement('select', 'originality_draft_submit', get_string("originality_draft_submit", "plagiarism_originality"), $draftoptions_immediate);
+        $mform->setDefault('originality_draft_submit', PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_IMMEDIATE);
     }
 
     // Translations
