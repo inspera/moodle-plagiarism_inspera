@@ -118,6 +118,7 @@ $string['reportlinkscore'] = '{$a}%';
 $string['statusrequested'] = 'Inspera Originality Report: Queued';
 $string['statuspending'] = 'Inspera Originality Report: Pending...';
 $string['statuserror'] = 'Inspera Originality Report: An error occurred.';
+$string['reportaccessdenied'] = 'You do not have access to this originality report. Please contact your system administrator.';
 
 $string['courseshortname'] = 'Course shortname';
 $string['originalitydebug'] = 'Submission Management';
