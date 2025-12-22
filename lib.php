@@ -209,12 +209,21 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
             // $linkarray['file'] should be a stored_file object.
             $file = $linkarray['file'];
 
-            // Get the plagiarism record for this specific file, regardless of status.
-            $record = $DB->get_record('plagiarism_originality_subs', [
-                'cm' => $linkarray['cmid'],
-                'userid' => $linkarray['userid'],
-                'storedfileid' => $file->get_id()
-            ]);
+            // Use get_record_sql to filter out 'superseded' and handle potential duplicates.
+            // We order by timecreated DESC to ensure we get the newest active record.
+            $sql = "SELECT * FROM {plagiarism_originality_subs}
+                WHERE cm = ? 
+                  AND userid = ? 
+                  AND storedfileid = ?
+                  AND status != 'superseded'
+                ORDER BY timecreated DESC, id DESC";
+
+            // IGNORE_MULTIPLE ensures that if (somehow) there are 2 active records, we just take the newest one without crashing.
+            $record = $DB->get_record_sql($sql, [
+                $linkarray['cmid'],
+                $linkarray['userid'],
+                $file->get_id()
+            ], IGNORE_MULTIPLE);
 
             if ($record) {
                 // Determine if viewer is allowed to see this status/link.
@@ -231,12 +240,16 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
         // ==============================
         if (!empty($linkarray['content']) && !empty($linkarray['cmid']) && !empty($linkarray['userid'])) {
             // Fetch the latest plagiarism record for this user's online text in this CM
+            // Added "AND status != 'superseded'"
             $sql = "SELECT *
-                    FROM {plagiarism_originality_subs}
-                    WHERE cm = ? AND userid = ? AND storedfileid IS NULL
-                    ORDER BY timecreated DESC";
-            $textrecord = $DB->get_record_sql($sql, [$linkarray['cmid'], $linkarray['userid']], IGNORE_MULTIPLE);
+                FROM {plagiarism_originality_subs}
+                WHERE cm = ? 
+                  AND userid = ? 
+                  AND storedfileid IS NULL
+                  AND status != 'superseded'
+                ORDER BY timecreated DESC";
 
+            $textrecord = $DB->get_record_sql($sql, [$linkarray['cmid'], $linkarray['userid']], IGNORE_MULTIPLE);
             if ($textrecord) {
                 $cmcontext = \context_module::instance($linkarray['cmid']);
                 $isgrader = has_capability('mod/assign:grade', $cmcontext);
