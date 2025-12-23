@@ -590,6 +590,7 @@ function plagiarism_originality_coursemodule_edit_post_actions($data, $course) {
     }
 
     if (isset($data->use_originality)) {
+        $data = plagiarism_originality_enforce_assign_groupsubmission_on_save($data);
         if (empty($data->submissiondrafts)) {
             // Make sure draft_submit is not set if submissiondrafts not used.
             $data->originality_draft_submit = 0;
@@ -700,6 +701,8 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         }
 
         $mform->hideif('originality_selectfiletypes', 'originality_allowallfile', 'eq', 1);
+
+        plagiarism_originality_apply_assign_groupsubmission_rules($formwrapper, $mform);
 
     } else {
         // User does NOT have permission: Add all settings as hidden fields.
@@ -823,9 +826,21 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
                 }
             }
 
-            // Standard Locking
+            // Standard Locking with minimal special case for Assign group submissions:
+            // If the locked item is 'use_originality' and teamsubmission is enabled,
+            // force the frozen display value to "No" (0) to reflect enforced behavior.
+            $forceconst = null;
+            if ($name === 'use_originality' && $modulename === 'mod_assign') {
+                $teamsenabled = plagiarism_originality_is_assign_groupsubmission_enabled($formwrapper, $mform);
+                if ($teamsenabled) {
+                    $forceconst = 0;
+                }
+            }
+
             $mform->freeze($name);
-            if ($element = $mform->getElement($name)) {
+            if ($forceconst !== null) {
+                $mform->setConstant($name, $forceconst);
+            } else if ($element = $mform->getElement($name)) {
                 $mform->setConstant($name, $element->getValue());
             }
 
@@ -860,6 +875,101 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
     // === 7. UX fix: Advanced toggle visibility and ordering ===
     global $PAGE;
     $PAGE->requires->js(new moodle_url('/plagiarism/originality/originality_form_behaviour.js'));
+}
+
+
+/**
+ * Helper: Determine if this is an Assign activity with group submissions enabled.
+ *
+ * This function centralises the detection so we don't duplicate DB lookups and
+ * mform value parsing across various places in this file.
+ *
+ * @param moodleform $formwrapper
+ * @param MoodleQuickForm $mform
+ * @return bool
+ */
+function plagiarism_originality_is_assign_groupsubmission_enabled($formwrapper, $mform) {
+    global $DB;
+
+    // Identify module from the form class name.
+    $matches = array();
+    if (!preg_match('/^mod_([^_]+)_mod_form$/', get_class($formwrapper), $matches)) {
+        return false;
+    }
+    $modulename = "mod_" . $matches[1];
+    if ($modulename !== 'mod_assign') {
+        return false;
+    }
+
+    // 1) If we have an existing coursemodule, prefer DB value from assign table.
+    if ($cm = $formwrapper->get_coursemodule()) {
+        if (!empty($cm->instance)) {
+            if ($assignrec = $DB->get_record('assign', ['id' => $cm->instance], 'id, teamsubmission')) {
+                return !empty($assignrec->teamsubmission);
+            }
+        }
+    }
+
+    // 2) Fallback to current form value (useful when creating a new activity).
+    if ($mform && $mform->elementExists('teamsubmission')) {
+        $te = $mform->getElement('teamsubmission');
+        if ($te) {
+            $val = $te->getValue();
+            $isenabled = is_array($val) ? !empty(reset($val)) : !empty($val);
+            return (bool)$isenabled;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Helper: Apply all UI rules for Assign group submissions in one place.
+ *
+ * - Disables the use_originality selector when teamsubmission is enabled.
+ * - Adds and toggles visibility of the incompatibility static note.
+ *
+ * Note: Sub-settings visibility continues to be controlled by the generic
+ * hideIf rules tied to use_originality.
+ *
+ * @param moodleform $formwrapper
+ * @param MoodleQuickForm $mform
+ * @return void
+ */
+function plagiarism_originality_apply_assign_groupsubmission_rules($formwrapper, $mform) {
+    // Early return if key elements are missing.
+    if (!$mform->elementExists('use_originality') || !$mform->elementExists('teamsubmission')) {
+        return;
+    }
+
+    // Disable the selector whenever groups are enabled.
+    $mform->disabledIf('use_originality', 'teamsubmission', 'eq', 1);
+
+    // Add a static note that appears only when group submissions are enabled.
+    if (!$mform->elementExists('originality_group_incompat')) {
+        $mform->addElement('static', 'originality_group_incompat', '',
+            get_string('use_originality_group_incompatible', 'plagiarism_originality'));
+        // Hide the note unless teams are enabled (driven by the form value).
+        $mform->hideIf('originality_group_incompat', 'teamsubmission', 'neq', 1);
+    }
+}
+
+
+/**
+ * Helper: Enforce Assign group submission rules at save-time.
+ *
+ * If modulename is assign and teamsubmission is enabled, force use_originality = 0.
+ *
+ * @param stdClass $data
+ * @return stdClass $data (possibly modified)
+ */
+function plagiarism_originality_enforce_assign_groupsubmission_on_save($data) {
+    if (!empty($data->modulename) && $data->modulename === 'assign') {
+        if (!empty($data->teamsubmission)) {
+            $data->use_originality = 0;
+        }
+    }
+    return $data;
 }
 
 

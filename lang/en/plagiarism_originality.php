@@ -123,6 +123,9 @@ $string['statuspending'] = 'Inspera Originality Report: Pending...';
 $string['statuserror'] = 'Inspera Originality Report: An error occurred.';
 $string['reportaccessdenied'] = 'You do not have access to this originality report. Please contact your system administrator.';
 
+// UI notices / tooltips
+$string['use_originality_group_incompatible'] = 'Originality check is not compatible with group submissions. Disable group submissions to enable originality checks.';
+
 $string['courseshortname'] = 'Course shortname';
 $string['originalitydebug'] = 'Submission Management';
 $string['errorcode'] = 'Error code';
