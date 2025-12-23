@@ -246,6 +246,20 @@ class plagiarism_originality_defaults_form extends moodleform {
             if (!empty($data['originality_enable_exclude_urls_' . $sm]) && empty(trim($data['originality_exclude_urls_' . $sm]))) {
                 $errors['originality_exclude_urls_' . $sm] = get_string('errorexcludeurls', 'plagiarism_originality');
             }
+
+            // Require at least one file type if "Allow all" is set to No (0).
+            $allowallkey = 'originality_allowallfile_' . $sm;
+            $selecttypeskey = 'originality_selectfiletypes_' . $sm;
+            $allowall = isset($data[$allowallkey]) ? (int)$data[$allowallkey] : 1;
+            if ($allowall === 0) {
+                $selected = $data[$selecttypeskey] ?? [];
+                if (is_string($selected)) {
+                    $selected = array_filter(explode(',', $selected));
+                }
+                if (empty($selected)) {
+                    $errors[$selecttypeskey] = get_string('errorselectfiletypes', 'plagiarism_originality');
+                }
+            }
         }
 
         return $errors;
