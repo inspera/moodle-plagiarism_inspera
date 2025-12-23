@@ -340,7 +340,7 @@ class api_client {
         if (!empty($settings['originality_enable_translations'])) {
             $payload['translationsEnabled'] = true;
             // Fix: Clean up array structure for API
-            $payload['translationLanguages'] = array_values(array_filter(explode(',', $settings['originality_translation_languages'] ?? '')));
+            $payload['translatedLanguage'] = array_values(array_filter(explode(',', $settings['originality_translation_languages'] ?? '')));
         }
         $enablecontext = !empty($settings['originality_enable_context_similarity']);
         $payload['enableContextSimilarity'] = $enablecontext;

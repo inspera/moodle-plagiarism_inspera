@@ -166,7 +166,7 @@ class plagiarism_originality_defaults_form extends moodleform {
                 PLAGIARISM_ORIGINALITY_RESTRICTCONTENTTEXT => get_string('restrictcontenttext', 'plagiarism_originality'));
             $mform->addElement('select', 'originality_restrictcontent_'.$sm,
                 get_string('originality_restrictcontent', 'plagiarism_originality'), $contentoptions);
-            $mform->addHelpButton('originality_restrictcontent_'.$sm, 'originality_restrictcontent', 'plagiarism_originality');
+            $mform->addHelpButton('originality_restrictcontent_'.$sm, 'originality_restrictcontent_admin', 'plagiarism_originality');
             $mform->setType('originality_restrictcontent_'.$sm, PARAM_INT);
 
             // Translations
@@ -176,6 +176,7 @@ class plagiarism_originality_defaults_form extends moodleform {
 
             $mform->addElement('select', 'originality_translation_languages_' . $sm, get_string('originality_translation_languages', 'plagiarism_originality'), $languages, ['multiple' => true]);
             $mform->setType('originality_translation_languages_' . $sm, PARAM_TAGLIST);
+            $mform->addHelpButton('originality_translation_languages_' . $sm, 'originality_translation_languages', 'plagiarism_originality');
             $mform->hideIf('originality_translation_languages_' . $sm, 'originality_enable_translations_' . $sm, 'eq', 0);
 
             if ($sm == 'assign') {

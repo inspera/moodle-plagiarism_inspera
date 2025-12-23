@@ -845,8 +845,12 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
     // === 6. Handle Module-Specific Logic ===
 
     // Now handle content restriction settings.
-    if ($modulename == 'mod_assign' && $mform->elementExists("submissionplugins")) { // This should be mod_assign
-        $mform->hideif('originality_restrictcontent', 'assignsubmission_onlinetext_enabled');
+    // For Assign: only show when BOTH file and online text submissions are enabled.
+    if ($modulename == 'mod_assign') {
+        if ($mform->elementExists('originality_restrictcontent')) {
+            $mform->hideIf('originality_restrictcontent', 'assignsubmission_file_enabled', 'notchecked');
+            $mform->hideIf('originality_restrictcontent', 'assignsubmission_onlinetext_enabled', 'notchecked');
+        }
     } else if ($modulename != 'mod_forum' && $modulename != 'mod_hsuforum') {
         // Freeze setting for modules that don't support content type restriction.
         $mform->setDefault('originality_restrictcontent', 0);
@@ -949,7 +953,7 @@ function plagiarism_originality_get_form_elements($mform) {
     $mform->addElement('select', 'originality_enable_include_urls', get_string('originality_enable_include_urls', 'plagiarism_originality'), $ynoptions);
     $mform->setType('originality_enable_include_urls', PARAM_INT);
     $mform->setDefault('originality_enable_include_urls', 0);
-    $mform->addHelpButton('originality_enable_include_urls', 'originality_enable_exclude_urls', 'plagiarism_originality');
+    $mform->addHelpButton('originality_enable_include_urls', 'originality_enable_include_urls', 'plagiarism_originality');
 
     $mform->addElement('text', 'originality_include_urls', get_string('originality_include_urls', 'plagiarism_originality'));
     $mform->setType('originality_include_urls', PARAM_TEXT);
@@ -989,6 +993,7 @@ function plagiarism_originality_get_form_elements($mform) {
         $mform->addElement('select', 'originality_draft_submit', get_string("originality_draft_submit", "plagiarism_originality"), $draftoptions_immediate);
         $mform->setDefault('originality_draft_submit', PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_IMMEDIATE);
     }
+    $mform->addHelpButton('originality_draft_submit', 'originality_draft_submit', 'plagiarism_originality');
 
     // Translations
     $mform->addElement('select', 'originality_enable_translations', get_string('originality_enable_translations', 'plagiarism_originality'), $ynoptions);
@@ -997,12 +1002,13 @@ function plagiarism_originality_get_form_elements($mform) {
 
     $mform->addElement('select', 'originality_translation_languages', get_string('originality_translation_languages', 'plagiarism_originality'), $languages, ['multiple' => true]);
     $mform->setType('originality_translation_languages', PARAM_TAGLIST);
+    $mform->addHelpButton('originality_translation_languages', 'originality_translation_languages', 'plagiarism_originality');
     $mform->hideIf('originality_translation_languages', 'originality_enable_translations', 'eq', 0);
 
     $contentoptions = array(PLAGIARISM_ORIGINALITY_RESTRICTCONTENTNO => get_string('restrictcontentno', 'plagiarism_originality'), PLAGIARISM_ORIGINALITY_RESTRICTCONTENTFILES => get_string('restrictcontentfiles', 'plagiarism_originality'), PLAGIARISM_ORIGINALITY_RESTRICTCONTENTTEXT => get_string('restrictcontenttext', 'plagiarism_originality'));
 
     $mform->addElement('select', 'originality_restrictcontent', get_string('originality_restrictcontent', 'plagiarism_originality'), $contentoptions);
-    $mform->addHelpButton('originality_restrictcontent', 'originality_restrictcontent', 'plagiarism_originality');
+    $mform->addHelpButton('originality_restrictcontent', 'originality_restrictcontent_teachers', 'plagiarism_originality');
     $mform->setType('originality_restrictcontent', PARAM_INT);
 }
 
@@ -1417,15 +1423,14 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
             $context = \context_module::instance($plagiarismfile->cm);
 
             $users = [];
-            $fields = 'u.id, u.firstname, u.lastname, u.email';
             // Prefer assignment grading capability when module is assign
             if (!empty($cm->modname) && $cm->modname === 'assign') {
-                $users = get_enrolled_users($context, 'mod/assign:grade', 0, $fields);
+                $users = get_enrolled_users($context, 'mod/assign:grade', 0);
             }
             // Fallback to course editing capability if none found or module is different
             if (empty($users)) {
                 $coursecontext = \context_course::instance($cm->course);
-                $users = get_enrolled_users($coursecontext, 'moodle/course:update', 0, $fields);
+                $users = get_enrolled_users($coursecontext, 'moodle/course:update', 0);
             }
 
             if (!empty($users)) {

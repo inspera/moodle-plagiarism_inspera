@@ -16,6 +16,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+// Ensure $CFG is available when this class file is included.
+global $CFG;
 require_once($CFG->libdir . '/formslib.php');
 
 /**

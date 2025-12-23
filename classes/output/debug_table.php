@@ -165,8 +165,10 @@ class debug_table extends \table_sql {
         return html_writer::link($cmurl, shorten_text($coursemodulename, 40, true), array('title' => $coursemodulename));
     }
 
-    public function col_timesubmitted($row) {
-        return userdate($row->timecreated); // Changed from timesubmitted to timecreated based on install.xml
+    public function col_timecreated($row) {
+        // Always display as dd/mm/yyyy hh:mm ss in the viewer's timezone.
+        // Note: userdate expects an strftime-style format string.
+        return userdate($row->timecreated, '%d/%m/%Y %H:%M', 99);
     }
 
     public function col_status($row) {
