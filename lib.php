@@ -46,7 +46,7 @@ define('PLAGIARISM_ORIGINALITY_MAXATTEMPTS', 28);
  * for the originality plagiarism plugin.
  *
  * @package    plagiarism_originality
- * @copyright  1999 onwards Martin Dougiamas (http://moodle.com)
+ * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class plagiarism_plugin_originality extends plagiarism_plugin {
