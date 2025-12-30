@@ -104,7 +104,7 @@ $string['restrictcontentno'] = 'Submit everything';
 $string['restrictcontenttext'] = 'Only submit in-line text';
 $string['savedconfigsuccess'] = 'Originality Settings Saved';
 
-$string['errorselectfiletypes'] = 'please select at least one file type to submit for originality checking.';
+
 $string['sendfiles'] = 'Inspera Originality send queued files';
 $string['deleteorphanedfiles'] = 'Delete orphaned originality records';
 $string['status'] = 'Originality status';
