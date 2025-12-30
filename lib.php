@@ -1001,6 +1001,7 @@ function plagiarism_originality_get_form_elements($mform) {
     // Enable Originality Check
     $mform->addElement('select', 'use_originality', get_string("use_originality", "plagiarism_originality"), $ynoptions);
     $mform->addHelpButton('use_originality', 'use_originality_teachers', 'plagiarism_originality');
+    $mform->setType('use_originality', PARAM_INT);
 
     // Allow all supported File Types
     $filetypes = plagiarism_originality_default_allowed_file_types(true);
@@ -1103,6 +1104,7 @@ function plagiarism_originality_get_form_elements($mform) {
     ];
     $mform->addElement('select', 'originality_show_student_report', get_string('originality_show_student_report', 'plagiarism_originality'), $share_report_options);
     $mform->addHelpButton('originality_show_student_report', 'originality_show_student_report', 'plagiarism_originality');
+    $mform->setType('originality_show_student_report', PARAM_INT);
 
     // originality_draft_submit options depend on whether submission drafts are supported.
     // If submissiondrafts exists and is enabled, show both options; otherwise, show only Immediate.
@@ -1122,6 +1124,7 @@ function plagiarism_originality_get_form_elements($mform) {
         $mform->setDefault('originality_draft_submit', PLAGIARISM_ORIGINALITY_DRAFTSUBMIT_IMMEDIATE);
     }
     $mform->addHelpButton('originality_draft_submit', 'originality_draft_submit', 'plagiarism_originality');
+    $mform->setType('originality_draft_submit', PARAM_INT);
 
     // Translations
     $mform->addElement('select', 'originality_enable_translations', get_string('originality_enable_translations', 'plagiarism_originality'), $ynoptions);
