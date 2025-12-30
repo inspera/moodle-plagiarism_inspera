@@ -2,7 +2,7 @@
 
 // Advanced items ordering and Show more/less visibility without impacting existing logic.
 // This restores the previous behaviour where advanced fields are placed at the bottom
-// and the more/less toggle is only visible when originality is enabled and the section is open.
+// and the more/less toggle is only visible when originality is enabled.
 (function() {
     'use strict';
 
@@ -14,149 +14,95 @@
         }
     }
 
-    function reorderPluginSection(useEl) {
-        // Safety checks
-        if (!useEl || typeof useEl.closest !== 'function') return;
-
-        // 1. Find the Container
-        // Moodle 4.x usually puts content in .fcontainer inside a fieldset.
-        var container = useEl.closest('.fcontainer');
-        if (!container) {
-            // Fallback for some themes/older Moodle or simplified teacher views
-            var fieldset = useEl.closest('fieldset');
-            if (fieldset) container = fieldset.querySelector('.fcontainer') || fieldset;
+    function applyAdvancedEnhancementsForSelect(useSel) {
+        if (!useSel || typeof useSel.closest !== 'function') {
+            return;
         }
-        if (!container) return;
 
-        // 2. Identify the Moving Parts
-        var moreLessWrapper = container.querySelector('.moreless-actions');
+        var fieldset = useSel.closest('fieldset');
+        if (!fieldset) {
+            return;
+        }
 
-        // Find the advanced content wrapper
-        var advancedContent = container.querySelector('#form-advanced-div');
+        function moveAdvancedToBottom() {
+            // Use the content container that actually collapses with the accordion.
+            var content = fieldset.querySelector('.fcontainer') || fieldset;
 
-        // If we can't find advancedContent by ID, try via the link's aria-controls
-        if (!advancedContent && moreLessWrapper) {
-            var toggler = moreLessWrapper.querySelector('a[aria-controls]');
-            if (toggler) {
-                var id = toggler.getAttribute('aria-controls');
-                advancedContent = container.querySelector('#' + id);
+            // FIX: Convert NodeList to Array to ensure .forEach works on all browsers
+            var advancedItems = Array.prototype.slice.call(content.querySelectorAll('div.fitem.advanced'));
+
+            if (!advancedItems.length) {
+                return;
+            }
+
+            // Keep action buttons at the very end if present
+            var actionButtons = content.querySelector('div.fitem.action-buttons, div.fitem_fsubmit, div.form-actions');
+            var anchor = actionButtons ? actionButtons : null;
+
+            advancedItems.forEach(function(node) {
+                if (anchor) {
+                    content.insertBefore(node, anchor);
+                } else {
+                    content.appendChild(node);
+                }
+            });
+
+            // Move the more/less control to sit above the advanced block
+            var moreless = content.querySelector('.moreless-actions') || fieldset.querySelector('.moreless-actions');
+            if (moreless) {
+                if (anchor) {
+                    content.insertBefore(moreless, anchor);
+                } else {
+                    content.appendChild(moreless);
+                }
             }
         }
 
-        // 3. FORCE MOVE TO BOTTOM
-        // We append them to the container, which moves them to the end of the list.
-        if (advancedContent) {
-            container.appendChild(advancedContent);
-        }
-        if (moreLessWrapper) {
-            container.appendChild(moreLessWrapper);
-
-            // Visual Styles for the link
-            moreLessWrapper.style.display = 'block';
-            moreLessWrapper.style.marginTop = '15px';
-            moreLessWrapper.style.paddingTop = '10px';
-        }
-
-        // 4. Admin "Empty" Fix: Ensure click works
-        // Moving DOM elements can break Moodle's existing event listeners.
-        // We clone and replace the link to attach our own robust toggler.
-        if (moreLessWrapper && advancedContent) {
-            var link = moreLessWrapper.querySelector('a');
-            if (link) {
-                // Clone node to strip existing event listeners
-                var newLink = link.cloneNode(true);
-                link.parentNode.replaceChild(newLink, link);
-
-                newLink.addEventListener('click', function(e) {
-                    e.preventDefault();
-
-                    // Toggle Logic
-                    var isExpanded = newLink.getAttribute('aria-expanded') === 'true';
-                    // Invert state
-                    isExpanded = !isExpanded;
-
-                    newLink.setAttribute('aria-expanded', isExpanded);
-                    if (isExpanded) {
-                        // Change text to "Show less..." (fallback logic if data attr missing)
-                        newLink.innerHTML = newLink.getAttribute('data-less-text') || 'Show less...';
-
-                        // Force display using multiple methods to satisfy different themes/BS versions
-                        advancedContent.classList.remove('hide');
-                        advancedContent.classList.add('show');
-                        advancedContent.style.display = 'block';
-                    } else {
-                        // Save "Show less" text for later if not saved
-                        if (!newLink.getAttribute('data-less-text') && newLink.innerHTML.indexOf('Show') === -1) {
-                            newLink.setAttribute('data-less-text', newLink.innerHTML);
-                        }
-                        // Revert text
-                        newLink.innerHTML = 'Show more...';
-
-                        // Hide content
-                        advancedContent.classList.remove('show');
-                        advancedContent.classList.add('hide');
-                        advancedContent.style.display = 'none';
-                    }
-                });
+        function updateMoreLessVisibility() {
+            var moreless = fieldset.querySelector('.moreless-actions');
+            if (!moreless) {
+                return;
             }
-        }
+            var val = String(useSel.value || '0');
 
-        // 5. Handle Visibility based on the 'use_originality' value
-        function updateVisibility() {
-            if (!moreLessWrapper) return;
-            var val = '0';
-
-            // Check value of input or select
-            if (useEl.tagName.toLowerCase() === 'select') {
-                val = String(useEl.value || '0');
-            } else if (useEl.tagName.toLowerCase() === 'input') {
-                // If hidden/text input (locked state)
-                val = String(useEl.value || '0');
+            // FIX: Simplified logic. Only hide if plugin is disabled.
+            // We removed the unreliable isAccordionOpen() check.
+            if (val === '0') {
+                moreless.style.display = 'none';
+            } else {
+                moreless.style.display = '';
             }
-
-            // If plugin disabled (0), hide the "Show more" link
-            moreLessWrapper.style.display = (val === '0') ? 'none' : 'block';
-        }
-
-        // Listen for changes if it's a select
-        if (useEl.tagName.toLowerCase() === 'select') {
-            useEl.addEventListener('change', updateVisibility);
         }
 
         // Initial run
-        updateVisibility();
-        setTimeout(updateVisibility, 300);
+        moveAdvancedToBottom();
+        updateMoreLessVisibility();
+
+        // React to changes of the originality enable select
+        useSel.addEventListener('change', updateMoreLessVisibility);
+
+        // Re-check visibility shortly after load to handle theme animations/Moodle js
+        setTimeout(updateMoreLessVisibility, 150);
     }
 
     onReadyAdv(function() {
-        // FIX: Look for both SELECT and INPUT (for frozen/locked states)
-        // This ensures the script runs for Teachers who see a locked hidden input.
-        var selectors = Array.prototype.slice.call(document.querySelectorAll('select[id^="id_use_originality"], input[id^="id_use_originality"]'));
-
-        // Fallback to name if ID lookup fails
+        var selectors = Array.prototype.slice.call(document.querySelectorAll('select[id^="id_use_originality"]'));
         if (!selectors.length) {
-            var byName = document.querySelectorAll('select[name^="use_originality"], input[name="use_originality"]');
+            var byName = document.querySelectorAll('select[name^="use_originality"]');
             selectors = Array.prototype.slice.call(byName);
         }
 
-        // Filter out duplicates (input type=hidden might duplicate if not careful)
-        var uniqueSelectors = [];
-        selectors.forEach(function(el) {
-            if (uniqueSelectors.indexOf(el) === -1) uniqueSelectors.push(el);
-        });
+        selectors.forEach(applyAdvancedEnhancementsForSelect);
 
-        uniqueSelectors.forEach(reorderPluginSection);
-
-        // Safety: Re-run on window load in case of theme delay
-        window.addEventListener('load', function() {
-            uniqueSelectors.forEach(reorderPluginSection);
+        window.addEventListener('load', function(){
+            selectors.forEach(function(sel){
+                applyAdvancedEnhancementsForSelect(sel);
+            });
         });
     });
 })();
 
 // Keep use_originality in sync with Assign group submissions (teamsubmission).
-// Requirement: When teamsubmission is enabled, force use_originality = No (0) and freeze it.
-// When disabled, re-enable and restore previous value if available.
 (function(){
     'use strict';
 
@@ -218,7 +164,6 @@
         var teamOn = teamCtrl ? isEnabled(teamCtrl) : false;
 
         if (teamOn) {
-            // store previous non-zero choice once
             if (useSel.dataset.prevOriginality === undefined) {
                 useSel.dataset.prevOriginality = String(useSel.value || '0');
             }
@@ -229,10 +174,8 @@
             setDisabled(useSel, true);
         } else {
             setDisabled(useSel, false);
-            // restore only if we stored a previous value and it's not 0
             var prev = useSel.dataset.prevOriginality;
             if (prev !== undefined && prev !== '0') {
-                // Only restore if the option exists
                 var hasOpt = Array.prototype.some.call(useSel.options || [], function(o){ return String(o.value) === prev; });
                 if (hasOpt) {
                     useSel.value = prev;
@@ -255,27 +198,20 @@
         if (!useSelects.length) return;
         var teamCtrls = findTeamControls();
 
-        // If no explicit teamsubmission control is found (e.g. editing existing activity with hidden form field),
-        // still attempt to handle by reading potential hidden input value.
         if (!teamCtrls.length) {
             var hidden = document.querySelector('input[type="hidden"][name="teamsubmission"]');
             if (hidden) teamCtrls.push(hidden);
         }
-
-        // If still none, do nothing.
         if (!teamCtrls.length) return;
 
-        // Apply initial state across all controls.
         applyStateToAll(teamCtrls, useSelects);
 
-        // Listen to changes on team controls
         teamCtrls.forEach(function(teamCtrl){
             teamCtrl.addEventListener('change', function(){
                 applyStateToAll(teamCtrls, useSelects);
             });
         });
 
-        // Also re-apply on window load to catch late UI changes.
         window.addEventListener('load', function(){
             applyStateToAll(teamCtrls, useSelects);
         });
@@ -317,10 +253,9 @@
         if (!draftsCtrl || !select) return;
 
         var wantFinal = !!isDraftsEnabled(draftsCtrl);
-        var finalValue = '1'; // FINAL
-        var immediateValue = '0'; // IMMEDIATE
+        var finalValue = '1';
+        var immediateValue = '0';
 
-        // Cache label for FINAL once
         if (!select.dataset.finalLabel) {
             var existing = Array.prototype.find.call(select.options || [], function(o){ return String(o.value) === finalValue; });
             if (existing) {
@@ -340,7 +275,6 @@
             var wasSelected = String(select.value) === finalValue;
             select.remove(finalOpt.index);
             if (wasSelected) {
-                // fallback to immediate
                 var immediateOpt = Array.prototype.find.call(select.options || [], function(o){ return String(o.value) === immediateValue; });
                 select.value = immediateOpt ? immediateValue : (select.options.length ? select.options[0].value : '');
                 try { select.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
