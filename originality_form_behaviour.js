@@ -26,16 +26,20 @@
             var fieldset = useEl.closest('fieldset');
             if (fieldset) container = fieldset.querySelector('.fcontainer') || fieldset;
         }
+        if (!container) return;
 
-        function moveAdvancedToBottom() {
-            // Use the content container that actually collapses with the accordion.
-            var content = fieldset.querySelector('.fcontainer') || fieldset;
+        // 2. Identify the Moving Parts
+        var moreLessWrapper = container.querySelector('.moreless-actions');
 
-            // FIX: Convert NodeList to Array to ensure .forEach works on all browsers
-            var advancedItems = Array.prototype.slice.call(content.querySelectorAll('div.fitem.advanced'));
+        // Find the advanced content wrapper
+        var advancedContent = container.querySelector('#form-advanced-div');
 
-            if (!advancedItems.length) {
-                return;
+        // If we can't find advancedContent by ID, try via the link's aria-controls
+        if (!advancedContent && moreLessWrapper) {
+            var toggler = moreLessWrapper.querySelector('a[aria-controls]');
+            if (toggler) {
+                var id = toggler.getAttribute('aria-controls');
+                advancedContent = container.querySelector('#' + id);
             }
         }
 
@@ -51,6 +55,7 @@
             moreLessWrapper.style.display = 'block';
             moreLessWrapper.style.marginTop = '15px';
             moreLessWrapper.style.paddingTop = '10px';
+            moreLessWrapper.style.borderTop = '1px solid #dee2e6';
         }
 
         // 4. Admin "Empty" Fix: Ensure click works
