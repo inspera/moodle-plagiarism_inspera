@@ -46,7 +46,7 @@ define('PLAGIARISM_ORIGINALITY_MAXATTEMPTS', 28);
  * for the originality plagiarism plugin.
  *
  * @package    plagiarism_originality
- * @copyright  1999 onwards Martin Dougiamas (http://moodle.com)
+ * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class plagiarism_plugin_originality extends plagiarism_plugin {
@@ -637,8 +637,29 @@ function plagiarism_originality_coursemodule_edit_post_actions($data, $course) {
 function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mform) {
     global $DB, $CFG;
 
-    // === 1. Guard Clauses (Early Exit) ===
+    // === 1. Define Type Map (Single Source of Truth) ===
+    // We define this early so it can be reused in all logic blocks.
+    $types_map = [
+        'use_originality' => PARAM_INT,
+        'originality_allowallfile' => PARAM_INT,
+        'originality_selectfiletypes' => PARAM_TAGLIST,
+        'originality_enable_ai' => PARAM_INT,
+        'originality_archive' => PARAM_INT,
+        'originality_enable_context_similarity' => PARAM_INT,
+        'originality_context_threshold' => PARAM_INT,
+        'originality_enable_exclude_urls' => PARAM_INT,
+        'originality_exclude_urls' => PARAM_TEXT,
+        'originality_enable_include_urls' => PARAM_INT,
+        'originality_include_urls' => PARAM_TEXT,
+        'originality_metadata_analysis' => PARAM_INT,
+        'originality_show_student_report' => PARAM_INT,
+        'originality_draft_submit' => PARAM_INT,
+        'originality_enable_translations' => PARAM_INT,
+        'originality_translation_languages' => PARAM_TAGLIST,
+        'originality_restrictcontent' => PARAM_INT,
+    ];
 
+    // === 2. Guard Clauses (Early Exit) ===
     $plugin = new plagiarism_plugin_originality();
     // Check if plugin is enabled globally.
     $plagiarismsettings = $plugin->get_settings();
@@ -659,8 +680,7 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         return;
     }
 
-    // === 2. Load Settings Data ===
-
+    // === 3. Load Settings Data ===
     $cmid = null;
     if ($cm = $formwrapper->get_coursemodule()) {
         $cmid = $cm->id;
@@ -677,8 +697,7 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
     // Get Admin Defaults - cmid(0) is the default list.
     $plagiarismdefaults = $DB->get_records_menu('plagiarism_originality_conf', array('cm' => 0), '', 'name, value');
 
-    // === 3. Add Form Elements (Based on Capability) ===
-
+    // === 4. Add Form Elements (Based on Capability) ===
     // Check user's permissions.
     if (has_capability('plagiarism/originality:enable', $context)) {
         // User HAS permission: Build and display all the visible form fields.
@@ -708,30 +727,19 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         // User does NOT have permission: Add all settings as hidden fields.
         foreach ($plagiarismelements as $element) {
             $mform->addElement('hidden', $element);
-        }
 
-        // We MUST set the PARAM types for these hidden fields to ensure
-        // data is cleaned securely when the form is saved by this user.
-        $mform->setType('use_originality', PARAM_INT);
-        $mform->setType('originality_archive', PARAM_INT);
-        $mform->setType('originality_restrictcontent', PARAM_INT);
-        $mform->setType('originality_selectfiletypes', PARAM_TAGLIST);
-        $mform->setType('originality_allowallfile', PARAM_INT);
-        $mform->setType('originality_enable_ai', PARAM_INT);
-        $mform->setType('originality_draft_submit', PARAM_INT);
-        $mform->setType('originality_show_student_report', PARAM_INT);
-        $mform->setType('originality_enable_translations', PARAM_INT);
-        $mform->setType('originality_translation_languages', PARAM_TAGLIST);
-        $mform->setType('originality_enable_context_similarity', PARAM_INT);
-        $mform->setType('originality_context_threshold', PARAM_INT);
-        $mform->setType('originality_enable_include_urls', PARAM_INT);
-        $mform->setType('originality_include_urls', PARAM_TEXT);
-        $mform->setType('originality_enable_exclude_urls', PARAM_INT);
-        $mform->setType('originality_exclude_urls', PARAM_TEXT);
+            // We MUST set the PARAM types for these hidden fields to ensure
+            // data is cleaned securely when the form is saved by this user.
+            // Use the map to set types automatically
+            if (isset($types_map[$element])) {
+                $mform->setType($element, $types_map[$element]);
+            } else {
+                $mform->setType($element, PARAM_RAW); // Fallback
+            }
+        }
     }
 
-    // === 4. Set Default Values ===
-
+    // === 5. Set Default Values ===
     // Now that all elements exist (either visible or hidden), set their default values.
     // Priority: 1) Specific activity values, 2) Admin defaults.
     foreach ($plagiarismelements as $element) {
@@ -745,8 +753,7 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         }
     }
 
-    // === 5. Handle Hidden, Locked, and Advanced Settings ===
-
+    // === 6. Handle Hidden, Locked, and Advanced Settings ===
     $suffix = '_' . str_replace('mod_', '', $modulename);
 
     // Load the 3 lists from config
@@ -778,8 +785,19 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
                 if ($value === null && isset($plagiarismvalues[$name])) {
                     $value = $plagiarismvalues[$name];
                 }
+
+                // Remove visible element
                 $mform->removeElement($name);
+
+                // Add hidden element
                 $mform->addElement('hidden', $name, $value);
+
+                // Use the same map to ensure type safety here too!
+                if (isset($types_map[$name])) {
+                    $mform->setType($name, $types_map[$name]);
+                } else {
+                    $mform->setType($name, PARAM_RAW); // fallback
+                }
             }
             continue;
         }
@@ -803,6 +821,9 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
                         $value = $element->getValue();
                         $mform->removeElement($name);
                         $mform->addElement('hidden', $name, $value);
+                        if (isset($types_map[$name])) {
+                            $mform->setType($name, $types_map[$name]);
+                        }
                     }
                     continue;
                 }
@@ -821,6 +842,9 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
                         $value = $element->getValue();
                         $mform->removeElement($name);
                         $mform->addElement('hidden', $name, $value);
+                        if (isset($types_map[$name])) {
+                            $mform->setType($name, $types_map[$name]);
+                        }
                     }
                     continue;
                 }
