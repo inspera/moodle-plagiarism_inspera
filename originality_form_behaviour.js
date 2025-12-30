@@ -55,7 +55,6 @@
             moreLessWrapper.style.display = 'block';
             moreLessWrapper.style.marginTop = '15px';
             moreLessWrapper.style.paddingTop = '10px';
-            moreLessWrapper.style.borderTop = '1px solid #dee2e6';
         }
 
         // 4. Admin "Empty" Fix: Ensure click works
