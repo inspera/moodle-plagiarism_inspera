@@ -1019,24 +1019,6 @@ function plagiarism_originality_get_form_elements($mform) {
     // Hide file type selection when "Allow all" is YES (value 1)
     $mform->hideIf('originality_selectfiletypes', 'originality_allowallfile', 'eq', 1);
 
-    // Form-level validation: if Allow all = No, require at least one file type.
-    $mform->addFormRule(function($data, $files) {
-        $errors = [];
-        if (!empty($data['use_originality'])) {
-            $allowall = isset($data['originality_allowallfile']) ? (int)$data['originality_allowallfile'] : 1;
-            if ($allowall === 0) {
-                $selected = $data['originality_selectfiletypes'] ?? [];
-                if (is_string($selected)) {
-                    $selected = array_filter(explode(',', $selected));
-                }
-                if (empty($selected)) {
-                    $errors['originality_selectfiletypes'] = get_string('errorselectfiletypes', 'plagiarism_originality');
-                }
-            }
-        }
-        return $errors;
-    });
-
     // AI Authorship
     $mform->addElement('select', 'originality_enable_ai', get_string('originality_enable_ai', 'plagiarism_originality'), $ynoptions);
     $mform->addHelpButton('originality_enable_ai', 'originality_enable_ai', 'plagiarism_originality');
