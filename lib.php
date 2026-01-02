@@ -524,28 +524,9 @@ function plagiarism_originality_should_show_report(int $cmid, int $userid, array
             // Show after due date passes (for assign only).
             $cm = get_coursemodule_from_id(false, $cmid, 0, false, MUST_EXIST);
             if ($cm->modname === 'assign') {
-                $now = time();
-
-                // 1) Check individual extension due date (assign_user_flags).
-                $flags = $DB->get_record('assign_user_flags', ['assignment' => $cm->instance, 'userid' => $userid], 'id,extensionduedate', IGNORE_MISSING);
-                if (!empty($flags) && !empty($flags->extensionduedate)) {
-                    if ($now >= (int)$flags->extensionduedate) {
-                        return true;
-                    }
-                    // An explicit extension exists but has not passed yet; do not fall back to assignment due date.
-                    return false;
-                }
-
-                // 2) Check individual user override due date (assign_overrides).
-                $uoverride = $DB->get_record('assign_overrides', ['assignid' => $cm->instance, 'userid' => $userid], 'id,duedate', IGNORE_MISSING);
-                if (!empty($uoverride) && !empty($uoverride->duedate)) {
-                    return $now >= (int)$uoverride->duedate;
-                }
-
-                // 3) Fallback to assignment due date.
                 $assign = $DB->get_record('assign', ['id' => $cm->instance], 'id,duedate', IGNORE_MISSING);
-                if (!empty($assign) && !empty($assign->duedate)) {
-                    return $now >= (int)$assign->duedate;
+                if (!empty($assign) && !empty($assign->duedate) && time() >= (int)$assign->duedate) {
+                    return true;
                 }
             }
             return false;

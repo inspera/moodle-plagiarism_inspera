@@ -42,7 +42,7 @@ if ($mform->is_cancelled()) {
 }
 
 echo $OUTPUT->header();
-$currenttab = 'originalitysettings';
+$currenttab = 'originalityettings';
 require_once('originality_tabs.php');
 if (($data = $mform->get_data()) && confirm_sesskey()) {
     if (!isset($data->enabled)) {
