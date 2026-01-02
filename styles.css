@@ -54,3 +54,12 @@
     margin-right: 4px; /* Space between icon and "View Report" */
     vertical-align: text-bottom; /* Aligns the icon nicely with the text */
 }
+
+/* Hiding Exclamation mark inside select box.*/
+#fitem_id_originality_selectfiletypes .form-control.is-invalid,
+#fitem_id_originality_selectfiletypes .form-control[aria-invalid="true"],
+#id_originality_selectfiletypes[aria-invalid="true"],
+#fitem_id_originality_selectfiletypes select.is-invalid,
+#fitem_id_originality_selectfiletypes .error select {
+    background-image: none !important;
+}

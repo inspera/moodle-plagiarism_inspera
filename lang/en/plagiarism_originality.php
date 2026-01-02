@@ -94,6 +94,7 @@ $string['submitondraft'] = 'Submit file when first uploaded';
 $string['submitonfinal'] = 'Submit file when student sends for marking';
 $string['originality_selectfiletypes'] = 'File types to submit';
 $string['originality_selectfiletypes_help'] = 'Select which file types should be submitted for originality checking.';
+$string['errorselectfiletypesrequired'] = '⚠ Please select at least one file type to submit for originality checking.';
 $string['originality_restrictcontent'] = 'Submit attached files and in-line text';
 $string['originality_restrictcontent_admin'] = 'Submit attached files and in-line text';
 $string['originality_restrictcontent_admin_help'] = 'Whether originality should be checked for uploaded files and/or texts. If only files or inline-text is available in a specific assignment, then those will be submitted regardless of what is defined here';

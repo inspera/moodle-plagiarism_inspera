@@ -629,6 +629,82 @@ function plagiarism_originality_coursemodule_edit_post_actions($data, $course) {
 }
 
 /**
+ * Hook to validate plagiarism settings on a module settings page before save.
+ * Return element-keyed errors to block submission and display inline messages.
+ *
+ * Primary call signature in recent Moodle versions: ($formwrapper, $data, $files).
+ * - $formwrapper: The form wrapper object (e.g., mod_assign_mod_form).
+ * - $data: Cleaned submitted values (array).
+ * - $files: Submitted files array.
+ *
+ * Backward-compatibility: Some environments invoke this hook with only two params
+ * using the legacy pattern ($data, $files). This implementation supports both
+ * patterns by accepting optional parameters and remapping when detected.
+ *
+ * @param moodleform|null $formwrapper The module form wrapper instance (or null in legacy calls)
+ * @param array|null $data  Submitted form values (cleaned) or null
+ * @param array|null $files Submitted files or null
+ * @return array An array of validation errors keyed by element name
+ */
+function plagiarism_originality_coursemodule_validation($formwrapper = null, $data = null, $files = null) {
+    $errors = [];
+
+    // Backward-compatibility: Some Moodle versions/invocations call this hook with only
+    // two arguments: ($data, $files). If we detect that pattern (first param is the data array
+    // and second is files, third missing), remap them to the new signature.
+    if ($data === null && $files === null && is_array($formwrapper)) {
+        $files = $data; // remains null in this legacy call
+        $data = $formwrapper;
+        $formwrapper = null;
+    }
+
+    // Defensive: Ensure $data is an array (older/misrouted calls could pass the form by mistake).
+    if (!is_array($data)) {
+        return $errors;
+    }
+
+    // If originality isn’t being configured on this form, skip.
+    if (!isset($data['use_originality'])) {
+        return $errors;
+    }
+
+    // Read core flags with sane defaults.
+    $useoriginality = !empty($data['use_originality']);
+    $allowall = isset($data['originality_allowallfile']) ? (int)$data['originality_allowallfile'] : 1;
+
+    if ($useoriginality && $allowall === 0) {
+        // Normalise the selection for file types.
+        $selected = $data['originality_selectfiletypes'] ?? null;
+        $isempty = false;
+
+        if (is_array($selected)) {
+            // Remove empties (can be [''] when nothing is selected)
+            $filtered = array_values(array_filter($selected, function($v) { return $v !== '' && $v !== null; }));
+            $isempty = count($filtered) === 0;
+        } else if (is_string($selected)) {
+            $trimmed = trim($selected);
+            if ($trimmed === '') {
+                $isempty = true;
+            } else if (strpos($trimmed, ',') !== false) {
+                $parts = array_map('trim', explode(',', $trimmed));
+                $isempty = count(array_filter($parts, function($v) { return $v !== ''; })) === 0;
+            } else {
+                $isempty = false; // single non-empty value
+            }
+        } else {
+            $isempty = true;
+        }
+
+        if ($isempty) {
+            // Returning an error keyed to the element shows the message below the field and blocks save.
+            $errors['originality_selectfiletypes'] = get_string('errorselectfiletypesrequired', 'plagiarism_originality');
+        }
+    }
+
+    return $errors;
+}
+
+/**
  * Hook to add plagiarism specific settings to a module settings page.
  *
  * @param moodleform $formwrapper
@@ -1040,6 +1116,48 @@ function plagiarism_originality_get_form_elements($mform) {
     $mform->addElement('select', 'originality_selectfiletypes', get_string('originality_selectfiletypes', 'plagiarism_originality'), $supportedfiles, array('multiple' => true));
     $mform->addHelpButton('originality_selectfiletypes', 'originality_selectfiletypes', 'plagiarism_originality');
     $mform->setType('originality_selectfiletypes', PARAM_TAGLIST);
+
+    // When originality is enabled AND allow-all is set to No, require at least one file type to be selected.
+    $mform->addRule('originality_selectfiletypes', get_string('errorselectfiletypesrequired', 'plagiarism_originality'),
+        'callback', function($value) use ($mform) {
+            // Helper to safely get single select values as ints.
+            $getint = function(string $name, int $default = 0) use ($mform): int {
+                $raw = $mform->getSubmitValue($name);
+                if ($raw === null) {
+                    $raw = $mform->getElementValue($name);
+                }
+                if (is_array($raw)) {
+                    $first = reset($raw);
+                    return (int)$first;
+                }
+                return (int)$raw;
+            };
+
+            $useoriginality = $getint('use_originality', 0);
+            $allowall = $getint('originality_allowallfile', 1);
+
+            // Only enforce when originality is ON and allow-all is OFF.
+            if ($useoriginality === 1 && $allowall === 0) {
+                // Normalise current field's value to an array of non-empty strings.
+                $vals = [];
+                if (is_array($value)) {
+                    $vals = array_values(array_filter($value, function($v) { return $v !== '' && $v !== null; }));
+                } else if (is_string($value)) {
+                    $trimmed = trim($value);
+                    if ($trimmed !== '') {
+                        if (strpos($trimmed, ',') !== false) {
+                            $parts = array_map('trim', explode(',', $trimmed));
+                            $vals = array_values(array_filter($parts, function($v) { return $v !== ''; }));
+                        } else {
+                            $vals = [$trimmed];
+                        }
+                    }
+                }
+                return count($vals) > 0;
+            }
+            return true; // No requirement in other cases.
+        }
+    );
 
     // Hide file type selection when "Allow all" is YES (value 1)
     $mform->hideIf('originality_selectfiletypes', 'originality_allowallfile', 'eq', 1);
