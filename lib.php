@@ -521,12 +521,39 @@ function plagiarism_originality_should_show_report(int $cmid, int $userid, array
             }
             return false;
         case 3: // Due date
-            // Show after due date passes (for assign only).
             $cm = get_coursemodule_from_id(false, $cmid, 0, false, MUST_EXIST);
             if ($cm->modname === 'assign') {
-                $assign = $DB->get_record('assign', ['id' => $cm->instance], 'id,duedate', IGNORE_MISSING);
-                if (!empty($assign) && !empty($assign->duedate) && time() >= (int)$assign->duedate) {
-                    return true;
+                $now = time();
+
+                // 1. CHECK EXTENSIONS (Highest Priority)
+                // If a teacher granted an extension, this is the only date that matters for this user.
+                $flags = $DB->get_record('assign_user_flags',
+                    ['assignment' => $cm->instance, 'userid' => $userid],
+                    'id, extensionduedate', IGNORE_MISSING);
+
+                if (!empty($flags) && !empty($flags->extensionduedate)) {
+                    // If extension is set, show ONLY if extension date has passed.
+                    return $now >= (int)$flags->extensionduedate;
+                }
+
+                // 2. CHECK USER OVERRIDES (Medium Priority)
+                // If the user has a specific override (e.g. for accessibility), use that.
+                $uoverride = $DB->get_record('assign_overrides',
+                    ['assignid' => $cm->instance, 'userid' => $userid],
+                    'id, duedate', IGNORE_MISSING);
+
+                if (!empty($uoverride) && !empty($uoverride->duedate)) {
+                    return $now >= (int)$uoverride->duedate;
+                }
+
+                // 3. CHECK GLOBAL ASSIGNMENT DUE DATE (Lowest Priority)
+                // Fallback to the standard date set in settings.
+                $assign = $DB->get_record('assign',
+                    ['id' => $cm->instance],
+                    'id, duedate', IGNORE_MISSING);
+
+                if (!empty($assign) && !empty($assign->duedate)) {
+                    return $now >= (int)$assign->duedate;
                 }
             }
             return false;
