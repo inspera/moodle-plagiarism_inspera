@@ -578,7 +578,6 @@ function plagiarism_originality_coursemodule_edit_post_actions($data, $course) {
         }
         // Array of possible plagiarism config options.
         $plagiarismelements = $plugin->config_options();
-        //$contextmodule = context_module::instance($data->coursemodule);
 
         // First get existing values.
         if (empty($data->coursemodule)) {
@@ -587,6 +586,8 @@ function plagiarism_originality_coursemodule_edit_post_actions($data, $course) {
         }
         $existingelements = $DB->get_records_menu('plagiarism_originality_conf', array('cm' => $data->coursemodule),
             '', 'name, id');
+
+        // 1. Save Standard Settings (Teacher choices)
         foreach ($plagiarismelements as $element) {
             $newelement = new stdClass();
             $newelement->cm = $data->coursemodule;
@@ -603,6 +604,44 @@ function plagiarism_originality_coursemodule_edit_post_actions($data, $course) {
                 $DB->insert_record('plagiarism_originality_conf', $newelement);
             }
 
+        }
+
+        // 2. SNAPSHOT LOGIC: Freeze Admin Rules for this Assignment
+        //    This ensures that future Admin changes do not break existing assignments.
+
+        // Determine the module suffix (e.g., '_assign')
+        $modulename = $data->modulename ?? 'assign';
+        $suffix = '_' . $modulename;
+
+        // The 3 lists that control visibility/locking
+        $config_lists = [
+            'originality_lockeditems' . $suffix,
+            'originality_hiddenitems' . $suffix,
+            'originality_advanceditems' . $suffix
+        ];
+
+        // Get Global Defaults (Admin Settings)
+        // We use cm=0 to fetch the global configuration.
+        $admin_defaults = $DB->get_records_menu('plagiarism_originality_conf', ['cm' => 0], '', 'name, value');
+
+        foreach ($config_lists as $configname) {
+            // Check if this assignment ALREADY has this list defined locally
+            // We check the DB directly to be safe, or check our pre-fetched $existingelements array
+            $already_exists = isset($existingelements[$configname]);
+
+            if (!$already_exists) {
+                // If Missing (New Assignment): Copy the current Admin Default into this assignment.
+                $newrecord = new stdClass();
+                $newrecord->cm = $data->coursemodule;
+                $newrecord->name = $configname;
+
+                // Use the admin value, or empty string if not set globally
+                $newrecord->value = isset($admin_defaults[$configname]) ? $admin_defaults[$configname] : '';
+
+                $DB->insert_record('plagiarism_originality_conf', $newrecord);
+            }
+            // If it DOES exist (Existing Assignment): Do nothing.
+            // We want to keep the old snapshot, not overwrite it with new Admin rules.
         }
 
     }
@@ -813,15 +852,24 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
     // === 6. Handle Hidden, Locked, and Advanced Settings ===
     $suffix = '_' . str_replace('mod_', '', $modulename);
 
-    // Load the 3 lists from config
-    $hidden_list   = !empty($plagiarismdefaults['originality_hiddenitems'.$suffix])
-        ? explode(',', $plagiarismdefaults['originality_hiddenitems'.$suffix]) : [];
+    $get_list_values = function($base_name) use ($suffix, $plagiarismvalues, $plagiarismdefaults) {
+        $fullname = $base_name . $suffix;
 
-    $locked_list   = !empty($plagiarismdefaults['originality_lockeditems'.$suffix])
-        ? explode(',', $plagiarismdefaults['originality_lockeditems'.$suffix]) : [];
+        // 1. Try Local Assignment Setting (Snapshot)
+        if (isset($plagiarismvalues[$fullname])) {
+            return !empty($plagiarismvalues[$fullname]) ? explode(',', $plagiarismvalues[$fullname]) : [];
+        }
 
-    $advanced_list = !empty($plagiarismdefaults['originality_advanceditems'.$suffix])
-        ? explode(',', $plagiarismdefaults['originality_advanceditems'.$suffix]) : [];
+        // 2. Fallback to Admin Default
+        if (isset($plagiarismdefaults[$fullname])) {
+            return !empty($plagiarismdefaults[$fullname]) ? explode(',', $plagiarismdefaults[$fullname]) : [];
+        }
+
+        return [];
+    };
+    $hidden_list   = $get_list_values('originality_hiddenitems');
+    $locked_list   = $get_list_values('originality_lockeditems');
+    $advanced_list = $get_list_values('originality_advanceditems');
 
     // Check if user is an Admin (can bypass restrictions)
     $is_admin = has_capability('plagiarism/originality:manage_locked_settings', $context);
@@ -938,7 +986,7 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         }
     }
 
-    // === 6. Handle Module-Specific Logic ===
+    // === 7. Handle Module-Specific Logic ===
 
     // Now handle content restriction settings.
     // For Assign: only show when BOTH file and online text submissions are enabled.
@@ -953,7 +1001,6 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         $mform->hardFreeze('originality_restrictcontent');
     }
 
-    // === 7. UX fix: Advanced toggle visibility and ordering ===
     global $PAGE;
     $PAGE->requires->js(new moodle_url('/plagiarism/originality/originality_form_behaviour.js'));
 }
