@@ -1,0 +1,28 @@
+name: Build and Release Plugin
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers only when you push a tag starting with "v" (e.g. v1.0.0)
+
+jobs:
+  build:
+    name: Build Moodle Zip
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Zip Archive
+        # We run your specific git archive command here.
+        # This ensures the 'originality/' prefix is applied correctly.
+        run: git archive -o originality.zip --prefix=originality/ HEAD
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: originality.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
