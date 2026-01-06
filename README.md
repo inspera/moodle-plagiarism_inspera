@@ -1,4 +1,4 @@
-# Originality Plagiarism Plugin for Moodle
+# Inpera Originality Plagiarism Plugin for Moodle
 
 Originality is a plugin that integrates Moodle with the Inspera Originality plagiarism detection service.
 
