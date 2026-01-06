@@ -15,6 +15,7 @@ This initial release (`1.0.0`) currently supports:
 
 **Known Limitations:**
 * Quiz and Forum activities are **not** yet supported in this version.
+* Group assignments are **not** yet supported.
 * Supported on Moodle 4.5+ (see `version.php` for details).
 
 ## Installation
