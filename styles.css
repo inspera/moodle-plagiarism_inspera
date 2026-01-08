@@ -41,11 +41,18 @@
 /* Score is LOW or EQUAL (<= threshold) */
 .originality-score.low {
     background-color: #39734A; /* Green */
+    color: #ffffff;
 }
 
 /* Score is HIGH (> threshold) */
 .originality-score.high {
     background-color: #9F2D27; /* Red */
+    color: #ffffff;
+}
+
+.originality-score.medium {
+    background-color: #E0A800; /* Amber/Dark Yellow */
+    color: #ffffff;
 }
 
 .originality-logo-icon {
