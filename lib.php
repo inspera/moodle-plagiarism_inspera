@@ -402,17 +402,9 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
             case 'finished':
                 $url = new moodle_url('/plagiarism/originality/redirect.php', ['id' => $record->id]);
                 $score = round($record->similarity);
-                // Define class based on Risk String
-                $riskString = $record->originality ?? ''; // e.g. "High Risk", "Medium Risk", "Low Risk"
-                $riskClass = 'low'; // Default fallback
 
-                if (stripos($riskString, 'High') !== false) {
-                    $riskClass = 'high';
-                } elseif (stripos($riskString, 'Medium') !== false) {
-                    $riskClass = 'medium';
-                } elseif (stripos($riskString, 'Low') !== false) {
-                    $riskClass = 'low';
-                }
+                // Defaults to 'low' if the value is missing.
+                $riskClass = strtolower(explode(' ', $record->originality ?? 'Low')[0]);
 
                 $scoreclass = 'originality-score ' . $riskClass;
 
