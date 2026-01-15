@@ -897,12 +897,15 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
 
         return [];
     };
-    $hidden_list   = $get_list_values('originality_hiddenitems');
-    $locked_list   = $get_list_values('originality_lockeditems');
+    $hidden_list = $get_list_values('originality_hiddenitems');
+    $locked_list = $get_list_values('originality_lockeditems');
     $advanced_list = $get_list_values('originality_advanceditems');
 
     // Check if user is an Admin (can bypass restrictions)
     $is_admin = has_capability('plagiarism/originality:manage_locked_settings', $context);
+
+    // Flag to track if we actually have any content for the "Show More" section
+    $has_advanced_items = false;
 
     // Iterate over all possible plugin settings
     foreach ($plagiarismelements as $name) {
@@ -940,71 +943,75 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         // LOCKED ITEMS
         // Priority 2: If it is in the Locked list AND user is NOT Admin -> Freeze it.
         $locked_map = array_flip($locked_list);
-        if (isset($locked_map[$name]) && !$is_admin) {
-
-            // If the item is locked, check if it's irrelevant and should be hidden instead.
-            // A. Cleanup File Types
-            if ($name === 'originality_selectfiletypes') {
-                $allowval = $plagiarismvalues['originality_allowallfile'] ?? null;
-                if ($allowval === null) {
-                    $defaultkey = 'originality_allowallfile' . $suffix;
-                    $allowval = $plagiarismdefaults[$defaultkey] ?? 0;
-                }
-                // If Allow All is YES, hide the empty list completely
-                if ($allowval == 1) {
-                    if ($element = $mform->getElement($name)) {
-                        $value = $element->getValue();
-                        $mform->removeElement($name);
-                        $mform->addElement('hidden', $name, $value);
-                        if (isset($types_map[$name])) {
-                            $mform->setType($name, $types_map[$name]);
-                        }
-                    }
-                    continue;
-                }
-            }
-
-            // B. Cleanup Translations
-            if ($name === 'originality_translation_languages') {
-                $transval = $plagiarismvalues['originality_enable_translations'] ?? null;
-                if ($transval === null) {
-                    $defaultkey = 'originality_enable_translations' . $suffix;
-                    $transval = $plagiarismdefaults[$defaultkey] ?? 0;
-                }
-                // If Translations are NO, hide the list completely
-                if ($transval == 0) {
-                    if ($element = $mform->getElement($name)) {
-                        $value = $element->getValue();
-                        $mform->removeElement($name);
-                        $mform->addElement('hidden', $name, $value);
-                        if (isset($types_map[$name])) {
-                            $mform->setType($name, $types_map[$name]);
-                        }
-                    }
-                    continue;
-                }
-            }
-
-            // Standard Locking with minimal special case for Assign group submissions:
-            // If the locked item is 'use_originality' and teamsubmission is enabled,
-            // force the frozen display value to "No" (0) to reflect enforced behavior.
-            $forceconst = null;
-            if ($name === 'use_originality' && $modulename === 'mod_assign') {
-                $teamsenabled = plagiarism_originality_is_assign_groupsubmission_enabled($formwrapper, $mform);
-                if ($teamsenabled) {
-                    $forceconst = 0;
-                }
-            }
-
-            $mform->freeze($name);
-            if ($forceconst !== null) {
-                $mform->setConstant($name, $forceconst);
-            } else if ($element = $mform->getElement($name)) {
-                $mform->setConstant($name, $element->getValue());
-            }
-
-            // Requirement: "Locked items should always be in Show More"
+        if (isset($locked_map[$name])) {
+            // Always move Locked items to "Show More" (For BOTH Admins and Teachers)
             $mform->setAdvanced($name, true);
+            $has_advanced_items = true;
+
+            // Only Freeze if the user is NOT an Admin
+            if (!$is_admin) {
+
+                // If the item is locked, check if it's irrelevant and should be hidden instead.
+                // A. Cleanup File Types
+                if ($name === 'originality_selectfiletypes') {
+                    $allowval = $plagiarismvalues['originality_allowallfile'] ?? null;
+                    if ($allowval === null) {
+                        $defaultkey = 'originality_allowallfile' . $suffix;
+                        $allowval = $plagiarismdefaults[$defaultkey] ?? 0;
+                    }
+                    // If Allow All is YES, hide the empty list completely
+                    if ($allowval == 1) {
+                        if ($element = $mform->getElement($name)) {
+                            $value = $element->getValue();
+                            $mform->removeElement($name);
+                            $mform->addElement('hidden', $name, $value);
+                            if (isset($types_map[$name])) {
+                                $mform->setType($name, $types_map[$name]);
+                            }
+                        }
+                        continue;
+                    }
+                }
+
+                // B. Cleanup Translations
+                if ($name === 'originality_translation_languages') {
+                    $transval = $plagiarismvalues['originality_enable_translations'] ?? null;
+                    if ($transval === null) {
+                        $defaultkey = 'originality_enable_translations' . $suffix;
+                        $transval = $plagiarismdefaults[$defaultkey] ?? 0;
+                    }
+                    // If Translations are NO, hide the list completely
+                    if ($transval == 0) {
+                        if ($element = $mform->getElement($name)) {
+                            $value = $element->getValue();
+                            $mform->removeElement($name);
+                            $mform->addElement('hidden', $name, $value);
+                            if (isset($types_map[$name])) {
+                                $mform->setType($name, $types_map[$name]);
+                            }
+                        }
+                        continue;
+                    }
+                }
+
+                // Standard Locking with minimal special case for Assign group submissions:
+                // If the locked item is 'use_originality' and teamsubmission is enabled,
+                // force the frozen display value to "No" (0) to reflect enforced behavior.
+                $forceconst = null;
+                if ($name === 'use_originality' && $modulename === 'mod_assign') {
+                    $teamsenabled = plagiarism_originality_is_assign_groupsubmission_enabled($formwrapper, $mform);
+                    if ($teamsenabled) {
+                        $forceconst = 0;
+                    }
+                }
+
+                $mform->freeze($name);
+                if ($forceconst !== null) {
+                    $mform->setConstant($name, $forceconst);
+                } else if ($element = $mform->getElement($name)) {
+                    $mform->setConstant($name, $element->getValue());
+                }
+            }
         }
 
         // --- RULE 3: ADVANCED ITEMS ---
@@ -1013,7 +1020,14 @@ function plagiarism_originality_coursemodule_standard_elements($formwrapper, $mf
         $advanced_map = array_flip($advanced_list);
         if (isset($advanced_map[$name])) {
             $mform->setAdvanced($name, true);
+            $has_advanced_items = true;
         }
+    }
+
+    // === FORCE SHOW MORE TO TOP (CONDITIONAL) ===
+    // Only move the anchor to Advanced if we actually have other advanced items to show.
+    if ($has_advanced_items && $mform->elementExists('originality_advanced_anchor')) {
+        $mform->setAdvanced('originality_advanced_anchor', true);
     }
 
     // === 7. Handle Module-Specific Logic ===
@@ -1156,6 +1170,11 @@ function plagiarism_originality_get_form_elements($mform) {
     );
 
     $mform->addElement('header', 'plagiarismdesc', get_string('originality', 'plagiarism_originality'));
+
+    // create a static empty div on top. The "Show more" link will be always on top.
+    $mform->addElement('static', 'originality_advanced_anchor', '', '');
+
+
     // Enable Originality Check
     $mform->addElement('select', 'use_originality', get_string("use_originality", "plagiarism_originality"), $ynoptions);
     $mform->addHelpButton('use_originality', 'use_originality_teachers', 'plagiarism_originality');
