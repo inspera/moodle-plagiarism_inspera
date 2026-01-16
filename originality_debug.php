@@ -13,6 +13,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+global $OUTPUT, $CFG, $PAGE, $DB;
 
 /**
  * Debug tool for Inspera Originality.
@@ -46,7 +47,7 @@ $exportfilename = 'OriginalityDebugOutput.csv';
 
 $limit = 50;
 // Note: We filter by 'status' now, not 'statuscode' or 'errorcode'
-$filters = array('realname' => 0, 'timesubmitted' => 0, 'status' => 0, 'course' => 0, 'externalid' => 0);
+$filters = array('realname' => 0, 'timesubmitted' => 0, 'course' => 0, 'externalid' => 0);
 $ufiltering = new \plagiarism_originality\output\filtering($filters, $PAGE->url);
 list($ufextrasql, $ufparams) = $ufiltering->get_sql_filter();
 
@@ -102,7 +103,8 @@ else if (!empty($deleteallfiltered) || !empty($resubmitallfiltered)) {
                 JOIN {course_modules} cm ON t.cm = cm.id
                 JOIN {modules} m ON cm.module = m.id
                 JOIN {course} c ON cm.course = c.id
-                WHERE 1=1";
+                WHERE 1=1
+                  AND t.status IN ('error','external_error')";
 
     if (!empty($ufextrasql)) {
         $sqlfrom .= " AND $ufextrasql";
@@ -239,12 +241,7 @@ $sqlfrom = "{plagiarism_originality_subs} t
             LEFT JOIN {modules} m ON cm.module = m.id
             LEFT JOIN {course} c ON cm.course = c.id";
 
-$sqlwhere = "1=1"; // Base where clause
-
-// Note: Urkund filtered out 'Analyzed'. You might want to filter 'finished' by default 
-// or just show everything. This code shows everything unless filtered.
-// If you want to hide finished by default:
-// $sqlwhere .= " AND t.status <> 'finished'";
+$sqlwhere = "1=1 AND t.status IN ('error','external_error')"; // Base where clause with default status filter
 
 if (!empty($ufextrasql)) {
     $sqlwhere .= " AND " . $ufextrasql;
