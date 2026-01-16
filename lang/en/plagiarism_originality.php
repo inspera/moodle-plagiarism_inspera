@@ -163,6 +163,6 @@ $string['areyousurefilteredresubmit'] = 'Are you sure you want to resubmit ALL {
 $string['nofilesselected'] = 'No files were selected.';
 $string['recordsdeleted'] = 'No files were selected.';
 $string['filesresubmitted'] = 'Files queued for resubmission.';
-
+$string['resubmit_tooltip'] = 'Retry report submission using the current originality checking settings';
 $string['connectionerror'] = 'Could not connect to Originality API';
 $string['apitokenerror'] = 'Authentication failed. The API returned: "{$a}"';

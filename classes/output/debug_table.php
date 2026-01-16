@@ -119,6 +119,7 @@ class debug_table extends \table_sql {
      * Action buttons. Adapted for Originality status flow.
      */
     public function col_action($row) {
+        global $OUTPUT;
         $output = '';
 
         // 1. Reset / Resubmit Button
@@ -126,7 +127,9 @@ class debug_table extends \table_sql {
         if ($row->status == 'error' || $row->status == 'external_error') {
             $url = new moodle_url('/plagiarism/originality/originality_debug.php',
                 array('id' => $row->id, 'action' => 'resubmit', 'sesskey' => sesskey()));
-            $output .= html_writer::link($url, get_string('resubmit', 'plagiarism_originality')). ' | ';
+            $tooltip = get_string('resubmit_tooltip', 'plagiarism_originality');
+            $output .= html_writer::link($url, get_string('resubmit', 'plagiarism_originality'), ['title' => $tooltip]);
+            $output .= ' | ';
         }
 
         // 2. Delete Button
