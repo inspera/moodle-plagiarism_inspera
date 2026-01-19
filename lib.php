@@ -138,7 +138,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
      * @return string
      */
     public function get_links($linkarray) {
-        global $DB, $USER;
+        global $DB, $CFG, $USER;
 
         static $plagiarismvalues = [];
         $fullquizlist = false;
@@ -202,6 +202,25 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
                 ['cm' => $linkarray['cmid']], '', 'name,value');
         }
 
+        // Helper to resolve Submission ID for Assignments
+        $get_assign_submission_id = function($cmid, $userid) use ($CFG) {
+            try {
+                // We use the Assign API to find the correct submission (Group or Individual)
+                $cm = get_coursemodule_from_id('assign', $cmid, 0, false, IGNORE_MISSING);
+                if (!$cm) return 0;
+
+                require_once($CFG->dirroot . '/mod/assign/locallib.php');
+                $context = \context_module::instance($cm->id);
+                $assign = new \assign($context, $cm, null);
+                // 'false' means don't create one if missing.
+                // This automatically returns the GROUP submission if the assignment is in group mode.
+                $submission = $assign->get_user_submission($userid, false);
+                return $submission ? $submission->id : 0;
+            } catch (\Exception $e) {
+                return 0;
+            }
+        };
+
         // ==============================
         // 5. Add "View Originality Report" if finished
         // ==============================
@@ -209,21 +228,45 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
             // $linkarray['file'] should be a stored_file object.
             $file = $linkarray['file'];
 
-            // Use get_record_sql to filter out 'superseded' and handle potential duplicates.
-            // We order by timecreated DESC to ensure we get the newest active record.
-            $sql = "SELECT * FROM {plagiarism_originality_subs}
-                WHERE cm = ? 
-                  AND userid = ? 
-                  AND storedfileid = ?
-                  AND status != 'superseded'
-                ORDER BY timecreated DESC, id DESC";
+            // --- Resolve Submission ID ---
+            $submissionid = 0;
+            $comp = $file->get_component();
 
-            // IGNORE_MULTIPLE ensures that if (somehow) there are 2 active records, we just take the newest one without crashing.
-            $record = $DB->get_record_sql($sql, [
-                $linkarray['cmid'],
-                $linkarray['userid'],
-                $file->get_id()
-            ], IGNORE_MULTIPLE);
+            // For standard assignment files, the itemid IS the submissionid
+            if ($comp === 'assignsubmission_file' || $comp === 'assignsubmission_onlinetext') {
+                $submissionid = $file->get_itemid();
+            }
+
+            $record = false;
+
+            // Strategy A: Query by Submission ID (Preferred for Group Assignments)
+            if (!empty($submissionid)) {
+                // We search by submissionid + fileid. We ignore userid here because
+                // in a group submission, User B (viewer) didn't upload the file (User A did).
+                $sql = "SELECT * FROM {plagiarism_originality_subs}
+                    WHERE submissionid = ? 
+                      AND storedfileid = ?
+                      AND status != 'superseded'
+                    ORDER BY timecreated DESC, id DESC";
+
+                $record = $DB->get_record_sql($sql, [$submissionid, $file->get_id()], IGNORE_MULTIPLE);
+            }
+
+            // Strategy B: Fallback to User ID (For non-assign modules or old data)
+            if (!$record) {
+                $sql = "SELECT * FROM {plagiarism_originality_subs}
+                    WHERE cm = ? 
+                      AND userid = ? 
+                      AND storedfileid = ?
+                      AND status != 'superseded'
+                    ORDER BY timecreated DESC, id DESC";
+
+                $record = $DB->get_record_sql($sql, [
+                    $linkarray['cmid'],
+                    $linkarray['userid'],
+                    $file->get_id()
+                ], IGNORE_MULTIPLE);
+            }
 
             if ($record) {
                 // Determine if viewer is allowed to see this status/link.
@@ -239,17 +282,34 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
         // 6. Add "View Originality Report" for ONLINE TEXT submissions (no file)
         // ==============================
         if (!empty($linkarray['content']) && !empty($linkarray['cmid']) && !empty($linkarray['userid'])) {
-            // Fetch the latest plagiarism record for this user's online text in this CM
-            // Added "AND status != 'superseded'"
-            $sql = "SELECT *
-                FROM {plagiarism_originality_subs}
-                WHERE cm = ? 
-                  AND userid = ? 
-                  AND storedfileid IS NULL
-                  AND status != 'superseded'
-                ORDER BY timecreated DESC";
 
-            $textrecord = $DB->get_record_sql($sql, [$linkarray['cmid'], $linkarray['userid']], IGNORE_MULTIPLE);
+            // --- Resolve Submission ID for Text ---
+            // Online text doesn't always come with an itemid in $linkarray, so we look it up.
+            $submissionid = $get_assign_submission_id($linkarray['cmid'], $linkarray['userid']);
+
+            $textrecord = false;
+
+            // Strategy A: Query by Submission ID
+            if (!empty($submissionid)) {
+                $sql = "SELECT * FROM {plagiarism_originality_subs}
+                    WHERE submissionid = ? 
+                      AND storedfileid IS NULL
+                      AND status != 'superseded'
+                    ORDER BY timecreated DESC";
+                $textrecord = $DB->get_record_sql($sql, [$submissionid], IGNORE_MULTIPLE);
+            }
+
+            // Strategy B: Fallback to User ID
+            if (!$textrecord) {
+                $sql = "SELECT * FROM {plagiarism_originality_subs}
+                    WHERE cm = ? 
+                      AND userid = ? 
+                      AND storedfileid IS NULL
+                      AND status != 'superseded'
+                    ORDER BY timecreated DESC";
+                $textrecord = $DB->get_record_sql($sql, [$linkarray['cmid'], $linkarray['userid']], IGNORE_MULTIPLE);
+            }
+
             if ($textrecord) {
                 $cmcontext = \context_module::instance($linkarray['cmid']);
                 $isgrader = has_capability('mod/assign:grade', $cmcontext);
@@ -287,12 +347,12 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
         }
 
         $userid = $eventdata['userid'];
-        $relateduserid = null;
+        $relateduserid = !empty($eventdata['relateduserid']) ? $eventdata['relateduserid'] : null;
 
-        // Check if this is a submission on-behalf.
-        if (!empty($eventdata['relateduserid'])) {
-            $relateduserid = $eventdata['relateduserid'];
-        }
+        // For assignsubmission_* events and assessable_uploaded in Assignments,
+        // the objectid IS the submissionid.
+        $submissionid = isset($eventdata['objectid']) ? $eventdata['objectid'] : null;
+
 
         // Check to see if restrictcontent is in use.
         $showcontent = true;
@@ -307,6 +367,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
 
         $charcount = plagiarism_originality_charcount();
 
+        // === CASE 1: Final Submission (Submit for Marking) ===
         if ($eventdata['eventtype'] == 'assignsubmission_submitted' && empty($eventdata['other']['submission_editable'])) {
             // Assignment-specific functionality:
             // This is a 'finalize' event. No files from this event itself,
@@ -329,7 +390,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
                     if ($files = $fs->get_area_files($modulecontext->id, 'assignsubmission_file',
                         ASSIGNSUBMISSION_FILE_FILEAREA, $eventdata['objectid'], "id", false)) {
                         foreach ($files as $file) {
-                            plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid);
+                            plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid, $submissionid);
                             $queuedfiles++;
                         }
                     }
@@ -339,7 +400,7 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
                     $submission = $DB->get_record('assignsubmission_onlinetext', array('submission' => $eventdata['objectid']));
                     if (!empty($submission) && strlen(utf8_decode(strip_tags($submission->onlinetext))) >= $charcount) {
                         $file = plagiarism_originality_create_temp_file($cmid, $eventdata['courseid'], $userid, $submission->onlinetext);
-                        plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid);
+                        plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid, $submissionid);
                         $queuedtext++;
                     }
                 }
@@ -357,13 +418,13 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
             return true;
         }
 
-        // Text is attached.
+        // === CASE 2: Upload/Save Event (Draft Mode) ===
         $result = true;
         if (!empty($eventdata['other']['content']) && $showcontent &&
             strlen(utf8_decode(strip_tags($eventdata['other']['content']))) >= $charcount) {
 
             $file = plagiarism_originality_create_temp_file($cmid, $eventdata['courseid'], $userid, $eventdata['other']['content']);
-            plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid);
+            plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid, $submissionid);
         }
 
         // Normal situation: 1 or more assessable files attached to event, ready to be checked.
@@ -372,14 +433,11 @@ class plagiarism_plugin_originality extends plagiarism_plugin {
                 $fs = get_file_storage();
                 $efile = $fs->get_file_by_hash($hash);
 
-                if (empty($efile)) {
-                    continue;
-                } else if ($efile->get_filename() === '.') {
-                    // This 'file' is actually a directory - nothing to submit.
+                if (empty($efile) || $efile->get_filename() === '.') {
                     continue;
                 }
 
-                plagiarism_originality_queue_file($cmid, $userid, $efile, $relateduserid);
+                plagiarism_originality_queue_file($cmid, $userid, $efile, $relateduserid, $submissionid);
             }
         }
         return $result;
@@ -1346,10 +1404,41 @@ function plagiarism_originality_get_plagiarism_file($cmid, $userid, $file, $rela
  * @param int $userid The ID of the user who submitted.
  * @param \stored_file|stdClass $file The Moodle stored_file object or temp file object to process.
  * @param int|null $relateduserid The user ID of the person submitting on behalf of (optional).
+ * @param int|null $submissionid The ID of the assign_submission record.
  * @return void
  */
-function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid = null) {
-    global $DB;
+function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid = null, ?int $submissionid = null) {
+    global $DB, $CFG;
+
+    // === RESOLVE SUBMISSION ID ===
+    // If we didn't get the ID from the event try to find it.
+    if (empty($submissionid)) {
+        if ($file instanceof \stored_file) {
+            // Check if file belongs to assignment filearea
+            $comp = $file->get_component();
+            if ($comp === 'assignsubmission_file' || $comp === 'assignsubmission_onlinetext') {
+                $submissionid = $file->get_itemid();
+            }
+        }
+
+        // Fallback: If still empty (e.g. temp file for online text), try to fetch from Assign API
+        // This ensures we get the correct Group Submission ID if the user is in a group.
+        if (empty($submissionid)) {
+            $cm = get_coursemodule_from_id('assign', $cmid, 0, false, IGNORE_MISSING);
+            if ($cm) {
+                require_once($CFG->dirroot . '/mod/assign/locallib.php');
+                $context = \context_module::instance($cm->id);
+                $assign = new \assign($context, $cm, null);
+                // Get the submission for this user (returns Group submission if applicable)
+                $submission = $assign->get_user_submission($userid, false);
+                if ($submission) {
+                    $submissionid = $submission->id;
+                }
+            }
+        }
+    }
+    // Safety net: ensure we have an integer (defaults to 0 if totally failed)
+    $submissionid = (int)$submissionid;
 
     // Get plagiarism settings for this course module
     $plagiarismvalues = $DB->get_records_menu('plagiarism_originality_conf',
@@ -1399,24 +1488,41 @@ function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid
     // Check if a record already exists for this file/online text
     $existingrecord = null;
 
+    // Prioritize checking by 'submissionid' because it handles Groups correctly.
+    // (If one student uploaded, and another uploads a revision, they share the submissionid).
+
     if ($storedfileid) {
-        // For regular files, check by storedfileid
-        $existingrecord = $DB->get_record('plagiarism_originality_subs', [
-            'cm' => $cmid,
-            'userid' => $userid,
-            'storedfileid' => $storedfileid
-        ]);
+        if ($submissionid > 0) {
+            $existingrecord = $DB->get_record('plagiarism_originality_subs', [
+                'submissionid' => $submissionid,
+                'storedfileid' => $storedfileid
+            ]);
+        } else {
+            // Legacy fallback (should rarely happen now)
+            $existingrecord = $DB->get_record('plagiarism_originality_subs', [
+                'cm' => $cmid,
+                'userid' => $userid,
+                'storedfileid' => $storedfileid
+            ]);
+        }
     } else if ($identifier) {
-        // For online text, check by identifier (or if no identifier, just check for null storedfileid)
-        // We want to find the latest online text submission for this user in this cm
-        $sql = "SELECT * FROM {plagiarism_originality_subs}
-                WHERE cm = ? AND userid = ? AND storedfileid IS NULL
-                ORDER BY timecreated DESC";
-        $existingrecord = $DB->get_record_sql($sql, [$cmid, $userid], IGNORE_MULTIPLE);
+        // Online text logic
+        if ($submissionid > 0) {
+            $sql = "SELECT * FROM {plagiarism_originality_subs}
+                    WHERE submissionid = ? AND storedfileid IS NULL
+                    ORDER BY timecreated DESC";
+            $existingrecord = $DB->get_record_sql($sql, [$submissionid], IGNORE_MULTIPLE);
+        } else {
+            $sql = "SELECT * FROM {plagiarism_originality_subs}
+                    WHERE cm = ? AND userid = ? AND storedfileid IS NULL
+                    ORDER BY timecreated DESC";
+            $existingrecord = $DB->get_record_sql($sql, [$cmid, $userid], IGNORE_MULTIPLE);
+        }
     }
 
     $currenttime = time();
 
+    // === INSERT OR UPDATE ===
     if ($existingrecord) {
         // Record exists - update it
 
@@ -1437,6 +1543,7 @@ function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid
             $record->cm = $cmid;
             $record->userid = $userid;
             $record->relateduserid = $relateduserid;
+            $record->submissionid = $submissionid;
             $record->storedfileid = $storedfileid;
             $record->identifier = $identifier;
             $record->status = 'report_requested';
@@ -1450,6 +1557,7 @@ function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid
             $existingrecord->storedfileid = $storedfileid;
             $existingrecord->identifier = $identifier;
             $existingrecord->relateduserid = $relateduserid;
+            $existingrecord->submissionid = $submissionid;
             $existingrecord->status = 'report_requested';
             $existingrecord->timemodified = $currenttime;
             $DB->update_record('plagiarism_originality_subs', $existingrecord);
@@ -1460,6 +1568,7 @@ function plagiarism_originality_queue_file($cmid, $userid, $file, $relateduserid
         $record->cm = $cmid;
         $record->userid = $userid;
         $record->relateduserid = $relateduserid;
+        $record->submissionid = $submissionid;
         $record->storedfileid = $storedfileid;
         $record->identifier = $identifier;
         $record->status = 'report_requested';

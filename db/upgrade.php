@@ -1,0 +1,89 @@
+<?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Originality upgrade tasks.
+ *
+ * @package    plagiarism_originality
+ * @copyright  2025 Inspera AS
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+defined('MOODLE_INTERNAL') || die();
+
+/**
+ * Upgrade the plugin.
+ *
+ * @param int $oldversion
+ * @return bool
+ */
+function xmldb_plagiarism_originality_upgrade($oldversion) {
+    global $DB;
+
+    $dbman = $DB->get_manager();
+
+    // Trigger upgrade if older than your new version 2026010800
+    if ($oldversion < 2026011900) {
+
+        // 1. Define and Add the new 'submissionid' field
+        $table = new xmldb_table('plagiarism_originality_subs');
+        $field = new xmldb_field('submissionid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'cm');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // 2. Backfill Data (Map UserID -> SubmissionID)
+        // We use a Recordset for cross-database compatibility (Postgres/MySQL)
+        // This links existing reports to the user's LATEST assignment submission.
+
+        $sql = "SELECT p.id AS plugindataid, s.id AS submissionid
+                  FROM {plagiarism_originality_subs} p
+                  JOIN {course_modules} cm ON p.cm = cm.id
+                  JOIN {assign} a ON a.id = cm.instance
+                  JOIN {assign_submission} s ON s.assignment = a.id AND s.userid = p.userid
+                 WHERE p.submissionid = 0 
+                   AND s.latest = 1";
+
+        $rs = $DB->get_recordset_sql($sql);
+
+        foreach ($rs as $record) {
+            $DB->set_field('plagiarism_originality_subs', 'submissionid', $record->submissionid, ['id' => $record->plugindataid]);
+        }
+        $rs->close();
+
+        // 3. Add the new index optimized for Group lookups
+        $index = new xmldb_index('submission_file', XMLDB_INDEX_NOTUNIQUE, ['submissionid', 'storedfileid']);
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        // 4. Cleanup: Remove old UserID-centric indexes that are now obsolete
+        $oldIndex1 = new xmldb_index('cm_userid_storedfile', XMLDB_INDEX_NOTUNIQUE, ['cm', 'userid', 'storedfileid']);
+        if ($dbman->index_exists($table, $oldIndex1)) {
+            $dbman->drop_index($table, $oldIndex1);
+        }
+
+        $oldIndex2 = new xmldb_index('cm_userid_identifier', XMLDB_INDEX_NOTUNIQUE, ['cm', 'userid', 'identifier']);
+        if ($dbman->index_exists($table, $oldIndex2)) {
+            $dbman->drop_index($table, $oldIndex2);
+        }
+
+        // Main savepoint reached
+        upgrade_plugin_savepoint(true, 2026010800, 'plagiarism', 'originality');
+    }
+
+    return true;
+}
