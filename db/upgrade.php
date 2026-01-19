@@ -34,7 +34,7 @@ function xmldb_plagiarism_originality_upgrade($oldversion) {
 
     $dbman = $DB->get_manager();
 
-    // Trigger upgrade if older than your new version 2026010800
+    // Trigger upgrade if older than your new version 2026011900
     if ($oldversion < 2026011900) {
 
         // 1. Define and Add the new 'submissionid' field
@@ -82,7 +82,7 @@ function xmldb_plagiarism_originality_upgrade($oldversion) {
         }
 
         // Main savepoint reached
-        upgrade_plugin_savepoint(true, 2026010800, 'plagiarism', 'originality');
+        upgrade_plugin_savepoint(true, 2026011900, 'plagiarism', 'originality');
     }
 
     return true;
