@@ -23,25 +23,31 @@ global $OUTPUT, $CFG, $PAGE, $DB;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require_once(dirname(dirname(__FILE__)) . '/../config.php');
+require_once(dirname(dirname(__DIR__)) . '/config.php');
 require_once($CFG->libdir.'/adminlib.php');
 require_once($CFG->libdir.'/tablelib.php');
 require_once($CFG->dirroot.'/plagiarism/originality/lib.php');
 
 $id = optional_param('id', 0, PARAM_INT);
 $action = optional_param('action', '', PARAM_ALPHA); // Unified action param
-$resubmitallfiltered = optional_param('resubmitallfiltered', '', PARAM_TEXT);
+$resubmitselected = optional_param('resubmitselectedfiles', 0, PARAM_TEXT);
 $confirm = optional_param('confirm', 0, PARAM_INT);
 $deleteselected = optional_param('deleteselectedfiles', 0, PARAM_TEXT);
-$deleteallfiltered = optional_param('deleteallfiltered', 0, PARAM_TEXT);
 $fileids = optional_param('fileids', '', PARAM_TEXT);
 
 require_login();
 
 $url = new moodle_url('/plagiarism/originality/originality_debug.php');
-admin_externalpage_setup('plagiarismoriginality', '', array(), $url);
-
+$PAGE->set_url($url);
 $context = context_system::instance();
+$PAGE->set_context($context);
+$PAGE->set_pagelayout('admin');
+$PAGE->set_title(get_string('originalitydebug', 'plagiarism_originality'));
+global $SITE;
+if (!empty($SITE)) {
+    $PAGE->set_heading(format_string($SITE->fullname));
+}
+require_capability('moodle/site:config', $context);
 
 $exportfilename = 'OriginalityDebugOutput.csv';
 
@@ -50,6 +56,14 @@ $limit = 50;
 $filters = array('realname' => 0, 'timesubmitted' => 0, 'course' => 0, 'externalid' => 0);
 $ufiltering = new \plagiarism_originality\output\filtering($filters, $PAGE->url);
 list($ufextrasql, $ufparams) = $ufiltering->get_sql_filter();
+
+$defaultstatusapplied = false;
+if (empty($ufextrasql)) {
+    $ufextrasql = "t.status IN (:defaultstatus1, :defaultstatus2)";
+    $ufparams['defaultstatus1'] = 'error';
+    $ufparams['defaultstatus2'] = 'external_error';
+    $defaultstatusapplied = true;
+}
 
 $plagiarismsettings = plagiarism_plugin_originality::get_settings();
 
@@ -92,98 +106,56 @@ if (!empty($deleteselected)) {
     }
 }
 // -------------------------------------------------------------------------
-// 2. HANDLE BULK ACTIONS (Filtered Results)
+// 2. HANDLE BULK RESUBMIT (Selected via Checkboxes)
 // -------------------------------------------------------------------------
-else if (!empty($deleteallfiltered) || !empty($resubmitallfiltered)) {
-    // SQL to find all filtered records.
-    // Note: status <> 'finished' ensures we don't accidentally wipe valid finished records unless specifically filtered otherwise.
-    // But typically debug tools show everything. Let's rely on the filter.
-    $sqlfrom = "FROM {plagiarism_originality_subs} t
-                JOIN {user} u ON t.userid = u.id
-                JOIN {course_modules} cm ON t.cm = cm.id
-                JOIN {modules} m ON cm.module = m.id
-                JOIN {course} c ON cm.course = c.id
-                WHERE 1=1
-                  AND t.status IN ('error','external_error')";
-
-    if (!empty($ufextrasql)) {
-        $sqlfrom .= " AND $ufextrasql";
-    }
-
-    $numfiles = $DB->count_records_sql("SELECT count(t.id) $sqlfrom", $ufparams);
-
-    if (!$confirm) {
-        $params = array('deleteallfiltered' => $deleteallfiltered,
-            'resubmitallfiltered' => $resubmitallfiltered, 'confirm' => 1);
-
-        // Use filtering params to ensure the confirm/post-action targets the same set
-        foreach ($ufparams as $key => $value) {
-            // Filters usually pass params via session or url, but for confirm page we might need to persist them
-            // Ideally filtering class handles this via session.
+else if (!empty($resubmitselected)) {
+    if (empty($fileids)) {
+        $fileids = array();
+        // Check for checkbox data
+        $post = data_submitted();
+        foreach ($post as $k => $v) {
+            if (preg_match('/^item(\d+)$/', $k, $m)) {
+                $fileids[] = $m[1];
+            }
         }
 
-        $deleteurl = new moodle_url($PAGE->url, $params);
-        $areyousure = !empty($deleteallfiltered) ? 'areyousurefiltereddelete' : 'areyousurefilteredresubmit';
+        if (empty($fileids)) {
+            redirect($url, get_string('nofilesselected', 'plagiarism_originality'));
+        }
 
+        // Display confirmation box for resubmit selected
+        $params = array('resubmitselectedfiles' => 1, 'confirm' => 1, 'fileids' => implode(',', $fileids));
+        $resubmiturl = new moodle_url($PAGE->url, $params);
+        $numfiles = count($fileids);
         echo $OUTPUT->header();
-        echo $OUTPUT->confirm(get_string($areyousure, 'plagiarism_originality', $numfiles),
-            $deleteurl, $CFG->wwwroot . '/plagiarism/originality/originality_debug.php');
+        echo $OUTPUT->confirm(get_string('areyousurebulkresubmit', 'plagiarism_originality', $numfiles),
+            $resubmiturl, $CFG->wwwroot . '/plagiarism/originality/originality_debug.php');
 
         echo $OUTPUT->footer();
         exit;
     } else if ($confirm && confirm_sesskey()) {
+        $fileids = explode(',', $fileids);
+        // Update selected records for resubmission
+        list($insql, $inparams) = $DB->get_in_or_equal($fileids, SQL_PARAMS_NAMED);
+        $params = array_merge([
+            'status' => 'report_requested',
+            'modtime' => time()
+        ], $inparams);
 
-        $transaction = $DB->start_delegated_transaction();
-        try {
-            // Fetch the IDs
-            $ids = $DB->get_fieldset_sql("SELECT t.id $sqlfrom", $ufparams);
+        $sql = "UPDATE {plagiarism_originality_subs}
+                SET status = :status,
+                    timemodified = :modtime,
+                    similarity = NULL,
+                    translation_similarity = NULL,
+                    ai_index = NULL,
+                    originality = NULL,
+                    character_replacement = NULL,
+                    hidden_text = NULL,
+                    image_as_text = NULL
+                WHERE id $insql";
 
-            if (empty($ids)) {
-                \core\notification::warning(get_string('nofilesselected', 'plagiarism_originality'));
-            } else {
-
-                // Prepare params safely
-                list($insql, $inparams) = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED);
-
-                if (!empty($deleteallfiltered)) {
-                    // DELETE ALL
-                    $DB->delete_records_select('plagiarism_originality_subs', "id $insql", $inparams);
-                    \core\notification::success(get_string('recordsdeleted', 'plagiarism_originality', count($ids)));
-
-                } else {
-                    // RESUBMIT ALL
-                    $status_resubmit = 'report_requested';
-                    $time_now = time();
-
-                    $params = array_merge(
-                        ['status' => $status_resubmit, 'modtime' => $time_now],
-                        $inparams
-                    );
-
-                    $sql = "UPDATE {plagiarism_originality_subs}
-                            SET status = :status, 
-                                timemodified = :modtime,
-                                similarity = NULL,
-                                translation_similarity = NULL,
-                                ai_index = NULL,
-                                originality = NULL,
-                                character_replacement = NULL,
-                                hidden_text = NULL,
-                                image_as_text = NULL
-                            WHERE id $insql";
-
-                    $DB->execute($sql, $params);
-                    \core\notification::success(get_string('filesresubmitted', 'plagiarism_originality', count($ids)));
-                }
-            }
-
-            $transaction->allow_commit();
-
-        } catch (\Exception $e) {
-            $transaction->rollback($e);
-            // Re-throw the error so Moodle displays the debugging info
-            throw $e;
-        }
+        $DB->execute($sql, $params);
+        \core\notification::success(get_string('filesresubmitted', 'plagiarism_originality', count($fileids)));
     }
 }
 
@@ -241,7 +213,7 @@ $sqlfrom = "{plagiarism_originality_subs} t
             LEFT JOIN {modules} m ON cm.module = m.id
             LEFT JOIN {course} c ON cm.course = c.id";
 
-$sqlwhere = "1=1 AND t.status IN ('error','external_error')"; // Base where clause with default status filter
+$sqlwhere = "1=1"; // Base where clause; default filter is applied via $ufextrasql when no user filter is set
 
 if (!empty($ufextrasql)) {
     $sqlwhere .= " AND " . $ufextrasql;
@@ -275,17 +247,10 @@ if (!$table->is_downloading()) {
         'id' => 'deleteallselected', 'class' => 'btn btn-secondary',
         'value' => get_string('deleteselectedfiles', 'plagiarism_originality')));
 
-    if (!empty($ufextrasql)) {
-        // If a filter is in use, show bulk buttons
-        echo html_writer::span(' ');
-        echo html_writer::tag('input', "", array('name' => 'deleteallfiltered', 'type' => 'submit',
-            'id' => 'deleteallfiltered', 'class' => 'btn btn-secondary',
-            'value' => get_string('deleteallfiltered', 'plagiarism_originality')));
-        echo html_writer::span(' ');
-        echo html_writer::tag('input', "", array('name' => 'resubmitallfiltered', 'type' => 'submit',
-            'id' => 'resubmitallfiltered', 'class' => 'btn btn-secondary',
-            'value' => get_string('resubmitallfiltered', 'plagiarism_originality')));
-    }
+    echo html_writer::span(' ');
+    echo html_writer::tag('input', "", array('name' => 'resubmitselectedfiles', 'type' => 'submit',
+        'id' => 'resubmitselected', 'class' => 'btn btn-secondary',
+        'value' => get_string('resubmitselectedfiles', 'plagiarism_originality')));
     echo html_writer::end_tag('form');
     echo html_writer::end_div();
     echo html_writer::empty_tag('hr');
