@@ -219,6 +219,15 @@ if (!empty($ufextrasql)) {
     $sqlwhere .= " AND " . $ufextrasql;
 }
 
+// Only load submissions that are 6 months old (from now)
+$sixmonthscutoff = strtotime('-6 months');
+if ($sixmonthscutoff === false) {
+    // Fallback in the unlikely event strtotime fails; approx 6 months as 182 days.
+    $sixmonthscutoff = time() - (182 * 24 * 60 * 60);
+}
+$sqlwhere .= " AND t.timecreated >= :timesince";
+$ufparams['timesince'] = $sixmonthscutoff;
+
 $table->set_sql($sqlfields, $sqlfrom, $sqlwhere, $ufparams);
 
 if (!$table->is_downloading()) {

@@ -95,6 +95,9 @@ class debug_table extends \table_sql {
         $this->no_sorting('activity');
         $this->no_sorting('selector');
 
+        // Default sorting: show most recent submissions first by timecreated.
+        $this->sortable(true, 'timecreated', SORT_DESC);
+
         $this->initialbars(false);
     }
 
