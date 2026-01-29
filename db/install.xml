@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="plagiarism/originality/db" VERSION="20260119" COMMENT="Tables for originality plagiarism plugin">
+<XMLDB PATH="plagiarism/originality/db" VERSION="20260128" COMMENT="Tables for originality plagiarism plugin (Description column for errors)">
 
     <TABLES>
         <TABLE NAME="plagiarism_originality_subs" COMMENT="Submissions for originality check">
@@ -22,6 +22,8 @@
                 <FIELD NAME="hidden_text" TYPE="int" LENGTH="10" NOTNULL="false"/>
                 <FIELD NAME="image_as_text" TYPE="int" LENGTH="10" NOTNULL="false"/>
                 <FIELD NAME="storedfileid" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="Moodle stored file ID"/>
+                <!-- Single Description field to store error messages/details -->
+                <FIELD NAME="description" TYPE="text" NOTNULL="false" COMMENT="Error message/description for failed submissions"/>
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

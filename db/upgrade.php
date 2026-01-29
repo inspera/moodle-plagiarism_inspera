@@ -85,5 +85,66 @@ function xmldb_plagiarism_originality_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026011900, 'plagiarism', 'originality');
     }
 
+    // Add error fields to store failure details and a filterable reason. Version 2026012100.
+    if ($oldversion < 2026012100) {
+        $table = new xmldb_table('plagiarism_originality_subs');
+
+        // errorresponse TEXT
+        $field1 = new xmldb_field('errorresponse', XMLDB_TYPE_TEXT, null, null, null, null, null, 'storedfileid');
+        if (!$dbman->field_exists($table, $field1)) {
+            $dbman->add_field($table, $field1);
+        }
+
+        // errorreason CHAR(30)
+        $field2 = new xmldb_field('errorreason', XMLDB_TYPE_CHAR, '30', null, null, null, null, 'errorresponse');
+        if (!$dbman->field_exists($table, $field2)) {
+            $dbman->add_field($table, $field2);
+        }
+
+        // Index on errorreason for filtering
+        $index = new xmldb_index('errorreason', XMLDB_INDEX_NOTUNIQUE, ['errorreason']);
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        upgrade_plugin_savepoint(true, 2026012100, 'plagiarism', 'originality');
+    }
+
+    // Consolidate to a single Description column. Migrate data and drop old fields. Version 2026012200.
+    if ($oldversion < 2026012200) {
+        $table = new xmldb_table('plagiarism_originality_subs');
+
+        // 1) Add description TEXT if it does not exist yet.
+        $descfield = new xmldb_field('description', XMLDB_TYPE_TEXT, null, null, null, null, null, 'storedfileid');
+        if (!$dbman->field_exists($table, $descfield)) {
+            $dbman->add_field($table, $descfield);
+        }
+
+        // 2) Migrate data from errorresponse to description if present.
+        // Use direct SQL to be DB-agnostic and efficient.
+        if ($dbman->field_exists($table, new xmldb_field('errorresponse'))) {
+            $DB->execute("UPDATE {plagiarism_originality_subs} SET description = COALESCE(description, errorresponse) WHERE (description IS NULL OR description = '') AND errorresponse IS NOT NULL");
+        }
+
+        // 3) Drop index on errorreason if exists
+        $erridx = new xmldb_index('errorreason', XMLDB_INDEX_NOTUNIQUE, ['errorreason']);
+        if ($dbman->index_exists($table, $erridx)) {
+            $dbman->drop_index($table, $erridx);
+        }
+
+        // 4) Drop old fields errorreason and errorresponse if they exist
+        $errreasonfield = new xmldb_field('errorreason');
+        if ($dbman->field_exists($table, $errreasonfield)) {
+            $dbman->drop_field($table, $errreasonfield);
+        }
+
+        $errrespfield = new xmldb_field('errorresponse');
+        if ($dbman->field_exists($table, $errrespfield)) {
+            $dbman->drop_field($table, $errrespfield);
+        }
+
+        upgrade_plugin_savepoint(true, 2026012200, 'plagiarism', 'originality');
+    }
+
     return true;
 }

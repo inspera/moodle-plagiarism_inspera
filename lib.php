@@ -1609,6 +1609,7 @@ function plagiarism_originality_cleanup_orphaned_records() {
             } else {
                 // Mark as error since file is gone but was already submitted
                 $record->status = 'error';
+                $record->description = 'Stored file deleted after submission';
                 $DB->update_record('plagiarism_originality_subs', $record);
             }
         }
@@ -1791,6 +1792,7 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
             // If there is any API error while creating submission
             mtrace("Error creating submission for fileid: {$plagiarismfile->id}: " . $e->getMessage());
             $plagiarismfile->status = 'error';
+            $plagiarismfile->description = $e->getMessage();
             $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
             return false;
         }
@@ -1819,6 +1821,7 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
         if (!$file) {
             mtrace("File not found for storedfileid: {$plagiarismfile->storedfileid}");
             $plagiarismfile->status = 'error';
+            $plagiarismfile->description = 'Stored file not found';
             $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
             return false;
         }
@@ -1833,6 +1836,7 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
         if ($content === false) {
             mtrace("Failed to read temp file: {$tempfilepath}");
             $plagiarismfile->status = 'error';
+            $plagiarismfile->description = 'Failed to read temporary file';
             $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
             return false;
         }
@@ -1843,6 +1847,7 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
     if (empty($content)) {
         mtrace("No content found for fileid: {$plagiarismfile->id}");
         $plagiarismfile->status = 'error';
+        $plagiarismfile->description = 'No content found to upload';
         $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
         return false;
     }
@@ -1867,13 +1872,14 @@ function plagiarism_originality_send_file($plagiarismfile, api_client $client) {
         } else {
             mtrace("Failed to upload file content for documentId: {$plagiarismfile->externalid}");
             $plagiarismfile->status = 'error';
+            $plagiarismfile->description = 'Upload to presigned URL returned failure';
             $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
             return false;
         }
     } catch (\Exception $e) {
         mtrace("Error uploading file content for documentId: {$plagiarismfile->externalid}: " . $e->getMessage());
         $plagiarismfile->status = 'external_error';
-        $plagiarismfile->errorresponse = $e->getMessage();
+        $plagiarismfile->description = $e->getMessage();
         $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
 
         // Clean up temporary file on error
@@ -1917,11 +1923,42 @@ function plagiarism_originality_poll_file_status($plagiarismfile, api_client $cl
             case 1:
                 // processed successfully → update record with returned data
                 $plagiarismfile->status = 'finished';
-                $plagiarismfile->similarity = $status->originality_percentage ?? null;
-                $plagiarismfile->translation_similarity = $status->translation_similarity ?? null;
-                $plagiarismfile->ai_index = $status->ai_index ?? null;
+
+                // Accept multiple possible key names/cases from API response
+                $similarity = null;
+                if (isset($status->originality_percentage)) {
+                    $similarity = $status->originality_percentage;
+                } else if (isset($status->similarity)) {
+                    $similarity = $status->similarity;
+                }
+
+                $translation = null;
+                if (isset($status->translation_similarity)) {
+                    $translation = $status->translation_similarity;
+                } else if (isset($status->translationSimilarity)) {
+                    $translation = $status->translationSimilarity;
+                }
+
+                $aiindex = null;
+                if (isset($status->ai_index)) {
+                    $aiindex = $status->ai_index;
+                } else if (isset($status->Ai_index)) {
+                    $aiindex = $status->Ai_index;
+                }
+
+                $charrepl = null;
+                if (isset($status->characterReplacement)) {
+                    $charrepl = $status->characterReplacement;
+                } else if (isset($status->characterReplacements)) {
+                    $charrepl = $status->characterReplacements;
+                }
+
+                // Assign back to record (DB columns tolerate strings or numbers)
+                $plagiarismfile->similarity = $similarity;
+                $plagiarismfile->translation_similarity = $translation;
+                $plagiarismfile->ai_index = $aiindex;
                 $plagiarismfile->originality = $status->originality ?? null;
-                $plagiarismfile->character_replacement = $status->characterReplacement ?? null;
+                $plagiarismfile->character_replacement = $charrepl;
                 $plagiarismfile->hidden_text = $status->hiddenText ?? null;
                 $plagiarismfile->image_as_text = $status->imageAsText ?? null;
                 $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
@@ -1929,6 +1966,7 @@ function plagiarism_originality_poll_file_status($plagiarismfile, api_client $cl
             case 2:
             default:
                 $plagiarismfile->status = 'external_error';
+                $plagiarismfile->description = isset($status->message) ? (string)$status->message : json_encode($status);
                 $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
                 mtrace("Originality API returned error status for fileid {$plagiarismfile->id}. Response: " . json_encode($status));
                 break;
@@ -1936,7 +1974,7 @@ function plagiarism_originality_poll_file_status($plagiarismfile, api_client $cl
 
     } catch (\Exception $e) {
         $plagiarismfile->status = 'external_error';
-        $plagiarismfile->errorresponse = $e->getMessage();
+        $plagiarismfile->description = $e->getMessage();
         $DB->update_record('plagiarism_originality_subs', $plagiarismfile);
         mtrace("Originality API poll error for fileid {$plagiarismfile->id}: " . $e->getMessage());
     }

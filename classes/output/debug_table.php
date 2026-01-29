@@ -70,7 +70,7 @@ class debug_table extends \table_sql {
         }
 
         // Standard columns
-        $columns = array_merge($columns, array('id', 'fullname', 'course', 'activity', 'externalid', 'status', 'timecreated'));
+        $columns = array_merge($columns, array('id', 'fullname', 'course', 'activity', 'externalid', 'status', 'description', 'timecreated'));
 
         $headers = array_merge($headers, array(
             get_string('id', 'plagiarism_originality'),
@@ -79,6 +79,7 @@ class debug_table extends \table_sql {
             get_string('activity'),
             get_string('identifier', 'plagiarism_originality'), // Maps to externalid
             get_string('status', 'plagiarism_originality'),
+            get_string('description', 'plagiarism_originality'),
             get_string('timecreated', 'plagiarism_originality')
         ));
 
@@ -94,6 +95,7 @@ class debug_table extends \table_sql {
         $this->no_sorting('action');
         $this->no_sorting('activity');
         $this->no_sorting('selector');
+        $this->no_sorting('description');
 
         // Default sorting: show most recent submissions first by timecreated.
         $this->sortable(true, 'timecreated', SORT_DESC);
@@ -184,6 +186,23 @@ class debug_table extends \table_sql {
             return get_string($statuskey, 'plagiarism_originality');
         }
         return $row->status;
+    }
+
+    /**
+     * Show error description parsed from IO or Moodle messages.
+     * Displays a shortened preview with full text as title tooltip.
+     */
+    public function col_description($row) {
+        $desc = isset($row->description) ? trim((string)$row->description) : '';
+        if ($desc === '') {
+            return '';
+        }
+        // Limit display length for table view.
+        $short = shorten_text($desc, 120);
+        if ($this->is_downloading()) {
+            return $desc;
+        }
+        return html_writer::tag('span', s($short), ['title' => $desc]);
     }
 
     public function col_course($row) {

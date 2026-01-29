@@ -52,8 +52,7 @@ require_capability('moodle/site:config', $context);
 $exportfilename = 'OriginalityDebugOutput.csv';
 
 $limit = 50;
-// Note: We filter by 'status' now, not 'statuscode' or 'errorcode'
-$filters = array('realname' => 0, 'timesubmitted' => 0, 'course' => 0, 'externalid' => 0);
+$filters = array('realname' => 0, 'timesubmitted' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0);
 $ufiltering = new \plagiarism_originality\output\filtering($filters, $PAGE->url);
 list($ufextrasql, $ufparams) = $ufiltering->get_sql_filter();
 
@@ -151,7 +150,8 @@ else if (!empty($resubmitselected)) {
                     originality = NULL,
                     character_replacement = NULL,
                     hidden_text = NULL,
-                    image_as_text = NULL
+                    image_as_text = NULL,
+                    description = NULL
                 WHERE id $insql";
 
         $DB->execute($sql, $params);
@@ -180,6 +180,7 @@ if ($id && confirm_sesskey()) {
         $record->hidden_text = null;
         $record->image_as_text = null;
         $record->externalid = null;
+        $record->description = null;
 
         $DB->update_record('plagiarism_originality_subs', $record);
         \core\notification::success(get_string('fileresubmitted', 'plagiarism_originality'));
@@ -202,7 +203,7 @@ $table = new \plagiarism_originality\output\debug_table('debugtable');
 $userfieldsapi = \core_user\fields::for_name();
 $userfields = $userfieldsapi->get_sql('u', false, '', '', false)->selects;
 
-$sqlfields = "t.id, t.status, t.timecreated, t.externalid, t.similarity,
+$sqlfields = "t.id, t.status, t.timecreated, t.externalid, t.similarity, t.description,
               u.id as userid, $userfields,
               c.id as courseid, c.fullname, c.shortname,
               cm.id as cm, m.name as moduletype";

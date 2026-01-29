@@ -26,6 +26,7 @@ namespace plagiarism_originality\output;
 
 defined('MOODLE_INTERNAL') || die();
 
+global $CFG;
 require_once($CFG->dirroot.'/user/filters/lib.php');
 require_once($CFG->dirroot.'/plagiarism/originality/lib.php'); // Ensure lib is loaded for statuscodes
 
@@ -55,6 +56,9 @@ class filtering extends \user_filtering {
         if ($fieldname == 'course') {
             return new \user_filter_text('course', get_string('courseshortname', 'plagiarism_originality'),
                 $advanced, 'c.shortname');
+        }
+        if ($fieldname == 'description') {
+            return new \user_filter_text('description', get_string('description', 'plagiarism_originality'), $advanced, 't.description');
         }
         return parent::get_field($fieldname, $advanced);
     }

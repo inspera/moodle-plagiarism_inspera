@@ -143,6 +143,9 @@ $string['status_finished'] = 'Finished';
 $string['status_error'] = 'Error';
 $string['status_external_error'] = 'External Error';
 
+// Management page columns/filters
+$string['description'] = 'Description';
+
 $string['id'] = 'ID';
 $string['identifier'] = 'Identifier';
 $string['attempts'] = 'Attempts made';
