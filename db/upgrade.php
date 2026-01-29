@@ -146,5 +146,39 @@ function xmldb_plagiarism_originality_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026012200, 'plagiarism', 'originality');
     }
 
+    if ($oldversion < 2026012900) {
+        $table = new xmldb_table('plagiarism_originality_subs');
+
+        // 1. Ensure 'description' exists
+        $descfield = new xmldb_field('description', XMLDB_TYPE_TEXT, null, null, null, null, null, 'storedfileid');
+        if (!$dbman->field_exists($table, $descfield)) {
+            $dbman->add_field($table, $descfield);
+        }
+
+        // 2. Ensure 'errorresponse' data is migrated (if we missed the previous step)
+        // We check if BOTH fields exist. If so, migrate data.
+        $oldfield = new xmldb_field('errorresponse');
+        if ($dbman->field_exists($table, $oldfield) && $dbman->field_exists($table, $descfield)) {
+            $DB->execute("UPDATE {plagiarism_originality_subs} SET description = COALESCE(description, errorresponse) WHERE (description IS NULL OR description = '') AND errorresponse IS NOT NULL");
+        }
+
+        // 3. Ensure old fields are dropped
+        if ($dbman->field_exists($table, $oldfield)) {
+            $dbman->drop_field($table, $oldfield);
+        }
+
+        $reasonfield = new xmldb_field('errorreason');
+        if ($dbman->field_exists($table, $reasonfield)) {
+            $dbman->drop_field($table, $reasonfield);
+        }
+
+        $reasonidx = new xmldb_index('errorreason', XMLDB_INDEX_NOTUNIQUE, ['errorreason']);
+        if ($dbman->index_exists($table, $reasonidx)) {
+            $dbman->drop_index($table, $reasonidx);
+        }
+
+        upgrade_plugin_savepoint(true, 2026012900, 'plagiarism', 'originality');
+    }
+
     return true;
 }
