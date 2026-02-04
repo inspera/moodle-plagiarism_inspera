@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="plagiarism/inspera/db" VERSION="2026012900" COMMENT="Tables for Inspera originality plagiarism plugin">
+<XMLDB PATH="plagiarism/inspera/db" VERSION="2026020400" COMMENT="Tables for Inspera originality plagiarism plugin">
 
     <TABLES>
         <TABLE NAME="plagiarism_inspera_subs" COMMENT="Submissions for originality check">

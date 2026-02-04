@@ -79,7 +79,15 @@ class backup_plagiarism_inspera_plugin extends backup_plagiarism_plugin {
                 'identifier',
                 'status',
                 'similarity',
+                'originality',
                 'externalid',
+                'error',
+                'ai_index',
+                'translation_similarity',
+                'character_replacement',
+                'hidden_text',
+                'image_as_text',
+                'description',
                 'timecreated',
                 'timemodified'
             ));
