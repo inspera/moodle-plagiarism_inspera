@@ -122,5 +122,17 @@ function xmldb_plagiarism_inspera_install() {
         }
     }
 
+    // --- 3. CLEANUP OLD TASKS ---
+    // Remove scheduled and ad-hoc tasks belonging to the old plugin.
+    // This prevents "Class not found" errors in cron since the old code is being removed.
+    try {
+        $DB->delete_records('task_scheduled', ['component' => 'plagiarism_originality']);
+        $DB->delete_records('task_adhoc', ['component' => 'plagiarism_originality']);
+        mtrace("Cleaned up old scheduled and ad-hoc tasks.");
+    } catch (Exception $e) {
+        // Non-fatal. If this fails, the cron will just complain later, but install proceeds.
+        mtrace("Warning: Task cleanup failed: " . $e->getMessage());
+    }
+
     return true;
 }
