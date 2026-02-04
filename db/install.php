@@ -24,31 +24,62 @@ defined('MOODLE_INTERNAL') || die();
 function xmldb_plagiarism_inspera_install() {
     global $DB;
 
-    // --- 1. MIGRATE CONFIGURATION (DIRECT COPY) ---
-    // Your code still uses 'originality_' prefixes (e.g. originality_client_id).
-    // So we must copy the keys EXACTLY as they are.
+    // --- 0. MIGRATE GLOBAL ADMIN SETTINGS (Fixed) ---
+    // These live in {config_plugins}.
 
+    // 1. Fetch all settings from the OLD plugin
+    $old_configs = $DB->get_records('config_plugins', ['plugin' => 'plagiarism_originality']);
+
+    if (!empty($old_configs)) {
+
+        // 2. Check if the NEW plugin already has a Client ID configured.
+        // We check this specific key to avoid overwriting if you manually set it up already.
+        $existing_client = get_config('plagiarism_inspera', 'clientid');
+
+        if (!$existing_client) {
+            mtrace("Migrating global settings from plagiarism_originality...");
+
+            foreach ($old_configs as $config) {
+                // SKIP 'version' (Moodle manages this automatically)
+                if ($config->name === 'version') {
+                    continue;
+                }
+
+                // SKIP 'enabled' (Let the admin manually enable the new plugin when ready)
+                if ($config->name === 'enabled') {
+                    continue;
+                }
+
+                // Copy everything else (baseurl, clientid, apitoken, enable_mod_quiz, etc.)
+                // We assume the keys are the same (e.g. 'clientid' -> 'clientid')
+                set_config($config->name, $config->value, 'plagiarism_inspera');
+            }
+            mtrace("Global settings migration complete.");
+        }
+    }
+
+    // --- 1. MIGRATE MODULE DEFAULTS (Custom Table) ---
     if ($DB->get_manager()->table_exists('plagiarism_originality_conf')) {
+        // Only if new table is empty
         if ($DB->count_records('plagiarism_inspera_config') == 0) {
             try {
-                // NO REPLACE() here. We want 'originality_client_id' to stay 'originality_client_id'.
+                // Direct copy of module defaults
                 $sql = "INSERT INTO {plagiarism_inspera_config} (cm, name, value)
                         SELECT cm, name, value 
                         FROM {plagiarism_originality_conf}";
 
                 $DB->execute($sql);
-                mtrace("Migrated configuration successfully (Exact Copy).");
+                mtrace("Migrated module defaults successfully.");
             } catch (Exception $e) {
                 mtrace("Warning: Config migration failed: " . $e->getMessage());
             }
         }
     }
 
-    // --- 2. MIGRATE SUBMISSIONS (PATH FIX ONLY) ---
+    // --- 2. MIGRATE SUBMISSIONS (With Path Fix) ---
     if ($DB->get_manager()->table_exists('plagiarism_originality_subs')) {
         if ($DB->count_records('plagiarism_inspera_subs') == 0) {
 
-            // Get columns safely
             $old_columns = $DB->get_columns('plagiarism_originality_subs');
             $new_columns = $DB->get_columns('plagiarism_inspera_subs');
             $common_keys = array_intersect(array_keys($old_columns), array_keys($new_columns));
@@ -58,11 +89,8 @@ function xmldb_plagiarism_inspera_install() {
 
             foreach ($common_keys as $col) {
                 $insert_parts[] = $col;
-
-                // We MUST still update the file path in 'identifier'.
-                // The plugin folder changed, so the path on disk changed from
-                // .../temp/plagiarism_originality/... to .../temp/plagiarism_inspera/...
                 if ($col === 'identifier') {
+                    // Rename folder path in DB
                     $select_parts[] = "REPLACE(identifier, 'plagiarism_originality', 'plagiarism_inspera')";
                 } else {
                     $select_parts[] = $col;
@@ -79,9 +107,8 @@ function xmldb_plagiarism_inspera_install() {
                 $DB->execute($sql);
                 mtrace("Migrated submissions successfully.");
 
-                // Disable old plugin
+                // Disable the old plugin to be safe
                 set_config('enabled', 0, 'plagiarism_originality');
-
             } catch (Exception $e) {
                 mtrace("Warning: Submission migration failed: " . $e->getMessage());
             }
