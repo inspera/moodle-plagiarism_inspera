@@ -17,7 +17,7 @@
 /**
  * Scheduled task definitions for the Inspera Originality plugin.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Your Name (Your Company)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -26,7 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $tasks = array(
     array(
-        'classname' => 'plagiarism_originality\task\send_files',
+        'classname' => 'plagiarism_inspera\task\send_files',
         'blocking' => 0,
         'minute' => '*/5',
         'hour' => '*',
@@ -35,7 +35,7 @@ $tasks = array(
         'month' => '*'
     ),
     array(
-        'classname' => 'plagiarism_originality\task\delete_orphaned_files',
+        'classname' => 'plagiarism_inspera\task\delete_orphaned_files',
         'blocking' => 0,
         'minute' => '0',
         'hour' => '*/12',

@@ -18,13 +18,13 @@ defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 
-use plagiarism_originality\apiclient\api_client;
+use plagiarism_inspera\apiclient\api_client;
 
 /**
  * Unit tests for the api_client class using partial mocks.
  * (Your PHPDocs here)
  */
-class plagiarism_originality_api_client_test extends advanced_testcase {
+class plagiarism_inspera_api_client_test extends advanced_testcase {
 
     /** @var \PHPUnit\Framework\MockObject\MockObject|api_client */
     protected $clientmock; // Will hold the partial mock
@@ -32,9 +32,9 @@ class plagiarism_originality_api_client_test extends advanced_testcase {
     protected function setUp(): void {
         parent::setUp();
         $this->resetAfterTest();
-        set_config('baseurl', 'https://api.example.com', 'plagiarism_originality');
-        set_config('clientid', 'test_client_id', 'plagiarism_originality');
-        set_config('institutionid', 'test_inst_id', 'plagiarism_originality');
+        set_config('baseurl', 'https://api.example.com', 'plagiarism_inspera');
+        set_config('clientid', 'test_client_id', 'plagiarism_inspera');
+        set_config('institutionid', 'test_inst_id', 'plagiarism_inspera');
 
         // Calculate the hash that the code expects (ClientID + | + InstID)
         $this->expectedhash = md5('test_client_id' . '|' . 'test_inst_id');
@@ -54,9 +54,9 @@ class plagiarism_originality_api_client_test extends advanced_testcase {
 
     public function test_get_token_fetches_new_when_uncached() {
         // --- Setup ---
-        unset_config('apitoken', 'plagiarism_originality');
+        unset_config('apitoken', 'plagiarism_inspera');
         // Ensure no old hash exists
-        unset_config('apitoken_hash', 'plagiarism_originality');
+        unset_config('apitoken_hash', 'plagiarism_inspera');
 
         $mocktoken = 'new_token_partial_mock';
         $mockexpires_ms = (time() + 3600) * 1000;
@@ -77,10 +77,10 @@ class plagiarism_originality_api_client_test extends advanced_testcase {
         $reportdata = $this->clientmock->get_report_url('doc123');
 
         // --- Assert ---
-        $this->assertEquals($mocktoken, get_config('plagiarism_originality', 'apitoken'));
+        $this->assertEquals($mocktoken, get_config('plagiarism_inspera', 'apitoken'));
 
         // NEW ASSERTION: Check if the hash was saved correctly
-        $this->assertEquals($this->expectedhash, get_config('plagiarism_originality', 'apitoken_hash'));
+        $this->assertEquals($this->expectedhash, get_config('plagiarism_inspera', 'apitoken_hash'));
     }
 
     public function test_get_token_uses_cached_when_valid() {
@@ -88,10 +88,10 @@ class plagiarism_originality_api_client_test extends advanced_testcase {
         $cachedtoken = 'cached_token_partial_mock';
         $expires = time() + 3600;
 
-        set_config('apitoken', $cachedtoken, 'plagiarism_originality');
-        set_config('apitoken_exp', $expires, 'plagiarism_originality');
+        set_config('apitoken', $cachedtoken, 'plagiarism_inspera');
+        set_config('apitoken_exp', $expires, 'plagiarism_inspera');
         // CRITICAL FIX: Set the matching hash
-        set_config('apitoken_hash', $this->expectedhash, 'plagiarism_originality');
+        set_config('apitoken_hash', $this->expectedhash, 'plagiarism_inspera');
 
         // Expect _do_post_request is NEVER called (Proof that cache worked)
         $this->clientmock->expects($this->never())
@@ -110,14 +110,14 @@ class plagiarism_originality_api_client_test extends advanced_testcase {
         $reportdata = $this->clientmock->get_report_url('doc123');
 
         // --- Assert ---
-        $this->assertEquals($cachedtoken, get_config('plagiarism_originality', 'apitoken'));
+        $this->assertEquals($cachedtoken, get_config('plagiarism_inspera', 'apitoken'));
     }
 
     public function test_get_report_url_modes() {
         // Setup valid cache to avoid token logic noise
-        set_config('apitoken', 'tok', 'plagiarism_originality');
-        set_config('apitoken_exp', time() + 3600, 'plagiarism_originality');
-        set_config('apitoken_hash', $this->expectedhash, 'plagiarism_originality');
+        set_config('apitoken', 'tok', 'plagiarism_inspera');
+        set_config('apitoken_exp', time() + 3600, 'plagiarism_inspera');
+        set_config('apitoken_hash', $this->expectedhash, 'plagiarism_inspera');
 
         // We expect 2 calls to _do_get_request
         $this->clientmock->expects($this->exactly(2))
@@ -138,12 +138,12 @@ class plagiarism_originality_api_client_test extends advanced_testcase {
 
     public function test_create_submission_payload_construction() {
         // --- Setup ---
-        set_config('apitoken', 'payload_test_token', 'plagiarism_originality');
-        set_config('apitoken_exp', time() + 3600, 'plagiarism_originality');
+        set_config('apitoken', 'payload_test_token', 'plagiarism_inspera');
+        set_config('apitoken_exp', time() + 3600, 'plagiarism_inspera');
 
         // CRITICAL FIX: Add the expected hash so the code trusts the cache
         // Use the same $this->expectedhash we calculated in setUp()
-        set_config('apitoken_hash', $this->expectedhash, 'plagiarism_originality');
+        set_config('apitoken_hash', $this->expectedhash, 'plagiarism_inspera');
 
         // Define settings, INCLUDING the new anonymous flag
         $settings = [
@@ -190,8 +190,8 @@ class plagiarism_originality_api_client_test extends advanced_testcase {
 
     public function test_create_submission_includes_educators_and_student_email_top_level() {
         // --- Setup ---
-        set_config('apitoken', 'payload_test_token2', 'plagiarism_originality');
-        set_config('apitoken_exp', time() + 3600, 'plagiarism_originality');
+        set_config('apitoken', 'payload_test_token2', 'plagiarism_inspera');
+        set_config('apitoken_exp', time() + 3600, 'plagiarism_inspera');
 
         $studentEmail = 'student@example.com';
         $educators = [

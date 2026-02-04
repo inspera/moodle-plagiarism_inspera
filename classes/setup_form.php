@@ -23,11 +23,11 @@ require_once($CFG->libdir . '/formslib.php');
 /**
  * The main settings form for the originality plagiarism plugin.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class plagiarism_originality_setup_form extends moodleform {
+class plagiarism_inspera_setup_form extends moodleform {
 
     /**
      * Defines the form elements for the plugin settings.
@@ -38,35 +38,35 @@ class plagiarism_originality_setup_form extends moodleform {
         $mform = $this->_form;
 
         // Explanation at the top.
-        //$mform->addElement('html', get_string('originalityexplain', 'plagiarism_originality'));
+        //$mform->addElement('html', get_string('originalityexplain', 'plagiarism_inspera'));
 
         // Enable checkbox.
-        $mform->addElement('checkbox', 'enabled', get_string('use_originality', 'plagiarism_originality'));
+        $mform->addElement('checkbox', 'enabled', get_string('use_originality', 'plagiarism_inspera'));
         $mform->setDefault('enabled', 0);
 
         // Base API URL.
-        $mform->addElement('text', 'baseurl', get_string('baseurl', 'plagiarism_originality'));
-        $mform->addHelpButton('baseurl', 'baseurl', 'plagiarism_originality');
+        $mform->addElement('text', 'baseurl', get_string('baseurl', 'plagiarism_inspera'));
+        $mform->addHelpButton('baseurl', 'baseurl', 'plagiarism_inspera');
         $mform->addRule('baseurl', null, 'required', null, 'client');
         $mform->setType('baseurl', PARAM_URL);
         $mform->setDefault('baseurl', '');
 
         // Client ID.
-        $mform->addElement('text', 'clientid', get_string('clientid', 'plagiarism_originality'));
-        $mform->addHelpButton('clientid', 'clientid', 'plagiarism_originality');
+        $mform->addElement('text', 'clientid', get_string('clientid', 'plagiarism_inspera'));
+        $mform->addHelpButton('clientid', 'clientid', 'plagiarism_inspera');
         $mform->addRule('clientid', null, 'required', null, 'client');
         $mform->setType('clientid', PARAM_ALPHANUMEXT);
         $mform->setDefault('clientid', '');
 
         // Institution ID.
-        $mform->addElement('text', 'institutionid', get_string('institutionid', 'plagiarism_originality'));
-        $mform->addHelpButton('institutionid', 'institutionid', 'plagiarism_originality');
+        $mform->addElement('text', 'institutionid', get_string('institutionid', 'plagiarism_inspera'));
+        $mform->addHelpButton('institutionid', 'institutionid', 'plagiarism_inspera');
         $mform->addRule('institutionid', null, 'required', null, 'client');
         $mform->setType('institutionid', PARAM_ALPHANUMEXT);
         $mform->setDefault('institutionid', '');
 
         // Get the list from our single source of truth in lib.php
-        $modules = plagiarism_originality_supported_modules();
+        $modules = plagiarism_inspera_supported_modules();
 
         foreach ($modules as $mod) {
             // Double check that the module is actually installed on this site
@@ -79,7 +79,7 @@ class plagiarism_originality_setup_form extends moodleform {
             if (plugin_supports('mod', $mod, FEATURE_PLAGIARISM)) {
                 $modstring = 'enable_mod_' . $mod;
                 $modhuman = get_string('pluginname', 'mod_' . $mod);
-                $mform->addElement('checkbox', $modstring, get_string('enableplugin', 'plagiarism_originality', $modhuman));
+                $mform->addElement('checkbox', $modstring, get_string('enableplugin', 'plagiarism_inspera', $modhuman));
                 // Default to checked for 'assign'
                 if ($mod == 'assign') {
                     $mform->setDefault($modstring, 1);
@@ -112,7 +112,7 @@ class plagiarism_originality_setup_form extends moodleform {
 
             try {
                 // Instantiate client with UNSAVED data
-                $client = new \plagiarism_originality\apiclient\api_client($config);
+                $client = new \plagiarism_inspera\apiclient\api_client($config);
 
                 // Attempt to fetch a token
                 $client->test_connection();
@@ -120,7 +120,7 @@ class plagiarism_originality_setup_form extends moodleform {
             } catch (\Exception $e) {
                 // If it fails, mark the 'baseurl' field with the error.
                 // You could also map specific errors to clientid if you parsed the message.
-                $errors['baseurl'] = get_string('connectionerror', 'plagiarism_originality') . ': ' . $e->getMessage();
+                $errors['baseurl'] = get_string('connectionerror', 'plagiarism_inspera') . ': ' . $e->getMessage();
             }
         }
 

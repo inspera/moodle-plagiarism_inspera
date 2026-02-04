@@ -17,7 +17,7 @@
 /**
  * Originality upgrade tasks.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -29,7 +29,7 @@ defined('MOODLE_INTERNAL') || die();
  * @param int $oldversion
  * @return bool
  */
-function xmldb_plagiarism_originality_upgrade($oldversion) {
+function xmldb_plagiarism_inspera_upgrade($oldversion) {
     global $DB;
 
     $dbman = $DB->get_manager();
@@ -38,7 +38,7 @@ function xmldb_plagiarism_originality_upgrade($oldversion) {
     if ($oldversion < 2026011900) {
 
         // 1. Define and Add the new 'submissionid' field
-        $table = new xmldb_table('plagiarism_originality_subs');
+        $table = new xmldb_table('plagiarism_inspera_subs');
         $field = new xmldb_field('submissionid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'cm');
 
         if (!$dbman->field_exists($table, $field)) {
@@ -50,7 +50,7 @@ function xmldb_plagiarism_originality_upgrade($oldversion) {
         // This links existing reports to the user's LATEST assignment submission.
 
         $sql = "SELECT p.id AS plugindataid, s.id AS submissionid
-                  FROM {plagiarism_originality_subs} p
+                  FROM {plagiarism_inspera_subs} p
                   JOIN {course_modules} cm ON p.cm = cm.id
                   JOIN {assign} a ON a.id = cm.instance
                   JOIN {assign_submission} s ON s.assignment = a.id AND s.userid = p.userid
@@ -60,7 +60,7 @@ function xmldb_plagiarism_originality_upgrade($oldversion) {
         $rs = $DB->get_recordset_sql($sql);
 
         foreach ($rs as $record) {
-            $DB->set_field('plagiarism_originality_subs', 'submissionid', $record->submissionid, ['id' => $record->plugindataid]);
+            $DB->set_field('plagiarism_inspera_subs', 'submissionid', $record->submissionid, ['id' => $record->plugindataid]);
         }
         $rs->close();
 
@@ -87,7 +87,7 @@ function xmldb_plagiarism_originality_upgrade($oldversion) {
 
     // Add error fields to store failure details and a filterable reason. Version 2026012100.
     if ($oldversion < 2026012100) {
-        $table = new xmldb_table('plagiarism_originality_subs');
+        $table = new xmldb_table('plagiarism_inspera_subs');
 
         // errorresponse TEXT
         $field1 = new xmldb_field('errorresponse', XMLDB_TYPE_TEXT, null, null, null, null, null, 'storedfileid');
@@ -112,7 +112,7 @@ function xmldb_plagiarism_originality_upgrade($oldversion) {
 
     // Consolidate to a single Description column. Migrate data and drop old fields. Version 2026012200.
     if ($oldversion < 2026012200) {
-        $table = new xmldb_table('plagiarism_originality_subs');
+        $table = new xmldb_table('plagiarism_inspera_subs');
 
         // 1) Add description TEXT if it does not exist yet.
         $descfield = new xmldb_field('description', XMLDB_TYPE_TEXT, null, null, null, null, null, 'storedfileid');
@@ -123,7 +123,7 @@ function xmldb_plagiarism_originality_upgrade($oldversion) {
         // 2) Migrate data from errorresponse to description if present.
         // Use direct SQL to be DB-agnostic and efficient.
         if ($dbman->field_exists($table, new xmldb_field('errorresponse'))) {
-            $DB->execute("UPDATE {plagiarism_originality_subs} SET description = COALESCE(description, errorresponse) WHERE (description IS NULL OR description = '') AND errorresponse IS NOT NULL");
+            $DB->execute("UPDATE {plagiarism_inspera_subs} SET description = COALESCE(description, errorresponse) WHERE (description IS NULL OR description = '') AND errorresponse IS NOT NULL");
         }
 
         // 3) Drop index on errorreason if exists
@@ -147,7 +147,7 @@ function xmldb_plagiarism_originality_upgrade($oldversion) {
     }
 
     if ($oldversion < 2026012900) {
-        $table = new xmldb_table('plagiarism_originality_subs');
+        $table = new xmldb_table('plagiarism_inspera_subs');
 
         // 1. Ensure 'description' exists
         $descfield = new xmldb_field('description', XMLDB_TYPE_TEXT, null, null, null, null, null, 'storedfileid');
@@ -159,7 +159,7 @@ function xmldb_plagiarism_originality_upgrade($oldversion) {
         // We check if BOTH fields exist. If so, migrate data.
         $oldfield = new xmldb_field('errorresponse');
         if ($dbman->field_exists($table, $oldfield) && $dbman->field_exists($table, $descfield)) {
-            $DB->execute("UPDATE {plagiarism_originality_subs} SET description = COALESCE(description, errorresponse) WHERE (description IS NULL OR description = '') AND errorresponse IS NOT NULL");
+            $DB->execute("UPDATE {plagiarism_inspera_subs} SET description = COALESCE(description, errorresponse) WHERE (description IS NULL OR description = '') AND errorresponse IS NOT NULL");
         }
 
         // 3. Ensure old fields are dropped

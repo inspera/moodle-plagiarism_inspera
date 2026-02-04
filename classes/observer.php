@@ -17,21 +17,21 @@
 /**
  * Event observer definitions for the Inspera Originality plagiarism plugin.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace plagiarism_originality;
+namespace plagiarism_inspera;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->dirroot . '/plagiarism/originality/lib.php');
+require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 /**
  * The event observer class for the originality plugin.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -44,10 +44,10 @@ class observer {
     public static function assignsubmission_file_uploaded(
         \assignsubmission_file\event\assessable_uploaded $event) {
         global $CFG;
-        if (!empty(get_config('plagiarism_originality', 'enable_mod_assign'))) {
+        if (!empty(get_config('plagiarism_inspera', 'enable_mod_assign'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'assignsubmission_file_uploaded';
-            $originality = new \plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_inspera();
             $originality->event_handler($eventdata);
         }
     }
@@ -59,10 +59,10 @@ class observer {
     public static function forum_file_uploaded(
         \mod_forum\event\assessable_uploaded $event) {
         global $CFG;
-        if (!empty(get_config('plagiarism_originality', 'enable_mod_forum'))) {
+        if (!empty(get_config('plagiarism_inspera', 'enable_mod_forum'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'forum_file_uploaded';
-            $originality = new \plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_inspera();
             $originality->event_handler($eventdata);
         }
     }
@@ -74,10 +74,10 @@ class observer {
     public static function workshop_file_uploaded(
         \mod_workshop\event\assessable_uploaded $event) {
         global $CFG;
-        if (!empty(get_config('plagiarism_originality', 'enable_mod_workshop'))) {
+        if (!empty(get_config('plagiarism_inspera', 'enable_mod_workshop'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'workshop_file_uploaded';
-            $originality = new \plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_inspera();
             $originality->event_handler($eventdata);
         }
     }
@@ -88,11 +88,11 @@ class observer {
      */
     public static function assignsubmission_onlinetext_uploaded(
         \assignsubmission_onlinetext\event\assessable_uploaded $event) {
-        if (!empty(get_config('plagiarism_originality', 'enable_mod_assign'))) {
+        if (!empty(get_config('plagiarism_inspera', 'enable_mod_assign'))) {
             global $CFG;
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'assignsubmission_onlinetext_uploaded';
-            $originality = new \plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_inspera();
             $originality->event_handler($eventdata);
         }
     }
@@ -104,10 +104,10 @@ class observer {
     public static function assignsubmission_submitted(
         \mod_assign\event\assessable_submitted $event) {
         global $CFG;
-        if (!empty(get_config('plagiarism_originality', 'enable_mod_assign'))) {
+        if (!empty(get_config('plagiarism_inspera', 'enable_mod_assign'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'assignsubmission_submitted';
-            $originality = new \plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_inspera();
             $originality->event_handler($eventdata);
         }
     }
@@ -118,10 +118,10 @@ class observer {
      */
     public static function quiz_submitted(\mod_quiz\event\attempt_submitted $event) {
         global $CFG;
-        if (!empty(get_config('plagiarism_originality', 'enable_mod_quiz'))) {
+        if (!empty(get_config('plagiarism_inspera', 'enable_mod_quiz'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'quiz_submitted';
-            $originality = new \plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_inspera();
             $originality->event_handler($eventdata);
         }
     }
@@ -133,10 +133,10 @@ class observer {
     public static function hsuforum_file_uploaded(
         \mod_hsuforum\event\assessable_uploaded $event) {
         global $CFG;
-        if (!empty(get_config('plagiarism_originality', 'enable_mod_hsuforum'))) {
+        if (!empty(get_config('plagiarism_inspera', 'enable_mod_hsuforum'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'hsuforum_file_uploaded';
-            $originality = new \plagiarism_plugin_originality();
+            $originality = new \plagiarism_plugin_inspera();
             $originality->event_handler($eventdata);
         }
     }

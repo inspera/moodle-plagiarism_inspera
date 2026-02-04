@@ -17,7 +17,7 @@
 /**
  * English language strings for the Inspera Originality plagiarism plugin.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Your Name (Your Company)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */

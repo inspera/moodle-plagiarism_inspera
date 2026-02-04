@@ -18,23 +18,23 @@
  * Fetches a secure, temporary report URL from the Originality API
  * and redirects the user to it.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Your Name (Your Company)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once('../../config.php');
 global $CFG, $PAGE, $OUTPUT;
-require_once($CFG->dirroot.'/plagiarism/originality/lib.php');
+require_once($CFG->dirroot.'/plagiarism/inspera/lib.php');
 
-use plagiarism_originality\apiclient\api_client;
+use plagiarism_inspera\apiclient\api_client;
 
 $id = required_param('id', PARAM_INT);
 // Optional return URL so we can show inline notifications on the originating page.
 $returnurlparam = optional_param('returnurl', '', PARAM_LOCALURL);
 global $DB, $USER;
 
-$record = $DB->get_record('plagiarism_originality_subs', ['id' => $id], '*', MUST_EXIST);
+$record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], '*', MUST_EXIST);
 
 // Load cm + course
 $cm = get_coursemodule_from_id('assign', $record->cm, 0, false, MUST_EXIST);
@@ -48,13 +48,13 @@ $is_grader = has_capability('mod/assign:grade', $context);
 
 // Access Control: You must be a grader OR the owner of the submission
 if (!$is_grader && $record->userid != $USER->id) {
-    print_error('nopermission', 'plagiarism_originality');
+    print_error('nopermission', 'plagiarism_inspera');
 }
 
 // Prepare page (used for graceful error rendering below).
-$PAGE->set_url(new moodle_url('/plagiarism/originality/redirect.php', ['id' => $id]));
+$PAGE->set_url(new moodle_url('/plagiarism/inspera/redirect.php', ['id' => $id]));
 $PAGE->set_context($context);
-$PAGE->set_title(get_string('pluginname', 'plagiarism_originality'));
+$PAGE->set_title(get_string('pluginname', 'plagiarism_inspera'));
 $PAGE->set_pagelayout('standard');
 
 // Work out where to return on error. Prefer explicitly provided returnurl.
@@ -90,7 +90,7 @@ try {
 
     if (!is_object($response) || empty($response->url)) {
         // Show a friendly error on a message page (no redirect loop).
-        $render_error_and_exit(get_string('reportaccessdenied', 'plagiarism_originality'), $returnurl);
+        $render_error_and_exit(get_string('reportaccessdenied', 'plagiarism_inspera'), $returnurl);
     }
 
     // Redirect to the report URL
@@ -99,5 +99,5 @@ try {
 } catch (\Exception $e) {
     // Display a friendly message page and offer a continue button back.
     // Do NOT append raw exception text to the user-facing message.
-    $render_error_and_exit(get_string('reportaccessdenied', 'plagiarism_originality'), $returnurl);
+    $render_error_and_exit(get_string('reportaccessdenied', 'plagiarism_inspera'), $returnurl);
 }

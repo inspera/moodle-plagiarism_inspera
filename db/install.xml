@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="plagiarism/originality/db" VERSION="2026012900" COMMENT="Tables for originality plagiarism plugin (Description column for errors)">
+<XMLDB PATH="plagiarism/inspera/db" VERSION="2026012900" COMMENT="Tables for Inspera originality plagiarism plugin">
 
     <TABLES>
-        <TABLE NAME="plagiarism_originality_subs" COMMENT="Submissions for originality check">
+        <TABLE NAME="plagiarism_inspera_subs" COMMENT="Submissions for originality check">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
                 <FIELD NAME="cm" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
@@ -40,7 +40,7 @@
             </INDEXES>
         </TABLE>
 
-        <TABLE NAME="plagiarism_originality_conf" COMMENT="config for modules">
+        <TABLE NAME="plagiarism_inspera_config" COMMENT="config for modules">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
                 <FIELD NAME="cm" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>

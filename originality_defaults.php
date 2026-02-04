@@ -17,7 +17,7 @@
 /**
  * originality_defaults.php - Displays default values to use inside assignments for originality
  *
- * @package   plagiarism_originality
+ * @package   plagiarism_inspera
  * @copyright 2025 Inspera AS
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -25,15 +25,15 @@
 require_once(dirname(dirname(__FILE__)) . '/../config.php');
 require_once($CFG->libdir.'/adminlib.php');
 require_once($CFG->libdir.'/plagiarismlib.php');
-require_once($CFG->dirroot.'/plagiarism/originality/lib.php');
+require_once($CFG->dirroot.'/plagiarism/inspera/lib.php');
 
 require_login();
 admin_externalpage_setup('plagiarismoriginality');
 
 $context = context_system::instance();
 
-$mform = new plagiarism_originality_defaults_form(null);
-$plagiarismdefaults = $DB->get_records_menu('plagiarism_originality_conf',
+$mform = new plagiarism_inspera_defaults_form(null);
+$plagiarismdefaults = $DB->get_records_menu('plagiarism_inspera_config',
     array('cm' => 0), '', 'name, value'); // The cmid(0) is the default list.
 if (!empty($plagiarismdefaults)) {
     $mform->set_data($plagiarismdefaults);
@@ -42,10 +42,10 @@ echo $OUTPUT->header();
 $currenttab = 'originalitydefaults';
 require_once('originality_tabs.php');
 if (($data = $mform->get_data()) && confirm_sesskey()) {
-    $plagiarismplugin = new plagiarism_plugin_originality();
+    $plagiarismplugin = new plagiarism_plugin_inspera();
 
     $plagiarismelements = $plagiarismplugin->config_options(true);
-    $supportedmodules = plagiarism_originality_supported_modules();
+    $supportedmodules = plagiarism_inspera_supported_modules();
     foreach ($supportedmodules as $sm) {
         foreach ($plagiarismelements as $element) {
             $element .= "_".$sm;
@@ -61,17 +61,17 @@ if (($data = $mform->get_data()) && confirm_sesskey()) {
                 }
 
                 if (isset($plagiarismdefaults[$element])) {
-                    $newelement->id = $DB->get_field('plagiarism_originality_conf', 'id', (array('cm' => 0, 'name' => $element)));
-                    $DB->update_record('plagiarism_originality_conf', $newelement);
+                    $newelement->id = $DB->get_field('plagiarism_inspera_config', 'id', (array('cm' => 0, 'name' => $element)));
+                    $DB->update_record('plagiarism_inspera_config', $newelement);
                 } else {
-                    $DB->insert_record('plagiarism_originality_conf', $newelement);
+                    $DB->insert_record('plagiarism_inspera_config', $newelement);
                 }
             }
         }
     }
-    echo $OUTPUT->notification(get_string('defaultupdated', 'plagiarism_originality'), 'notifysuccess');
+    echo $OUTPUT->notification(get_string('defaultupdated', 'plagiarism_inspera'), 'notifysuccess');
 }
-echo $OUTPUT->box(get_string('defaultsdesc', 'plagiarism_originality'));
+echo $OUTPUT->box(get_string('defaultsdesc', 'plagiarism_inspera'));
 
 $mform->display();
 echo $OUTPUT->footer();

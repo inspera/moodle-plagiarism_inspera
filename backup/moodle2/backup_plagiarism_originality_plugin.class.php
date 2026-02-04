@@ -15,9 +15,9 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Contains class backup_plagiarism_originality_plugin.
+ * Contains class backup_plagiarism_inspera_plugin.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -27,11 +27,11 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Backup class for the Inspera Originality plagiarism plugin.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class backup_plagiarism_originality_plugin extends backup_plagiarism_plugin {
+class backup_plagiarism_inspera_plugin extends backup_plagiarism_plugin {
 
     /**
      * Define the structure for the module (Assignment, Forum, etc.) backup.
@@ -63,7 +63,7 @@ class backup_plagiarism_originality_plugin extends backup_plagiarism_plugin {
 
         // Define the Source (Database -> XML)
         // backup::VAR_PARENTID here maps to the Course Module ID (cm) of the assignment being backed up.
-        $originalityconfig->set_source_table('plagiarism_originality_conf', array('cm' => backup::VAR_PARENTID));
+        $originalityconfig->set_source_table('plagiarism_inspera_config', array('cm' => backup::VAR_PARENTID));
 
         // ==========================================
         // PART B: SUBMISSIONS (The Scores/Reports)
@@ -88,7 +88,7 @@ class backup_plagiarism_originality_plugin extends backup_plagiarism_plugin {
             $originalitysubs->add_child($originalitysub);
 
             // Define Source
-            $originalitysub->set_source_table('plagiarism_originality_subs', array('cm' => backup::VAR_PARENTID));
+            $originalitysub->set_source_table('plagiarism_inspera_subs', array('cm' => backup::VAR_PARENTID));
         }
 
         return $plugin;

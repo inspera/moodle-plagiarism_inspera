@@ -17,7 +17,7 @@
 /**
  * Event observers for the Inspera Originality plagiarism plugin.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -27,27 +27,27 @@ defined('MOODLE_INTERNAL') || die();
 $observers = array (
     array(
         'eventname' => '\assignsubmission_file\event\assessable_uploaded',
-        'callback' => '\plagiarism_originality\observer::assignsubmission_file_uploaded'
+        'callback' => '\plagiarism_inspera\observer::assignsubmission_file_uploaded'
     ),
     array(
         'eventname' => '\mod_workshop\event\assessable_uploaded',
-        'callback' => '\plagiarism_originality\observer::workshop_file_uploaded'
+        'callback' => '\plagiarism_inspera\observer::workshop_file_uploaded'
     ),
     array(
         'eventname' => '\mod_forum\event\assessable_uploaded',
-        'callback' => '\plagiarism_originality\observer::forum_file_uploaded'
+        'callback' => '\plagiarism_inspera\observer::forum_file_uploaded'
     ),
     array(
         'eventname' => '\assignsubmission_onlinetext\event\assessable_uploaded',
-        'callback' => '\plagiarism_originality\observer::assignsubmission_onlinetext_uploaded'
+        'callback' => '\plagiarism_inspera\observer::assignsubmission_onlinetext_uploaded'
     ),
     array(
         'eventname' => '\mod_assign\event\assessable_submitted',
-        'callback' => '\plagiarism_originality\observer::assignsubmission_submitted'
+        'callback' => '\plagiarism_inspera\observer::assignsubmission_submitted'
     ),
     array(
         'eventname' => '\mod_quiz\event\attempt_submitted',
-        'callback' => '\plagiarism_originality\observer::quiz_submitted'
+        'callback' => '\plagiarism_inspera\observer::quiz_submitted'
     )
 );
 
@@ -55,6 +55,6 @@ global $CFG; // Not sure if global CFG is actually needed here but just in case.
 if (file_exists($CFG->dirroot.'/mod/hsuforum/version.php')) {
     $observers[] = array(
         'eventname' => '\mod_hsuforum\event\assessable_uploaded',
-        'callback' => '\plagiarism_originality\observer::hsuforum_file_uploaded'
+        'callback' => '\plagiarism_inspera\observer::hsuforum_file_uploaded'
     );
 }

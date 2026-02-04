@@ -5,12 +5,16 @@
   "scripts": {
     "sync-moodle": [
       "echo 'Syncing plugin to Moodle directory...'",
-      "rsync -avh --delete --exclude 'vendor' --exclude '.git' --exclude '.idea' ./ ../moodle-docker/moodle/plagiarism/originality/"
+      "rsync -avh --delete --exclude 'vendor' --exclude '.git' --exclude '.idea' ./ ../moodle-docker/moodle/plagiarism/inspera/"
     ],
     "build": [
       "echo 'Building Moodle compatible ZIP archive...'",
-      "git archive -o originality.zip --prefix=originality/ HEAD",
+      "git archive -o originality.zip --prefix=inspera/ HEAD",
       "echo 'Done: originality.zip created.'"
+    ],
+    "build:branch": [
+      "echo 'Building ZIP from specific branch...'",
+      "git archive -o originality.zip --prefix=inspera/"
     ]
   }
 }

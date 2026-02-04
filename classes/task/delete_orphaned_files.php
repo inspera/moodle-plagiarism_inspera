@@ -17,12 +17,12 @@
 /**
  * Scheduled task to clean up orphaned originality records.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace plagiarism_originality\task;
+namespace plagiarism_inspera\task;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -35,7 +35,7 @@ use core\task\scheduled_task;
  * 1. The associated Moodle file has been deleted
  * 2. Temporary files for online text are old and no longer needed
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -47,7 +47,7 @@ class delete_orphaned_files extends scheduled_task {
      * @return string
      */
     public function get_name() {
-        return get_string('deleteorphanedfiles', 'plagiarism_originality');
+        return get_string('deleteorphanedfiles', 'plagiarism_inspera');
     }
 
     /**
@@ -56,7 +56,7 @@ class delete_orphaned_files extends scheduled_task {
     public function execute() {
         require_once(__DIR__ . '/../../lib.php');
 
-        $cleaned = plagiarism_originality_cleanup_orphaned_records();
+        $cleaned = plagiarism_inspera_cleanup_orphaned_records();
         if ($cleaned > 0) {
             mtrace("Cleaned up {$cleaned} orphaned records");
         } else {

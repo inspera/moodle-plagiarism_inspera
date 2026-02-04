@@ -15,9 +15,9 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Contains class restore_plagiarism_originality_plugin
+ * Contains class restore_plagiarism_inspera_plugin
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -27,11 +27,11 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Restore class for the Inspera Originality plagiarism plugin.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class restore_plagiarism_originality_plugin extends restore_plagiarism_plugin {
+class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
 
     /**
      * Returns the paths to be handled by the plugin at module (assignment) level.
@@ -83,7 +83,7 @@ class restore_plagiarism_originality_plugin extends restore_plagiarism_plugin {
 
         // INSERT: Create the settings row for the new assignment
         // (Urkund just inserts directly, which is fine for restores)
-        $DB->insert_record('plagiarism_originality_conf', $data);
+        $DB->insert_record('plagiarism_inspera_config', $data);
     }
 
     /**
@@ -106,6 +106,6 @@ class restore_plagiarism_originality_plugin extends restore_plagiarism_plugin {
         // If you need exact file mapping, you would need:
         // $data->storedfileid = $this->get_mappingid('file', $data->storedfileid);
 
-        $DB->insert_record('plagiarism_originality_subs', $data);
+        $DB->insert_record('plagiarism_inspera_subs', $data);
     }
 }

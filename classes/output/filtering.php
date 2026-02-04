@@ -15,20 +15,20 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * plagiarism_originality filtering class
+ * plagiarism_inspera filtering class
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace plagiarism_originality\output;
+namespace plagiarism_inspera\output;
 
 defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 require_once($CFG->dirroot.'/user/filters/lib.php');
-require_once($CFG->dirroot.'/plagiarism/originality/lib.php'); // Ensure lib is loaded for statuscodes
+require_once($CFG->dirroot.'/plagiarism/inspera/lib.php'); // Ensure lib is loaded for statuscodes
 
 class filtering extends \user_filtering {
 
@@ -42,23 +42,23 @@ class filtering extends \user_filtering {
         // Removed global $DB as it wasn't used.
 
         if ($fieldname == 'externalid') {
-            return new \user_filter_text('externalid', get_string('identifier', 'plagiarism_originality'), $advanced, 't.externalid');
+            return new \user_filter_text('externalid', get_string('identifier', 'plagiarism_inspera'), $advanced, 't.externalid');
         }
         if ($fieldname == 'timecreated') {
             return new \user_filter_date('timecreated', get_string('date'), $advanced, 't.timecreated');
         }
         if ($fieldname == 'status') {
             // Ensure this function exists in lib.php
-            $statuses = plagiarism_originality_statuscodes();
-            return new \user_filter_simpleselect('status', get_string('status', 'plagiarism_originality'),
+            $statuses = plagiarism_inspera_statuscodes();
+            return new \user_filter_simpleselect('status', get_string('status', 'plagiarism_inspera'),
                 $advanced, 't.status', $statuses);
         }
         if ($fieldname == 'course') {
-            return new \user_filter_text('course', get_string('courseshortname', 'plagiarism_originality'),
+            return new \user_filter_text('course', get_string('courseshortname', 'plagiarism_inspera'),
                 $advanced, 'c.shortname');
         }
         if ($fieldname == 'description') {
-            return new \user_filter_text('description', get_string('description', 'plagiarism_originality'), $advanced, 't.description');
+            return new \user_filter_text('description', get_string('description', 'plagiarism_inspera'), $advanced, 't.description');
         }
         return parent::get_field($fieldname, $advanced);
     }

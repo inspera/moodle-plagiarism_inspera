@@ -18,7 +18,7 @@ global $OUTPUT, $CFG, $PAGE, $DB;
 /**
  * Debug tool for Inspera Originality.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -26,7 +26,7 @@ global $OUTPUT, $CFG, $PAGE, $DB;
 require_once(dirname(dirname(__DIR__)) . '/config.php');
 require_once($CFG->libdir.'/adminlib.php');
 require_once($CFG->libdir.'/tablelib.php');
-require_once($CFG->dirroot.'/plagiarism/originality/lib.php');
+require_once($CFG->dirroot.'/plagiarism/inspera/lib.php');
 
 $id = optional_param('id', 0, PARAM_INT);
 $action = optional_param('action', '', PARAM_ALPHA); // Unified action param
@@ -37,12 +37,12 @@ $fileids = optional_param('fileids', '', PARAM_TEXT);
 
 require_login();
 
-$url = new moodle_url('/plagiarism/originality/originality_debug.php');
+$url = new moodle_url('/plagiarism/inspera/originality_debug.php');
 $PAGE->set_url($url);
 $context = context_system::instance();
 $PAGE->set_context($context);
 $PAGE->set_pagelayout('admin');
-$PAGE->set_title(get_string('originalitydebug', 'plagiarism_originality'));
+$PAGE->set_title(get_string('originalitydebug', 'plagiarism_inspera'));
 global $SITE;
 if (!empty($SITE)) {
     $PAGE->set_heading(format_string($SITE->fullname));
@@ -53,7 +53,7 @@ $exportfilename = 'OriginalityDebugOutput.csv';
 
 $limit = 50;
 $filters = array('realname' => 0, 'timesubmitted' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0);
-$ufiltering = new \plagiarism_originality\output\filtering($filters, $PAGE->url);
+$ufiltering = new \plagiarism_inspera\output\filtering($filters, $PAGE->url);
 list($ufextrasql, $ufparams) = $ufiltering->get_sql_filter();
 
 $defaultstatusapplied = false;
@@ -64,7 +64,7 @@ if (empty($ufextrasql)) {
     $defaultstatusapplied = true;
 }
 
-$plagiarismsettings = plagiarism_plugin_originality::get_settings();
+$plagiarismsettings = plagiarism_plugin_inspera::get_settings();
 
 // -------------------------------------------------------------------------
 // 1. HANDLE BULK DELETE (Selected via Checkboxes)
@@ -81,7 +81,7 @@ if (!empty($deleteselected)) {
         }
 
         if (empty($fileids)) {
-            redirect($url, get_string('nofilesselected', 'plagiarism_originality'));
+            redirect($url, get_string('nofilesselected', 'plagiarism_inspera'));
         }
 
         // Display confirmation box.
@@ -89,8 +89,8 @@ if (!empty($deleteselected)) {
         $deleteurl = new moodle_url($PAGE->url, $params);
         $numfiles = count($fileids);
         echo $OUTPUT->header();
-        echo $OUTPUT->confirm(get_string('areyousurebulk', 'plagiarism_originality', $numfiles),
-            $deleteurl, $CFG->wwwroot . '/plagiarism/originality/originality_debug.php');
+        echo $OUTPUT->confirm(get_string('areyousurebulk', 'plagiarism_inspera', $numfiles),
+            $deleteurl, $CFG->wwwroot . '/plagiarism/inspera/originality_debug.php');
 
         echo $OUTPUT->footer();
         exit;
@@ -98,10 +98,10 @@ if (!empty($deleteselected)) {
         $count = 0;
         $fileids = explode(',', $fileids);
         foreach ($fileids as $fid) {
-            $DB->delete_records('plagiarism_originality_subs', array('id' => $fid));
+            $DB->delete_records('plagiarism_inspera_subs', array('id' => $fid));
             $count++;
         }
-        \core\notification::success(get_string('recordsdeleted', 'plagiarism_originality', $count));
+        \core\notification::success(get_string('recordsdeleted', 'plagiarism_inspera', $count));
     }
 }
 // -------------------------------------------------------------------------
@@ -119,7 +119,7 @@ else if (!empty($resubmitselected)) {
         }
 
         if (empty($fileids)) {
-            redirect($url, get_string('nofilesselected', 'plagiarism_originality'));
+            redirect($url, get_string('nofilesselected', 'plagiarism_inspera'));
         }
 
         // Display confirmation box for resubmit selected
@@ -127,8 +127,8 @@ else if (!empty($resubmitselected)) {
         $resubmiturl = new moodle_url($PAGE->url, $params);
         $numfiles = count($fileids);
         echo $OUTPUT->header();
-        echo $OUTPUT->confirm(get_string('areyousurebulkresubmit', 'plagiarism_originality', $numfiles),
-            $resubmiturl, $CFG->wwwroot . '/plagiarism/originality/originality_debug.php');
+        echo $OUTPUT->confirm(get_string('areyousurebulkresubmit', 'plagiarism_inspera', $numfiles),
+            $resubmiturl, $CFG->wwwroot . '/plagiarism/inspera/originality_debug.php');
 
         echo $OUTPUT->footer();
         exit;
@@ -141,7 +141,7 @@ else if (!empty($resubmitselected)) {
             'modtime' => time()
         ], $inparams);
 
-        $sql = "UPDATE {plagiarism_originality_subs}
+        $sql = "UPDATE {plagiarism_inspera_subs}
                 SET status = :status,
                     timemodified = :modtime,
                     similarity = NULL,
@@ -155,7 +155,7 @@ else if (!empty($resubmitselected)) {
                 WHERE id $insql";
 
         $DB->execute($sql, $params);
-        \core\notification::success(get_string('filesresubmitted', 'plagiarism_originality', count($fileids)));
+        \core\notification::success(get_string('filesresubmitted', 'plagiarism_inspera', count($fileids)));
     }
 }
 
@@ -182,12 +182,12 @@ if ($id && confirm_sesskey()) {
         $record->externalid = null;
         $record->description = null;
 
-        $DB->update_record('plagiarism_originality_subs', $record);
-        \core\notification::success(get_string('fileresubmitted', 'plagiarism_originality'));
+        $DB->update_record('plagiarism_inspera_subs', $record);
+        \core\notification::success(get_string('fileresubmitted', 'plagiarism_inspera'));
 
     } else if ($action === 'delete' || !empty($delete)) { // Support both legacy $delete param and new action
-        $DB->delete_records('plagiarism_originality_subs', array('id' => $id));
-        \core\notification::success(get_string('filedeleted', 'plagiarism_originality'));
+        $DB->delete_records('plagiarism_inspera_subs', array('id' => $id));
+        \core\notification::success(get_string('filedeleted', 'plagiarism_inspera'));
     }
 }
 
@@ -197,7 +197,7 @@ if ($id && confirm_sesskey()) {
 
 // We removed 'checkcronhealth' unless you implemented it in lib.php
 
-$table = new \plagiarism_originality\output\debug_table('debugtable');
+$table = new \plagiarism_inspera\output\debug_table('debugtable');
 
 // Fix: Use new core_user fields API
 $userfieldsapi = \core_user\fields::for_name();
@@ -208,7 +208,7 @@ $sqlfields = "t.id, t.status, t.timecreated, t.externalid, t.similarity, t.descr
               c.id as courseid, c.fullname, c.shortname,
               cm.id as cm, m.name as moduletype";
 
-$sqlfrom = "{plagiarism_originality_subs} t
+$sqlfrom = "{plagiarism_inspera_subs} t
             LEFT JOIN {user} u ON t.userid = u.id
             LEFT JOIN {course_modules} cm ON t.cm = cm.id
             LEFT JOIN {modules} m ON cm.module = m.id
@@ -237,9 +237,9 @@ if (!$table->is_downloading()) {
 
     require_once('originality_tabs.php');
 
-    echo $OUTPUT->heading(get_string('originalityfiles', 'plagiarism_originality'));
+    echo $OUTPUT->heading(get_string('originalityfiles', 'plagiarism_inspera'));
     // Ensure this string exists or remove the box
-    // echo $OUTPUT->box(get_string('explainerrors', 'plagiarism_originality'));
+    // echo $OUTPUT->box(get_string('explainerrors', 'plagiarism_inspera'));
 
     $ufiltering->display_add();
     $ufiltering->display_active();
@@ -255,12 +255,12 @@ $table->out($limit, false);
 if (!$table->is_downloading()) {
     echo html_writer::tag('input', "", array('name' => 'deleteselectedfiles', 'type' => 'submit',
         'id' => 'deleteallselected', 'class' => 'btn btn-secondary',
-        'value' => get_string('deleteselectedfiles', 'plagiarism_originality')));
+        'value' => get_string('deleteselectedfiles', 'plagiarism_inspera')));
 
     echo html_writer::span(' ');
     echo html_writer::tag('input', "", array('name' => 'resubmitselectedfiles', 'type' => 'submit',
         'id' => 'resubmitselected', 'class' => 'btn btn-secondary',
-        'value' => get_string('resubmitselectedfiles', 'plagiarism_originality')));
+        'value' => get_string('resubmitselectedfiles', 'plagiarism_inspera')));
     echo html_writer::end_tag('form');
     echo html_writer::end_div();
     echo html_writer::empty_tag('hr');
