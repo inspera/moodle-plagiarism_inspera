@@ -26,39 +26,27 @@ defined('MOODLE_INTERNAL') || die();
 
 /**
  * Restore class for the Inspera Originality plagiarism plugin.
- *
- * @package    plagiarism_inspera
- * @copyright  2025 Inspera AS
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
 
     /**
-     * Returns the paths to be handled by the plugin at module (assignment) level.
-     * VISIBILITY: Protected (Standard for Restore)
+     * Define the paths to be processed.
      */
     protected function define_module_plugin_structure() {
         $paths = array();
 
-        // ------------------------------------------
-        // 1. SETTINGS (The "Missing Link" fix)
-        // ------------------------------------------
-        // We give this a unique name 'originalityconfigmod' to match the processing function below.
-        $elename = 'originalityconfigmod';
+        // 1. SETTINGS
+        // We use a clean name for the internal handler
+        $elename = 'insperaconfigmod';
 
-        // This path MUST match the XML structure defined in your BACKUP file.
-        // /originality_configs/originality_config
-        $elepath = $this->get_pathfor('/originality_configs/originality_config');
+        // This MUST match the XML structure in backup_plagiarism_inspera_plugin.class.php
+        $elepath = $this->get_pathfor('/inspera_configs/inspera_config');
         $paths[] = new restore_path_element($elename, $elepath);
 
-        // ------------------------------------------
-        // 2. SUBMISSIONS (User Data - Optional but recommended)
-        // ------------------------------------------
-        // If you implemented the User Data backup, we restore it here.
+        // 2. SUBMISSIONS
         if ($this->task->get_setting_value('userinfo')) {
-            $elename = 'originalitysubs';
-            // /originality_subs/originality_sub
-            $elepath = $this->get_pathfor('/originality_subs/originality_sub');
+            $elename = 'insperasubs';
+            $elepath = $this->get_pathfor('/inspera_subs/inspera_sub');
             $paths[] = new restore_path_element($elename, $elepath);
         }
 
@@ -67,44 +55,31 @@ class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
 
     /**
      * PROCESS: Assignment Settings
-     * This function name matches the $elename 'originalityconfigmod' above.
      */
-    public function process_originalityconfigmod($data) {
+    public function process_insperaconfigmod($data) {
         global $DB;
         $data = (object)$data;
 
-        // Safety check: Ensure we are inside a module restore
         if (empty($this->task->get_moduleid())) {
             return;
         }
 
-        // MAP: Old CM ID -> New CM ID
         $data->cm = $this->task->get_moduleid();
-
-        // INSERT: Create the settings row for the new assignment
-        // (Urkund just inserts directly, which is fine for restores)
         $DB->insert_record('plagiarism_inspera_config', $data);
     }
 
     /**
-     * PROCESS: Submission Data (Scores/Reports)
-     * This function name matches the $elename 'originalitysubs' above.
+     * PROCESS: Submission Data
      */
-    public function process_originalitysubs($data) {
+    public function process_insperasubs($data) {
         global $DB;
         $data = (object)$data;
 
         // 1. Map Context
         $data->cm = $this->task->get_moduleid();
 
-        // 2. Map User (Critical: The user ID in the new course might be different)
+        // 2. Map User
         $data->userid = $this->get_mappingid('user', $data->userid);
-
-        // 3. Handle File Mapping (Optional/Advanced)
-        // For now, restoring the record with the old file ID is "safe enough"
-        // because the report URL usually relies on external IDs or content hashes.
-        // If you need exact file mapping, you would need:
-        // $data->storedfileid = $this->get_mappingid('file', $data->storedfileid);
 
         $DB->insert_record('plagiarism_inspera_subs', $data);
     }
