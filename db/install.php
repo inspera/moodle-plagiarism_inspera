@@ -76,7 +76,7 @@ function xmldb_plagiarism_inspera_install() {
         }
     }
 
-    // --- 2. MIGRATE SUBMISSIONS (With Path Fix) ---
+    // --- 2. MIGRATE SUBMISSIONS (With Path Fix and Sequence Reset) ---
     if ($DB->get_manager()->table_exists('plagiarism_originality_subs')) {
         if ($DB->count_records('plagiarism_inspera_subs') == 0) {
 
@@ -101,14 +101,21 @@ function xmldb_plagiarism_inspera_install() {
             $select_str = implode(', ', $select_parts);
 
             $sql = "INSERT INTO {plagiarism_inspera_subs} ($insert_str)
-                    SELECT $select_str FROM {plagiarism_originality_subs}";
+                        SELECT $select_str FROM {plagiarism_originality_subs}";
 
             try {
+                // 1. Perform the bulk copy
                 $DB->execute($sql);
-                mtrace("Migrated submissions successfully.");
 
-                // Disable the old plugin to be safe
+                // 2. CRITICAL: Reset the auto-increment sequence
+                // This tells the DB: "The highest ID is now X, so the next insert should be X+1"
+                $DB->get_manager()->reset_sequence('plagiarism_inspera_subs');
+
+                mtrace("Migrated submissions successfully and reset ID sequence.");
+
+                // 3. Disable the old plugin to prevent double-processing
                 set_config('enabled', 0, 'plagiarism_originality');
+
             } catch (Exception $e) {
                 mtrace("Warning: Submission migration failed: " . $e->getMessage());
             }
