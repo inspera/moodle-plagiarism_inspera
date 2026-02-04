@@ -17,66 +17,79 @@
 defined('MOODLE_INTERNAL') || die();
 
 /**
- * Post-installation migration script.
+ * Post-installation migration script for Inspera Originality.
+ * Safely migrates data from the old 'plagiarism_originality' plugin if it exists.
  *
  * @return bool
  */
 function xmldb_plagiarism_inspera_install() {
     global $DB;
 
-    // 1. Check if the OLD plugin's data exists
-    // We check for the main submission table.
-    if (!$DB->get_manager()->table_exists('plagiarism_originality_subs')) {
-        // No old data found. This is a fresh install for a new customer.
-        return true;
-    }
-
-    // 2. Migrate CONFIGURATION
-    // Mapping: plagiarism_originality_conf -> plagiarism_inspera_config
-    // (Assuming you standardized the table name to '_config' in the new plugin)
+    // --- 1. MIGRATE CONFIGURATION ---
     if ($DB->get_manager()->table_exists('plagiarism_originality_conf')) {
-        $sql = "INSERT INTO {plagiarism_inspera_config} (cm, name, value)
-                SELECT cm, name, value 
-                FROM {plagiarism_originality_conf}";
-
-        try {
-            $DB->execute($sql);
-            mtrace("Migrated configuration from plagiarism_originality.");
-        } catch (Exception $e) {
-            // Log error but don't stop installation
-            mtrace("Warning: Could not migrate config: " . $e->getMessage());
+        // Only copy if the new config table is empty (prevent duplicates on re-install)
+        if ($DB->count_records('plagiarism_inspera_config') == 0) {
+            try {
+                // Dynamic mapping: old 'conf' -> new 'config'
+                $sql = "INSERT INTO {plagiarism_inspera_config} (cm, name, value)
+                        SELECT cm, name, value FROM {plagiarism_originality_conf}";
+                $DB->execute($sql);
+                mtrace("Migrated configuration successfully.");
+            } catch (Exception $e) {
+                mtrace("Warning: Config migration failed: " . $e->getMessage());
+            }
         }
     }
 
-    // 3. Migrate SUBMISSIONS
-    // Mapping: plagiarism_originality_subs -> plagiarism_inspera_subs
-    // We explicitly list columns to be safe.
-    // Note: We use REPLACE(identifier, ...) to fix the file paths in the DB.
+    // --- 2. MIGRATE SUBMISSIONS (Robust Column Matching) ---
+    if ($DB->get_manager()->table_exists('plagiarism_originality_subs')) {
 
-    $sql = "INSERT INTO {plagiarism_inspera_subs} 
-            (cm, userid, submissionid, storedfileid, identifier, status, 
-             similarity, originality, timecreated, timemodified, error, 
-             externalid, ai_index, translation_similarity, character_replacement, 
-             hidden_text, image_as_text, description)
-            SELECT 
-             cm, userid, submissionid, storedfileid, 
-             REPLACE(identifier, 'plagiarism_originality', 'plagiarism_inspera'), 
-             status, similarity, originality, timecreated, timemodified, error, 
-             externalid, ai_index, translation_similarity, character_replacement, 
-             hidden_text, image_as_text, description
-            FROM {plagiarism_originality_subs}";
+        // Only migrate if new table is empty
+        if ($DB->count_records('plagiarism_inspera_subs') == 0) {
 
-    try {
-        $DB->execute($sql);
-        mtrace("Migrated submissions from plagiarism_originality.");
+            // A. Get columns from both tables
+            $old_columns = $DB->get_columns('plagiarism_originality_subs');
+            $new_columns = $DB->get_columns('plagiarism_inspera_subs');
 
-        // 4. Disable the OLD plugin to prevent 'Double Submission' conflicts
-        // We set the 'enabled' flag of the old plugin to 0 in the global config.
-        set_config('enabled', 0, 'plagiarism_originality');
-        mtrace("Disabled old plagiarism_originality plugin to prevent conflicts.");
+            // B. Find common columns (Intersection)
+            // We strip 'id' to allow the new table to generate fresh clean IDs,
+            // OR keep it to preserve history. Preserving is usually better for logs.
+            $common_keys = array_intersect(array_keys($old_columns), array_keys($new_columns));
 
-    } catch (Exception $e) {
-        mtrace("Warning: Could not migrate submissions: " . $e->getMessage());
+            // C. Build the SQL dynamically
+            $select_parts = [];
+            $insert_parts = [];
+
+            foreach ($common_keys as $col) {
+                $insert_parts[] = $col;
+
+                if ($col === 'identifier') {
+                    // Special handling: Rename the folder path in the DB
+                    $select_parts[] = "REPLACE(identifier, 'plagiarism_originality', 'plagiarism_inspera')";
+                } else {
+                    $select_parts[] = $col;
+                }
+            }
+
+            $insert_str = implode(', ', $insert_parts);
+            $select_str = implode(', ', $select_parts);
+
+            $sql = "INSERT INTO {plagiarism_inspera_subs} ($insert_str)
+                    SELECT $select_str FROM {plagiarism_originality_subs}";
+
+            try {
+                $DB->execute($sql);
+                mtrace("Migrated submissions successfully (" . count($common_keys) . " columns matched).");
+
+                // D. Disable the old plugin to prevent conflicts
+                set_config('enabled', 0, 'plagiarism_originality');
+
+            } catch (Exception $e) {
+                mtrace("Warning: Submission migration failed: " . $e->getMessage());
+                // Detailed debug info in error log
+                error_log("MIGRATION ERROR SQL: " . $sql);
+            }
+        }
     }
 
     return true;
