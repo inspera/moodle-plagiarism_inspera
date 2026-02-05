@@ -105,19 +105,15 @@ class api_client {
         }
         // -------------------
 
-        $curl = new \curl(['timeout' => 60]); // Add a reasonable timeout
-        // This is necessary because AWS API Gateway URLs often resolve
-        // to IP ranges that Moodle thinks are "private" or "suspicious".
-        // Since this URL is hardcoded by us, it is safe to trust.
-        $options = array(
-            'ignoresecurity' => true
-        );
+        // Pass 'ignoresecurity' to the CONSTRUCTOR, not the post() method.
+        $curl = new \curl(['ignoresecurity' => true, 'timeout' => 60]);
+
         $curl->setHeader('Content-Type: application/json');
         foreach ($headers as $header) {
             $curl->setHeader($header);
         }
 
-        $response = $curl->post($url, $payloadJson, $options);
+        $response = $curl->post($url, $payloadJson);
         $info = $curl->get_info();          // 1. Get the transfer info
         $http_code = $info['http_code'] ?? 0; // 2. Extract the code
         $errno = $curl->get_errno();
@@ -158,17 +154,13 @@ class api_client {
      * @throws \moodle_exception If the curl request fails or returns an error.
      */
     protected function _do_get_request(string $url, array $headers = []): string {
-        $curl = new \curl(['timeout' => 60]);
+        // Pass 'ignoresecurity' to the CONSTRUCTOR
+        $curl = new \curl(['ignoresecurity' => true, 'timeout' => 60]);
         foreach ($headers as $header) {
             $curl->setHeader($header);
         }
 
-        // Add 'ignoresecurity' => true
-        $options = array(
-            'ignoresecurity' => true
-        );
-
-        $response = $curl->get($url, [], $options);
+        $response = $curl->get($url);
 
         $info = $curl->get_info();
         $http_code = $info['http_code'] ?? 0;
@@ -198,17 +190,13 @@ class api_client {
      * @return bool True if the upload appears successful (no curl error), false otherwise.
      */
     protected function _do_s3_put_request(string $url, string $content, string $mimetype): bool {
-        $curl = new \curl(['timeout' => 300]); // Longer timeout for uploads
+        // Pass 'ignoresecurity' to the CONSTRUCTOR
+        $curl = new \curl(['ignoresecurity' => true, 'timeout' => 300]);
         $curl->setHeader('Content-Type: ' . $mimetype);
-
-        // FIX: Add ignoresecurity here too
-        $options = array(
-            'ignoresecurity' => true
-        );
 
         if (!defined('PHPUNIT_TEST')) { mtrace("Uploading file to Originality S3 URL"); }
 
-        $curl->put($url, $content, $options);
+        $curl->put($url, $content);
         $info = $curl->get_info();
         $http_code = $info['http_code'] ?? 0;
         $errno = $curl->get_errno();
