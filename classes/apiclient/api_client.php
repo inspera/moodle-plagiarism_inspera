@@ -201,9 +201,14 @@ class api_client {
         $curl = new \curl(['timeout' => 300]); // Longer timeout for uploads
         $curl->setHeader('Content-Type: ' . $mimetype);
 
+        // FIX: Add ignoresecurity here too
+        $options = array(
+            'ignoresecurity' => true
+        );
+
         if (!defined('PHPUNIT_TEST')) { mtrace("Uploading file to Originality S3 URL"); }
 
-        $curl->put($url, $content);
+        $curl->put($url, $content, $options);
         $info = $curl->get_info();
         $http_code = $info['http_code'] ?? 0;
         $errno = $curl->get_errno();
