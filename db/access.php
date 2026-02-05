@@ -17,7 +17,7 @@
 /**
  * Capability definitions for the Inspera Originality plagiarism plugin.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -25,22 +25,14 @@
 defined('MOODLE_INTERNAL') || die();
 
 $capabilities = array(
-    'plagiarism/originality:enable' => array(
+    'plagiarism/inspera:enable' => array(
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
          'legacy' => array(
          'editingteacher' => CAP_ALLOW,
          'manager' => CAP_ALLOW)
     ),
-    'plagiarism/originality:viewreport' => array(
-        'captype' => 'write',
-        'contextlevel' => CONTEXT_COURSE,
-         'legacy' => array(
-         'editingteacher' => CAP_ALLOW,
-         'teacher' => CAP_ALLOW,
-         'manager' => CAP_ALLOW)
-    ),
-    'plagiarism/originality:resetfile' => array(
+    'plagiarism/inspera:viewreport' => array(
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
          'legacy' => array(
@@ -48,7 +40,15 @@ $capabilities = array(
          'teacher' => CAP_ALLOW,
          'manager' => CAP_ALLOW)
     ),
-    'plagiarism/originality:manage_locked_settings' => array(
+    'plagiarism/inspera:resetfile' => array(
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_COURSE,
+         'legacy' => array(
+         'editingteacher' => CAP_ALLOW,
+         'teacher' => CAP_ALLOW,
+         'manager' => CAP_ALLOW)
+    ),
+    'plagiarism/inspera:manage_locked_settings' => array(
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
         'legacy' => array(
@@ -57,7 +57,7 @@ $capabilities = array(
             // Teachers/Managers will NOT have this, so they cannot edit these settings.
         )
     ),
-    'plagiarism/originality:resubmitallfiles' => array(
+    'plagiarism/inspera:resubmitallfiles' => array(
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
          'legacy' => array(
@@ -65,7 +65,7 @@ $capabilities = array(
          'teacher' => CAP_PREVENT,
          'manager' => CAP_PREVENT)
     ),
-    'plagiarism/originality:resubmitonclose' => array(
+    'plagiarism/inspera:resubmitonclose' => array(
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
          'legacy' => array(

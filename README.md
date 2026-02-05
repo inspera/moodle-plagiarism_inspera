@@ -26,7 +26,7 @@ The folder name **must** be `originality`.
 
 ```bash
 cd /path/to/your/moodle/plagiarism/
-git clone [https://github.com/your-repo/moodle-plagiarism_originality.git](https://github.com/your-repo/moodle-plagiarism_originality.git) originality
+git clone [https://github.com/your-repo/moodle-plagiarism_inspera.git](https://github.com/your-repo/moodle-plagiarism_inspera.git) originality
 ```
 
 ### 2. Install

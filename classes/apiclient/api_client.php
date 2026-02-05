@@ -18,12 +18,12 @@
  * API client for the Inspera Originality plagiarism service.
  * Handles authentication (token) and all API endpoints.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace plagiarism_originality\apiclient;
+namespace plagiarism_inspera\apiclient;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -33,7 +33,7 @@ require_once($GLOBALS['CFG']->libdir . '/filelib.php');
  * API client class for Inspera Originality.
  * Uses internal methods for HTTP requests to facilitate testing via partial mocks.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -59,9 +59,9 @@ class api_client {
             $this->is_validating = true;
         } else {
             // STANDARD MODE
-            $this->baseurl       = rtrim(get_config('plagiarism_originality', 'baseurl'), '/');
-            $this->clientid      = get_config('plagiarism_originality', 'clientid');
-            $this->institutionid = get_config('plagiarism_originality', 'institutionid');
+            $this->baseurl       = rtrim(get_config('plagiarism_inspera', 'baseurl'), '/');
+            $this->clientid      = get_config('plagiarism_inspera', 'clientid');
+            $this->institutionid = get_config('plagiarism_inspera', 'institutionid');
         }
     }
 
@@ -105,7 +105,9 @@ class api_client {
         }
         // -------------------
 
-        $curl = new \curl(['timeout' => 60]); // Add a reasonable timeout
+        // Pass 'ignoresecurity' to the CONSTRUCTOR, not the post() method.
+        $curl = new \curl(['ignoresecurity' => true, 'timeout' => 60]);
+
         $curl->setHeader('Content-Type: application/json');
         foreach ($headers as $header) {
             $curl->setHeader($header);
@@ -129,13 +131,13 @@ class api_client {
         // 1. Connection Errors (DNS, Timeout)
         if ($errno !== 0) {
             $error = $curl->error;
-            throw new \moodle_exception('curlerror', 'plagiarism_originality', '', null,
+            throw new \moodle_exception('curlerror', 'plagiarism_inspera', '', null,
                 "Curl connection error ({$errno}) accessing {$url}: {$error}");
         }
 
         // 2. API Logic Errors (401 Unauthorized, 403 Forbidden, 500 Server Error)
         if ($http_code >= 400) {
-            throw new \moodle_exception('apierror', 'plagiarism_originality', '', null,
+            throw new \moodle_exception('apierror', 'plagiarism_inspera', '', null,
                 "API returned HTTP {$http_code}: " . $response);
         }
 
@@ -152,7 +154,8 @@ class api_client {
      * @throws \moodle_exception If the curl request fails or returns an error.
      */
     protected function _do_get_request(string $url, array $headers = []): string {
-        $curl = new \curl(['timeout' => 60]);
+        // Pass 'ignoresecurity' to the CONSTRUCTOR
+        $curl = new \curl(['ignoresecurity' => true, 'timeout' => 60]);
         foreach ($headers as $header) {
             $curl->setHeader($header);
         }
@@ -165,12 +168,12 @@ class api_client {
 
         if ($errno !== 0) {
             $error = $curl->error;
-            throw new \moodle_exception('curlerror', 'plagiarism_originality', '', null,
+            throw new \moodle_exception('curlerror', 'plagiarism_inspera', '', null,
                 "Curl error ({$errno}) accessing {$url}: {$error}");
         }
 
         if ($http_code >= 400) {
-            throw new \moodle_exception('apierror', 'plagiarism_originality', '', null,
+            throw new \moodle_exception('apierror', 'plagiarism_inspera', '', null,
                 "API returned HTTP {$http_code} on GET: " . $response);
         }
 
@@ -187,7 +190,8 @@ class api_client {
      * @return bool True if the upload appears successful (no curl error), false otherwise.
      */
     protected function _do_s3_put_request(string $url, string $content, string $mimetype): bool {
-        $curl = new \curl(['timeout' => 300]); // Longer timeout for uploads
+        // Pass 'ignoresecurity' to the CONSTRUCTOR
+        $curl = new \curl(['ignoresecurity' => true, 'timeout' => 300]);
         $curl->setHeader('Content-Type: ' . $mimetype);
 
         if (!defined('PHPUNIT_TEST')) { mtrace("Uploading file to Originality S3 URL"); }
@@ -228,9 +232,9 @@ class api_client {
 
         // 1. CACHE CHECK
         if (!$this->is_validating) {
-            $token = get_config('plagiarism_originality', 'apitoken');
-            $expires = (int) get_config('plagiarism_originality', 'apitoken_exp');
-            $cached_hash = get_config('plagiarism_originality', 'apitoken_hash');
+            $token = get_config('plagiarism_inspera', 'apitoken');
+            $expires = (int) get_config('plagiarism_inspera', 'apitoken_exp');
+            $cached_hash = get_config('plagiarism_inspera', 'apitoken_hash');
 
             // Logic: Token must be valid, not expiring soon, AND belong to these credentials
             if (!empty($token) &&
@@ -250,28 +254,28 @@ class api_client {
         try {
             $response = $this->_do_post_request($this->baseurl . '/token', $payload);
         } catch (\moodle_exception $e) {
-            throw new \moodle_exception('apitokenerror', 'plagiarism_originality', '', null, 'Failed to connect to token endpoint: ' . $e->getMessage());
+            throw new \moodle_exception('apitokenerror', 'plagiarism_inspera', '', null, 'Failed to connect to token endpoint: ' . $e->getMessage());
         }
 
         $data = json_decode($response);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \moodle_exception('invalidjson', 'plagiarism_originality', '', null, 'Token response not valid JSON: ' . $response);
+            throw new \moodle_exception('invalidjson', 'plagiarism_inspera', '', null, 'Token response not valid JSON: ' . $response);
         }
 
         if (empty($data->token)) {
             // Extract readable message if available
             $apimessage = $data->message ?? 'Unknown error';
-            throw new \moodle_exception('apitokenerror', 'plagiarism_originality', '', $apimessage);
+            throw new \moodle_exception('apitokenerror', 'plagiarism_inspera', '', $apimessage);
         }
 
         // 3. SAVE CACHE (Only if not validating)
         if (!$this->is_validating && isset($data->expirationTime)) {
-            set_config('apitoken', $data->token, 'plagiarism_originality');
-            set_config('apitoken_exp', floor($data->expirationTime / 1000), 'plagiarism_originality');
+            set_config('apitoken', $data->token, 'plagiarism_inspera');
+            set_config('apitoken_exp', floor($data->expirationTime / 1000), 'plagiarism_inspera');
 
             // Save the hash of the credentials that generated this token
-            set_config('apitoken_hash', $current_cred_hash, 'plagiarism_originality');
+            set_config('apitoken_hash', $current_cred_hash, 'plagiarism_inspera');
         }
 
         return $data->token;
@@ -364,19 +368,19 @@ class api_client {
         try {
             $response = $this->_do_post_request($this->baseurl . '/create/submission', json_encode($payload), $headers);
         } catch (\moodle_exception $e) {
-            throw new \moodle_exception('apierror', 'plagiarism_originality', '', null, 'Failed to create submission: ' . $e->getMessage());
+            throw new \moodle_exception('apierror', 'plagiarism_inspera', '', null, 'Failed to create submission: ' . $e->getMessage());
         }
 
         $data = json_decode($response);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \moodle_exception('invalidjson', 'plagiarism_originality', '', null, 'Create submission response not valid JSON: ' . $response);
+            throw new \moodle_exception('invalidjson', 'plagiarism_inspera', '', null, 'Create submission response not valid JSON: ' . $response);
         }
         if (empty($data->documentId) || empty($data->presignedS3Url)) {
             if (!defined('PHPUNIT_TEST')) { mtrace("API create_submission failed: " . $response); }
             // Extract readable message if possible
             $apimessage = $data->message ?? 'API response missing documentId or presignedS3Url';
-            throw new \moodle_exception('apierror', 'plagiarism_originality', '', null, $apimessage);
+            throw new \moodle_exception('apierror', 'plagiarism_inspera', '', null, $apimessage);
         }
 
         return $data;
@@ -409,13 +413,13 @@ class api_client {
         try {
             $response = $this->_do_get_request($url, $headers);
         } catch (\moodle_exception $e) {
-            throw new \moodle_exception('apierror', 'plagiarism_originality', '', null, 'Failed to check document status: ' . $e->getMessage());
+            throw new \moodle_exception('apierror', 'plagiarism_inspera', '', null, 'Failed to check document status: ' . $e->getMessage());
         }
 
         $data = json_decode($response);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \moodle_exception('invalidjson', 'plagiarism_originality', '', null, 'Check status response not valid JSON: ' . $response);
+            throw new \moodle_exception('invalidjson', 'plagiarism_inspera', '', null, 'Check status response not valid JSON: ' . $response);
         }
 
         if (!defined('PHPUNIT_TEST')) { mtrace("Polled status for doc {$documentid}: " . $response); }
@@ -443,17 +447,17 @@ class api_client {
         try {
             $response = $this->_do_get_request($url, $headers);
         } catch (\moodle_exception $e) {
-            throw new \moodle_exception('apierror', 'plagiarism_originality', '', null, 'Failed to get report URL: ' . $e->getMessage());
+            throw new \moodle_exception('apierror', 'plagiarism_inspera', '', null, 'Failed to get report URL: ' . $e->getMessage());
         }
 
         $data = json_decode($response);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \moodle_exception('invalidjson', 'plagiarism_originality', '', null, 'Report URL response not valid JSON: ' . $response);
+            throw new \moodle_exception('invalidjson', 'plagiarism_inspera', '', null, 'Report URL response not valid JSON: ' . $response);
         }
         if (empty($data->url)) {
             $apimessage = $data->message ?? 'API response missing report URL';
-            throw new \moodle_exception('apierror', 'plagiarism_originality', '', null, $apimessage);
+            throw new \moodle_exception('apierror', 'plagiarism_inspera', '', null, $apimessage);
         }
 
         return $data;

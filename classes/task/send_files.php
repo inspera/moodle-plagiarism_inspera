@@ -17,17 +17,17 @@
 /**
  * Scheduled task to send and check files with the Originality API.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace plagiarism_originality\task;
+namespace plagiarism_inspera\task;
 
 defined('MOODLE_INTERNAL') || die();
 
 use core\task\scheduled_task;
-use plagiarism_originality\apiclient\api_client;
+use plagiarism_inspera\apiclient\api_client;
 
 /**
  * The main scheduled task for the originality plugin.
@@ -36,7 +36,7 @@ use plagiarism_originality\apiclient\api_client;
  * 1. Send new file submissions ('report_requested') to the API.
  * 2. Poll the API for the status of pending submissions ('pending').
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -46,7 +46,7 @@ class send_files extends scheduled_task {
      * Returns the name of this task (shown in admin screens)
      */
     public function get_name(): string {
-        return get_string('sendfiles', 'plagiarism_originality');
+        return get_string('sendfiles', 'plagiarism_inspera');
     }
 
     /**
@@ -60,10 +60,10 @@ class send_files extends scheduled_task {
         $client = new api_client();
 
         // Step 1: Process new files (report_requested)
-        $newfiles = $DB->get_recordset('plagiarism_originality_subs', ['status' => 'report_requested']);
+        $newfiles = $DB->get_recordset('plagiarism_inspera_subs', ['status' => 'report_requested']);
         foreach ($newfiles as $file) {
             mtrace("Processing fileid: {$file->id} (create submission + upload)");
-            plagiarism_originality_send_file($file, $client);
+            plagiarism_inspera_send_file($file, $client);
 
             // allow memory cleanup
             unset($file);
@@ -71,10 +71,10 @@ class send_files extends scheduled_task {
         $newfiles->close();
 
         // Step 2: Poll pending files
-        $pendingfiles = $DB->get_recordset('plagiarism_originality_subs', ['status' => 'pending']);
+        $pendingfiles = $DB->get_recordset('plagiarism_inspera_subs', ['status' => 'pending']);
         foreach ($pendingfiles as $file) {
             mtrace("Polling fileid: {$file->id} (check status)");
-            plagiarism_originality_poll_file_status($file, $client);
+            plagiarism_inspera_poll_file_status($file, $client);
             unset($file);
         }
         $pendingfiles->close();

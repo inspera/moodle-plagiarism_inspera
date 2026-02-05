@@ -17,16 +17,16 @@
 /**
  * This script prints the navigation tabs for the plugin's admin settings pages.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$strsettings = get_string('tab_settings', 'plagiarism_originality');
-$strdefaults = get_string('tab_defaults', 'plagiarism_originality');
-$strmanagement = get_string('tab_management', 'plagiarism_originality');
+$strsettings = get_string('tab_settings', 'plagiarism_inspera');
+$strdefaults = get_string('tab_defaults', 'plagiarism_inspera');
+$strmanagement = get_string('tab_management', 'plagiarism_inspera');
 
 $tabs = array();
 $tabs[] = new tabobject('originalitysettings', 'settings.php', $strsettings, $strsettings, false);

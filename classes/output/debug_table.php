@@ -17,12 +17,12 @@
 /**
  * Debug table
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace plagiarism_originality\output;
+namespace plagiarism_inspera\output;
 
 use moodle_url;
 use html_writer;
@@ -73,14 +73,14 @@ class debug_table extends \table_sql {
         $columns = array_merge($columns, array('id', 'fullname', 'course', 'activity', 'externalid', 'status', 'description', 'timecreated'));
 
         $headers = array_merge($headers, array(
-            get_string('id', 'plagiarism_originality'),
+            get_string('id', 'plagiarism_inspera'),
             get_string('user'),
             get_string('course'),
             get_string('activity'),
-            get_string('identifier', 'plagiarism_originality'), // Maps to externalid
-            get_string('status', 'plagiarism_originality'),
-            get_string('description', 'plagiarism_originality'),
-            get_string('timecreated', 'plagiarism_originality')
+            get_string('identifier', 'plagiarism_inspera'), // Maps to externalid
+            get_string('status', 'plagiarism_inspera'),
+            get_string('description', 'plagiarism_inspera'),
+            get_string('timecreated', 'plagiarism_inspera')
         ));
 
         // Add actions column if not downloading.
@@ -130,15 +130,15 @@ class debug_table extends \table_sql {
         // 1. Reset / Resubmit Button
         // If status is Error, or Finished, or stuck in Pending/Request for too long
         if ($row->status == 'error' || $row->status == 'external_error') {
-            $url = new moodle_url('/plagiarism/originality/originality_debug.php',
+            $url = new moodle_url('/plagiarism/inspera/originality_debug.php',
                 array('id' => $row->id, 'action' => 'resubmit', 'sesskey' => sesskey()));
-            $tooltip = get_string('resubmit_tooltip', 'plagiarism_originality');
-            $output .= html_writer::link($url, get_string('resubmit', 'plagiarism_originality'), ['title' => $tooltip]);
+            $tooltip = get_string('resubmit_tooltip', 'plagiarism_inspera');
+            $output .= html_writer::link($url, get_string('resubmit', 'plagiarism_inspera'), ['title' => $tooltip]);
             $output .= ' | ';
         }
 
         // 2. Delete Button
-        $url = new moodle_url('/plagiarism/originality/originality_debug.php',
+        $url = new moodle_url('/plagiarism/inspera/originality_debug.php',
             array('id' => $row->id, 'action' => 'delete', 'sesskey' => sesskey()));
         $output .= html_writer::link($url, get_string('delete'));
 
@@ -182,8 +182,8 @@ class debug_table extends \table_sql {
     public function col_status($row) {
         // Display nice status string if it exists
         $statuskey = 'status_' . $row->status;
-        if (get_string_manager()->string_exists($statuskey, 'plagiarism_originality')) {
-            return get_string($statuskey, 'plagiarism_originality');
+        if (get_string_manager()->string_exists($statuskey, 'plagiarism_inspera')) {
+            return get_string($statuskey, 'plagiarism_inspera');
         }
         return $row->status;
     }
@@ -225,7 +225,7 @@ class debug_table extends \table_sql {
             $this->add_data(array());
 
             // Dump the configuration table (Fixed table name)
-            $configrecords = $DB->get_records('plagiarism_originality_conf');
+            $configrecords = $DB->get_records('plagiarism_inspera_config');
             $this->add_data(array('id', 'cm', 'name', 'value'));
             foreach ($configrecords as $cf) {
                 $this->add_data(array($cf->id, $cf->cm, $cf->name, $cf->value));

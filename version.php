@@ -17,7 +17,7 @@
 /**
  * Version details for the Inspera Originality plagiarism plugin.
  *
- * @package    plagiarism_originality
+ * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin = new stdClass();
-$plugin->component = 'plagiarism_originality'; // Full name of the plugin in frankenstyle.
-$plugin->version   = 2026012900;               // Plugin version (YYYYMMDDXX).             // Plugin version (YYYYMMDDXX).
+$plugin->component = 'plagiarism_inspera'; // Full name of the plugin in frankenstyle.
+$plugin->version   = 2026020500;               // Plugin version (YYYYMMDDXX).             // Plugin version (YYYYMMDDXX).
 $plugin->requires  = 2024100700;               // Minimum Moodle version (e.g., 4.5 stable).
 $plugin->maturity  = MATURITY_STABLE;           // MATURITY_ALPHA, MATURITY_BETA, MATURITY_RC, MATURITY_STABLE.
-$plugin->release   = '1.0.0';                  // Human-readable version.
+$plugin->release   = '2.0.0';                  // Human-readable version.
