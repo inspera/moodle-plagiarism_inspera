@@ -122,16 +122,25 @@ function xmldb_plagiarism_inspera_install() {
         }
     }
 
-    // --- 3. CLEANUP OLD TASKS ---
-    // Remove scheduled and ad-hoc tasks belonging to the old plugin.
-    // This prevents "Class not found" errors in cron since the old code is being removed.
+    // --- 3. CLEANUP OLD TASKS & SETTINGS ---
     try {
+        // 1. Delete tasks
         $DB->delete_records('task_scheduled', ['component' => 'plagiarism_originality']);
         $DB->delete_records('task_adhoc', ['component' => 'plagiarism_originality']);
-        mtrace("Cleaned up old scheduled and ad-hoc tasks.");
+
+        // 2. CRITICAL: Forcefully disable the OLD event triggers
+        // This ensures the old observer's "if" check fails, so it skips processing.
+        set_config('enable_mod_assign', 0, 'plagiarism_originality');
+        set_config('enable_mod_forum', 0, 'plagiarism_originality');
+        set_config('enable_mod_workshop', 0, 'plagiarism_originality');
+
+        // Disable the plugin globally for good measure
+        set_config('enabled', 0, 'plagiarism_originality');
+
+        mtrace("Disabled old plugin configuration scheduled tasks and observers.");
+
     } catch (Exception $e) {
-        // Non-fatal. If this fails, the cron will just complain later, but install proceeds.
-        mtrace("Warning: Task cleanup failed: " . $e->getMessage());
+        mtrace("Warning: Cleanup failed: " . $e->getMessage());
     }
 
     return true;
