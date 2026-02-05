@@ -106,12 +106,18 @@ class api_client {
         // -------------------
 
         $curl = new \curl(['timeout' => 60]); // Add a reasonable timeout
+        // This is necessary because AWS API Gateway URLs often resolve
+        // to IP ranges that Moodle thinks are "private" or "suspicious".
+        // Since this URL is hardcoded by us, it is safe to trust.
+        $options = array(
+            'ignoresecurity' => true
+        );
         $curl->setHeader('Content-Type: application/json');
         foreach ($headers as $header) {
             $curl->setHeader($header);
         }
 
-        $response = $curl->post($url, $payloadJson);
+        $response = $curl->post($url, $payloadJson, $options);
         $info = $curl->get_info();          // 1. Get the transfer info
         $http_code = $info['http_code'] ?? 0; // 2. Extract the code
         $errno = $curl->get_errno();
@@ -157,7 +163,12 @@ class api_client {
             $curl->setHeader($header);
         }
 
-        $response = $curl->get($url);
+        // Add 'ignoresecurity' => true
+        $options = array(
+            'ignoresecurity' => true
+        );
+
+        $response = $curl->get($url, [], $options);
 
         $info = $curl->get_info();
         $http_code = $info['http_code'] ?? 0;
