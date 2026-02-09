@@ -28,7 +28,7 @@ require_once($CFG->libdir.'/plagiarismlib.php');
 require_once($CFG->dirroot.'/plagiarism/inspera/lib.php');
 
 require_login();
-admin_externalpage_setup('plagiarismoriginality');
+admin_externalpage_setup('plagiarisminspera');
 
 $context = context_system::instance();
 
