@@ -153,20 +153,31 @@ class debug_table extends \table_sql {
         if (isset($this->activitynames[$row->cm])) {
             $coursemodulename = $this->activitynames[$row->cm];
         } else {
-            // 2. Fetch from DB (Only happens once per unique assignment ID)
-            // We use get_coursemodule_from_id which is relatively efficient
-            try {
+            // 2. Fetch from DB
+            $coursemodule = false;
+
+            // Check if we even have valid IDs (SQL Join might have returned NULL for deleted items)
+            if (!empty($row->cm) && !empty($row->moduletype)) {
+                // We use get_coursemodule_from_id which is relatively efficient
+                // It returns FALSE if the module is missing (Deleted)
                 $coursemodule = get_coursemodule_from_id($row->moduletype, $row->cm);
+            }
+
+            if ($coursemodule) {
                 $coursemodulename = $coursemodule->name;
-            } catch (\Exception $e) {
+            } else {
+                // Fallback for deleted activities
                 $coursemodulename = '-';
             }
+
             // Save to cache
             $this->activitynames[$row->cm] = $coursemodulename;
         }
 
+        // 3. Render
         if ($coursemodulename === '-') {
-            return '-';
+            // Optional: You could display "Deleted (ID: $row->cm)" if you fix the SQL
+            return html_writer::tag('span', 'Deleted Activity', ['class' => 'badge badge-warning']);
         }
 
         $cmurl = new moodle_url('/mod/'.$row->moduletype.'/view.php', array('id' => $row->cm));
@@ -219,18 +230,7 @@ class debug_table extends \table_sql {
      * Finish output - add extra debug info to export.
      */
     public function finish_output($closeexportclassdoc = true) {
-        global $DB;
-        if ($this->is_downloading()) {
-            $this->add_data(array());
-            $this->add_data(array());
-
-            // Dump the configuration table (Fixed table name)
-            $configrecords = $DB->get_records('plagiarism_inspera_config');
-            $this->add_data(array('id', 'cm', 'name', 'value'));
-            foreach ($configrecords as $cf) {
-                $this->add_data(array($cf->id, $cf->cm, $cf->name, $cf->value));
-            }
-        }
+        // Just close the file normally, no extra config dump.
         parent::finish_output($closeexportclassdoc);
     }
 }

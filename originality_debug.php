@@ -206,13 +206,13 @@ $userfields = $userfieldsapi->get_sql('u', false, '', '', false)->selects;
 $sqlfields = "t.id, t.status, t.timecreated, t.externalid, t.similarity, t.description,
               u.id as userid, $userfields,
               c.id as courseid, c.fullname, c.shortname,
-              cm.id as cm, m.name as moduletype";
+              t.cm as cm, m.name as moduletype";
 
 $sqlfrom = "{plagiarism_inspera_subs} t
             LEFT JOIN {user} u ON t.userid = u.id
-            LEFT JOIN {course_modules} cm ON t.cm = cm.id
-            LEFT JOIN {modules} m ON cm.module = m.id
-            LEFT JOIN {course} c ON cm.course = c.id";
+            JOIN {course_modules} cm ON t.cm = cm.id
+            JOIN {modules} m ON cm.module = m.id
+            JOIN {course} c ON cm.course = c.id";
 
 $sqlwhere = "1=1"; // Base where clause; default filter is applied via $ufextrasql when no user filter is set
 
