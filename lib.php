@@ -2010,3 +2010,83 @@ function plagiarism_inspera_checkcronhealth() {
         \core\notification::add(get_string('cronwarningsendfiles', 'plagiarism_inspera'), \core\notification::ERROR);
     }
 }
+
+/**
+ * Inject warning configuration into the footer.
+ * Passes data to originality_form_behaviour.js via a hidden DOM element.
+ */
+function plagiarism_inspera_standard_footer_html() {
+    global $PAGE, $DB;
+
+    // 1. Context & Permission Checks
+    if ($PAGE->context->contextlevel != CONTEXT_MODULE) return '';
+    $cm = $PAGE->cm;
+    if (!$cm || $cm->modname !== 'assign') return '';
+    if (!has_capability('moodle/course:manageactivities', $PAGE->context)) return '';
+
+    // 2. Get the Message
+    $msg = get_string('warning_group_onlinetext', 'plagiarism_inspera');
+
+    // 3. CHECK: Is Plagiarism Check actually enabled for this assignment?
+    // We check the 'use_originality' setting in your plugin's config table.
+    // If it's missing or set to 0, we stop immediately.
+
+    // Note: The setting name in DB is usually 'use_originality_assign' for assignments
+    // or just 'use_originality' depending on your schema.
+    // Assuming standard storage: name='use_originality_assign' OR name='use_originality'
+
+    $use_originality = $DB->get_field('plagiarism_inspera_config', 'value', [
+        'cm' => $cm->id,
+        'name' => 'use_originality_assign' // Standard suffix for mod_assign
+    ], IGNORE_MISSING);
+
+    // Fallback: If not found, check generic name or admin default
+    if ($use_originality === false) {
+        $use_originality = $DB->get_field('plagiarism_inspera_config', 'value', [
+            'cm' => $cm->id,
+            'name' => 'use_originality'
+        ], IGNORE_MISSING);
+    }
+
+    // If explicitly set to 0, or not found (and default is off), return.
+    if ($use_originality == 0) {
+        return '';
+    }
+
+    // 4. Determine Context (Edit vs View)
+    $mode = '';
+
+    // SCENARIO A: Edit Settings Page
+    if (strpos($PAGE->url->get_path(), 'modedit.php') !== false) {
+        $mode = 'edit';
+    }
+    // SCENARIO B: Grading View Page
+    elseif ($PAGE->pagetype === 'mod-assign-view') {
+
+        $assignment = $DB->get_record('assign', ['id' => $cm->instance], 'teamsubmission', IGNORE_MISSING);
+
+        if ($assignment && !empty($assignment->teamsubmission)) {
+            // Check Online Text enabled (Safe SQL)
+            $compare_val = $DB->sql_compare_text('value', 2);
+            $sql = "SELECT 1 FROM {assign_plugin_config} WHERE assignment = ? AND plugin = ? AND subtype = ? AND name = ? AND $compare_val = ?";
+
+            if ($DB->record_exists_sql($sql, [$cm->instance, 'onlinetext', 'assignsubmission', 'enabled', '1'])) {
+                $mode = 'view';
+            }
+        }
+    }
+
+    // 5. Output
+    if ($mode) {
+        $PAGE->requires->js(new moodle_url('/plagiarism/inspera/originality_form_behaviour.js'));
+
+        return \html_writer::tag('div', '', [
+            'id' => 'inspera-warning-config',
+            'data-mode' => $mode,
+            'data-message' => $msg,
+            'style' => 'display:none;'
+        ]);
+    }
+
+    return '';
+}
