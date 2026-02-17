@@ -57,13 +57,12 @@ $capabilities = array(
             // Teachers/Managers will NOT have this, so they cannot edit these settings.
         )
     ),
-    'plagiarism/inspera:resubmitallfiles' => array(
+    'plagiarism/inspera:requestallreports' => array(
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
-         'legacy' => array(
-         'editingteacher' => CAP_PREVENT,
-         'teacher' => CAP_PREVENT,
-         'manager' => CAP_PREVENT)
+        'legacy' => array(
+            // EMPTY
+        )
     ),
     'plagiarism/inspera:resubmitonclose' => array(
         'captype' => 'write',

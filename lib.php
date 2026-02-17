@@ -2135,3 +2135,60 @@ function plagiarism_inspera_standard_footer_html() {
 
     return '';
 }
+
+/**
+ * Hook to inject content (buttons) into the page header.
+ * Automatically called by Moodle core renderer.
+ */
+function plagiarism_inspera_before_standard_top_of_body_html() {
+    global $PAGE, $OUTPUT, $DB;
+
+    // 1. Context Check (Assignment Only)
+    if (!$PAGE->context instanceof \context_module) {
+        return;
+    }
+    $cm = $PAGE->cm;
+    if (!$cm || $cm->modname !== 'assign') {
+        return;
+    }
+
+    // 2. Check Specific Capability
+    if (!has_capability('plagiarism/inspera:requestallreports', $PAGE->context)) {
+        return;
+    }
+
+    // 3. Page Context Check
+    // We only want this button on the "Grading Table" (action=grading)
+    // or the "Grade" interface (action=grader)
+    $action = optional_param('action', '', PARAM_ALPHA);
+    if ($action !== 'grading' && $action !== 'grader') {
+        return;
+    }
+
+    // 4. Config Check (Is Plugin Enabled?)
+    $use_originality = $DB->get_field('plagiarism_inspera_config', 'value', [
+        'cm' => $cm->id,
+        'name' => 'use_originality_assign'
+    ], IGNORE_MISSING);
+
+    if ($use_originality === false) {
+        $use_originality = $DB->get_field('plagiarism_inspera_config', 'value', [
+            'cm' => $cm->id,
+            'name' => 'use_originality'
+        ], IGNORE_MISSING);
+    }
+
+    if (empty($use_originality)) {
+        return;
+    }
+
+    // 5. Create and Inject the Button
+    $url = new moodle_url('/plagiarism/inspera/resubmit_all.php', ['cmid' => $cm->id]);
+
+    // Render a single button using Moodle's Output API
+    $button = $OUTPUT->single_button($url, get_string('resubmit_all_tool', 'plagiarism_inspera'));
+
+    // Append our button to the existing page buttons (e.g., "Edit Mode", "Grade")
+    // This places it in the top-right tertiary navigation area.
+    $PAGE->set_button($PAGE->button . $button);
+}
