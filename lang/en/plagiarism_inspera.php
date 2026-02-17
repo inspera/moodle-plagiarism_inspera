@@ -171,3 +171,5 @@ $string['filesresubmitted'] = 'Files queued for resubmission.';
 $string['resubmit_tooltip'] = 'Retry report submission using the current originality checking settings.';
 $string['connectionerror'] = 'Could not connect to Originality API';
 $string['apitokenerror'] = 'Authentication failed. The API returned: "{$a}"';
+
+$string['warning_group_onlinetext'] = '<strong>Plagiarism Configuration Warning:</strong> "Students submit in groups" is enabled with "Online text". Inspera Originality cannot check Online Text for groups. Only File submissions will be checked.';
