@@ -1542,16 +1542,33 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
 
     $currenttime = time();
 
-    // === INSERT OR UPDATE ===
+    // === INSERT OR UPDATE DEDUPLICATION LOGIC ===
     if ($existingrecord) {
-        // Record exists - update it
+        // A. PENDING/PROCESSING CHECK
+        // If it's currently being worked on, do nothing.
+        $status = $existingrecord->status ?? '';
+        if (in_array($status, ['pending', 'report_requested', 'processing'])) {
+            return;
+        }
 
-        // If the existing record has already been sent to the API (has externalid),
-        // and the file content has changed, we need to handle this carefully
+
+
+        // B. ALREADY SENT CHECK
         if (!empty($existingrecord->externalid)) {
-            // File was already submitted to API - we need to create a NEW record
-            // because we can't update a submission that's already been sent
-            // But first, mark the old one as superseded
+
+            // CASE 1: IT IS A FILE (Immutable)
+            if ($storedfileid) {
+                // If we have the exact same file ID and it has an External ID,
+                // it was successfully sent. Do NOT send it again.
+                // It is impossible for a Moodle Stored File to change content while keeping the same ID.
+                return;
+            }
+
+            // CASE 2: IT IS ONLINE TEXT (Mutable)
+            // Text can change. If the previous text was sent, this is likely a new version.
+            // We treat this as a NEW submission.
+
+            // Mark old one as superseded just in case it was stuck
             if ($existingrecord->status === 'report_requested' || $existingrecord->status === 'pending') {
                 $existingrecord->status = 'superseded';
                 $existingrecord->timemodified = $currenttime;
@@ -1571,17 +1588,25 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
             $record->timemodified = $currenttime;
 
             $DB->insert_record('plagiarism_inspera_subs', $record);
+            return;
 
-        } else {
-            // Record exists but hasn't been sent to API yet - just update it
-            $existingrecord->storedfileid = $storedfileid;
-            $existingrecord->identifier = $identifier;
-            $existingrecord->relateduserid = $relateduserid;
-            $existingrecord->submissionid = $submissionid;
-            $existingrecord->status = 'report_requested';
-            $existingrecord->timemodified = $currenttime;
-            $DB->update_record('plagiarism_inspera_subs', $existingrecord);
         }
+
+        // Record exists but hasn't been sent to API yet - just update it
+        $existingrecord->storedfileid = $storedfileid;
+        $existingrecord->identifier = $identifier;
+        $existingrecord->relateduserid = $relateduserid;
+        $existingrecord->submissionid = $submissionid;
+        $existingrecord->status = 'report_requested';
+        $existingrecord->timemodified = $currenttime;
+
+        // Clear error message if retrying
+        if ($existingrecord->status == 'error') {
+            $existingrecord->error = '';
+        }
+
+        $DB->update_record('plagiarism_inspera_subs', $existingrecord);
+
     } else {
         // No existing record - create new one
         $record = new \stdClass();
