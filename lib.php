@@ -365,6 +365,25 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             }
         }
 
+        // === CHECK GROUP SUBMISSION ===
+        // If "Students submit in groups" is enabled, we MUST disable Online Text checking.
+        // We query the assignment table to check the 'teamsubmission' setting.
+        $assignment_config = $DB->get_record_sql("
+        SELECT a.teamsubmission
+        FROM {assign} a
+        JOIN {course_modules} cm ON a.id = cm.instance
+        WHERE cm.id = ?",
+            array($cmid)
+        );
+
+        if ($assignment_config && !empty($assignment_config->teamsubmission)) {
+            // Group submission is ON -> Disable Online Text checking
+            if ($showcontent) {
+                mtrace("Originality: Group submission enabled for cmid={$cmid}. Disabling Online Text checking.");
+                $showcontent = false;
+            }
+        }
+
         $charcount = plagiarism_inspera_charcount();
 
         // === CASE 1: Final Submission (Submit for Marking) ===
@@ -396,6 +415,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                     }
                 }
 
+                // $showcontent will be FALSE here if groups are enabled, so this block is skipped safely.
                 if ($showcontent) { // If we should be handling in-line text.
                     $submission = $DB->get_record('assignsubmission_onlinetext', array('submission' => $eventdata['objectid']));
                     if (!empty($submission) && strlen(utf8_decode(strip_tags($submission->onlinetext))) >= $charcount) {
