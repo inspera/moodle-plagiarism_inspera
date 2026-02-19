@@ -30,10 +30,10 @@ defined('MOODLE_INTERNAL') || die();
 $hooks = [
     [
         'hook' => \core\hook\output\before_standard_top_of_body_html_generation::class,
-        'callback' => [\plagiarism_originality\output_callbacks::class, 'before_top_of_body'],
+        'callback' => [\plagiarism_inspera\output_callbacks::class, 'before_top_of_body'],
     ],
     [
         'hook' => \core\hook\output\before_standard_footer_html_generation::class,
-        'callback' => [\plagiarism_originality\output_callbacks::class, 'before_footer'],
+        'callback' => [\plagiarism_inspera\output_callbacks::class, 'before_footer'],
     ],
 ];

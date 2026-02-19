@@ -22,7 +22,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace plagiarism_originality;
+namespace plagiarism_inspera;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -48,6 +48,7 @@ class output_callbacks {
      * @param \core\hook\output\before_standard_top_of_body_html_generation $hook
      */
     public static function before_top_of_body(\core\hook\output\before_standard_top_of_body_html_generation $hook): void {
+        debugging('INSIDE THE HOOK', DEBUG_DEVELOPER);
         global $PAGE, $OUTPUT, $DB;
 
         // 1. Context & Capability Checks.
