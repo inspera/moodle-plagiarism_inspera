@@ -26,7 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin = new stdClass();
 $plugin->component = 'plagiarism_inspera'; // Full name of the plugin in frankenstyle.
-$plugin->version   = 2026021700;               // Plugin version (YYYYMMDDXX).             // Plugin version (YYYYMMDDXX).
+$plugin->version   = 2026021900;               // Plugin version (YYYYMMDDXX).             // Plugin version (YYYYMMDDXX).
 $plugin->requires  = 2024100700;               // Minimum Moodle version (e.g., 4.5 stable).
 $plugin->maturity  = MATURITY_STABLE;           // MATURITY_ALPHA, MATURITY_BETA, MATURITY_RC, MATURITY_STABLE.
 $plugin->release   = '2.0.0';                  // Human-readable version.

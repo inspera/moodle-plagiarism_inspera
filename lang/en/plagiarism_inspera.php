@@ -172,4 +172,16 @@ $string['resubmit_tooltip'] = 'Retry report submission using the current origina
 $string['connectionerror'] = 'Could not connect to Originality API';
 $string['apitokenerror'] = 'Authentication failed. The API returned: "{$a}"';
 
-$string['warning_group_onlinetext'] = '<strong>Plagiarism Configuration Warning:</strong> "Students submit in groups" is enabled with "Online text". Inspera Originality cannot check Online Text for groups. Only File submissions will be checked.';
+$string['resubmit_all_tool'] = 'Generate originality reports';
+$string['resubmit_all_tool_desc'] = 'Allows teachers to resubmit all student submissions for originality checking.';
+$string['resubmit_confirm'] = 'Are you sure you want to request originality reports for all eligible submissions in this assignment? This will run in the background.';
+$string['last_resubmit_run'] = 'Last requested: {$a}';
+$string['resubmit_pending'] = 'Request is currently processing...';
+
+$string['inspera:requestallreports'] = 'Allow to request all Originality reports at once';
+$string['inspera:enable'] = 'Allow to enable/disable Inspera Originality for activities';
+$string['inspera:viewreport'] = 'Allow to view Inspera Originality reports';
+$string['inspera:resetfile'] = 'Allow to reset Inspera Originality reports';
+$string['inspera:manage_locked_settings'] = 'Allow to manage locked settings';
+$string['inspera:resubmitonclose'] = 'Allow to resubmit files on close/due date to Inspera Originality';
+$string['resubmit_scheduled'] = 'A background task has been scheduled to check and request missing originality reports. This may take a few minutes.';
