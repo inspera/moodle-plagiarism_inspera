@@ -284,53 +284,74 @@ class api_client {
     /**
      * Create a submission (metadata only) via the API.
      *
-     * @param string $title Document title.
-     * @param string $author Author's name.
-     * @param string $email Author's email.
-     * @param string $doctype File mimetype.
-     * @param string $assignmentId Moodle course module ID (cmid).
+     * @param \stdClass $metadata Object containing: title, author, email, doctype, assignmentid
      * @param array $settings Activity-level plugin settings.
+     * @param array $educators List of teachers/educators.
+     * @param array $students List of students (for Group Submissions).
      * @return \stdClass API response object containing documentId and presignedS3Url.
      * @throws \moodle_exception If the API call fails or returns invalid data.
      */
     public function create_submission(
-        string $title,
-        string $author,
-        string $email,
-        string $doctype,
-        string $assignmentId,
+        \stdClass $metadata,
         array $settings = [],
-        array $educators = []
+        array $educators = [],
+        array $students = []
     ): \stdClass {
         $token = $this->get_token();
         $headers = ['Authorization: Bearer ' . $token];
 
-        // Build the payload
+        // Build the payload extracting data from the $metadata object
         $payload = [
-            'documentTitle' => $title,
-            'author'        => $author,
-            'email'         => $email,
-            'docType'       => $doctype,
-            'assignmentId'  => $assignmentId,
+            'documentTitle' => $metadata->title,
+            'author'        => $metadata->author,
+            'email'         => $metadata->email,
+            'docType'       => $metadata->doctype,
+            'assignmentId'  => $metadata->assignmentid,
+            // Set to true if students array is provided (Group Submission), otherwise false.
+            'teamSubmission'     => !empty($students),
         ];
 
-        // Add educators list if present
+        // 1. Process Educators
         if (!empty($educators) && is_array($educators)) {
-            $normalized = [];
+            $normalized_educators = [];
             foreach ($educators as $ed) {
                 if (!is_array($ed)) { continue; }
                 $id = isset($ed['id']) ? (string)$ed['id'] : null;
                 $name = $ed['name'] ?? null;
                 $mail = $ed['email'] ?? null;
                 if ($id !== null && !empty($name) && !empty($mail)) {
-                    $normalized[] = ['id' => $id, 'name' => $name, 'email' => $mail];
+                    $normalized_educators[] = ['id' => $id, 'name' => $name, 'email' => $mail];
                 }
             }
-            if (!empty($normalized)) {
-                $payload['educators'] = $normalized;
+            if (!empty($normalized_educators)) {
+                $payload['educators'] = $normalized_educators;
             }
         }
 
+        // 2. Process Students (Group Submission) <--- NEW LOGIC
+        if (!empty($students) && is_array($students)) {
+            $normalized_students = [];
+            foreach ($students as $st) {
+                if (!is_array($st)) { continue; }
+
+                // Extract fields (handling potential integer IDs by casting to string)
+                $id = isset($st['id']) ? (string)$st['id'] : null;
+                $name = $st['name'] ?? null;
+                $mail = $st['email'] ?? null;
+
+                // Only add if we have the required fields
+                if ($id !== null && !empty($name) && !empty($mail)) {
+                    $normalized_students[] = ['id' => $id, 'name' => $name, 'email' => $mail];
+                }
+            }
+
+            // Add to payload if valid students exist
+            if (!empty($normalized_students)) {
+                $payload['students'] = $normalized_students;
+            }
+        }
+
+        // 3. Settings & Flags
         if (!empty($settings['anonymous_submissions'])) {
             $payload['anonymous_submissions'] = true;
         }
@@ -352,6 +373,7 @@ class api_client {
             $payload['sentenceThresholds'] = ['contextualSimilaritiesThreshold' => (int)($settings['originality_context_threshold'] ?? 50)];
         }
 
+        // 4. Sources (Include/Exclude)
         $includesources = []; $excludesources = [];
         if (!empty($settings['originality_enable_include_urls']) && !empty(trim($settings['originality_include_urls']))) {
             $includesources = array_values(array_filter(array_map('trim', explode(',', $settings['originality_include_urls']))));
@@ -364,6 +386,31 @@ class api_client {
             if (!empty($excludesources)) $payload['sources']['excludeSources'] = $excludesources;
             if (!empty($includesources)) $payload['sources']['includeSources'] = $includesources;
         }
+
+        // =========================================================================
+        // DEBUG: DUMP PAYLOAD TO CRON LOGS
+        // =========================================================================
+        mtrace("\n" . str_repeat('-', 50));
+        mtrace("INSPERA API DEBUG - SUBMISSION PAYLOAD:");
+
+        // 1. Check if it's a group submission
+        if (!empty($payload['teamSubmission'])) {
+            mtrace("Type: GROUP SUBMISSION (teamSubmission=true)");
+            if (!empty($payload['students'])) {
+                mtrace("Student Count: " . count($payload['students']));
+                mtrace("Students Data: " . print_r($payload['students'], true));
+            } else {
+                mtrace("WARNING: teamSubmission is true but 'students' array is EMPTY!");
+            }
+        } else {
+            mtrace("Type: INDIVIDUAL SUBMISSION");
+        }
+
+        // 2. Dump full JSON for verification
+        mtrace("FULL JSON PAYLOAD:");
+        mtrace(json_encode($payload, JSON_PRETTY_PRINT));
+        mtrace(str_repeat('-', 50) . "\n");
+        // =========================================================================
 
         try {
             $response = $this->_do_post_request($this->baseurl . '/create/submission', json_encode($payload), $headers);

@@ -1705,19 +1705,24 @@ function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
         // 1. Default Author Name
         $authorname = $user->firstname . ' ' . $user->lastname;
         $isblind = false;
+        $isteamsubmission = false;
 
         // 2. Check if this is an Assignment with Blind Marking enabled
         try {
             $cm = get_coursemodule_from_id('', $plagiarismfile->cm);
 
             if ($cm && $cm->modname === 'assign') {
-                // Fetch the assignment settings (we only need the blindmarking column)
-                $assign = $DB->get_record('assign', ['id' => $cm->instance], 'id, blindmarking');
+                // Fetch both 'blindmarking' and 'teamsubmission'
+                $assign = $DB->get_record('assign', ['id' => $cm->instance], 'id, blindmarking, teamsubmission');
 
-                if ($assign && !empty($assign->blindmarking)) {
-                    // Blind marking is ON: Anonymize the author
-                    $authorname = (string) $user->id;
-                    $isblind = true;
+                if ($assign) {
+                    if (!empty($assign->blindmarking)) {
+                        $authorname = (string) $user->id; // Anonymize author
+                        $isblind = true;
+                    }
+                    if (!empty($assign->teamsubmission)) {
+                        $isteamsubmission = true; // Assignment is configured for groups
+                    }
                 }
             }
         } catch (\Exception $e) {
@@ -1750,7 +1755,7 @@ function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
             $settings['anonymous_submissions'] = true;
         }
 
-        // Build educators list (teachers for this assignment)
+        // 1. Build educators list (teachers for this assignment)
         $educators = [];
         try {
             $cm = get_coursemodule_from_id(null, $plagiarismfile->cm, 0, false, MUST_EXIST);
@@ -1782,15 +1787,59 @@ function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
             // Non-fatal if educator fetching fails; proceed without educators
         }
 
-        // Create metadata-only submission
+        // --- 2. BUILD STUDENTS LIST  ---
+        $students = [];
+        // Only run this logic if the Assignment is actually configured for Groups
+        if ($isteamsubmission && !empty($plagiarismfile->submissionid)) {
+            try {
+                $submission = $DB->get_record('assign_submission', ['id' => $plagiarismfile->submissionid]);
+
+                // Check if the submission actually belongs to a valid group (ID > 0)
+                // This filters out "Default Group" / "No Group" (which are 0)
+                if ($submission && !empty($submission->groupid)) {
+
+                    $groupmembers = groups_get_members($submission->groupid);
+
+                    foreach ($groupmembers as $gm) {
+                        if (empty($gm->id) || empty($gm->email)) { continue; }
+
+                        if ($isblind) {
+                            $s_name = $gm->id;
+                            $s_email = $gm->id . '@blind.marking';
+                        } else {
+                            $s_name = fullname($gm);
+                            $s_email = $gm->email;
+                        }
+
+                        $students[] = [
+                            'id' => (string)$gm->id,
+                            'name' => $s_name,
+                            'email' => $s_email
+                        ];
+                    }
+                }
+            } catch (\Throwable $e) {
+                mtrace("Error fetching group members: " . $e->getMessage());
+            }
+        }
+
+        // -------------------------------------------------------
+        // PREPARE DTO for Metadata
+        // -------------------------------------------------------
+        $metadata = new \stdClass();
+        $metadata->title        = $filename;
+        $metadata->author       = $authorname;
+        $metadata->email        = $user->email;
+        $metadata->doctype      = $mimetype;
+        $metadata->assignmentid = $plagiarismfile->cm;
+
+        // Create submission
         try {
             $submission = $client->create_submission(
-                $filename,
-                $authorname,
-                $user->email,
-                $mimetype,
-                $plagiarismfile->cm,
-                $settings
+                $metadata,    // 1. DTO
+                $settings,    // 2. Settings
+                $educators,   // 3. Educators
+                $students     // 4. Students
             );
         } catch (\Throwable $e) {
             // If there is any API error while creating submission
