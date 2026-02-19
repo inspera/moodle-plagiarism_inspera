@@ -21,7 +21,7 @@
  * ensuring compatibility with Moodle 4.4 and above.
  *
  * @package    plagiarism_inspera
- * @copyright  2026 Your Name
+ * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -30,10 +30,10 @@ defined('MOODLE_INTERNAL') || die();
 $hooks = [
     [
         'hook' => \core\hook\output\before_standard_top_of_body_html_generation::class,
-        'callback' => [\plagiarism_inspera\output_callbacks::class, 'before_top_of_body'],
+        'callback' => [\plagiarism_originality\output_callbacks::class, 'before_top_of_body'],
     ],
     [
         'hook' => \core\hook\output\before_standard_footer_html_generation::class,
-        'callback' => [\plagiarism_inspera\output_callbacks::class, 'before_footer'],
+        'callback' => [\plagiarism_originality\output_callbacks::class, 'before_footer'],
     ],
 ];

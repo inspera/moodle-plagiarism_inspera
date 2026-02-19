@@ -22,12 +22,19 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace plagiarism_inspera;
+namespace plagiarism_originality;
 
 defined('MOODLE_INTERNAL') || die();
 
 use html_writer;
 use moodle_url;
+use function plagiarism_inspera\get_string;
+use function plagiarism_inspera\has_capability;
+use function plagiarism_inspera\optional_param;
+use function plagiarism_inspera\sesskey;
+use function plagiarism_inspera\userdate;
+use const plagiarism_inspera\CONTEXT_MODULE;
+use const plagiarism_inspera\IGNORE_MISSING;
 
 /**
  * Output callbacks class to handle Moodle hooks.
