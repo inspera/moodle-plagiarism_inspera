@@ -172,8 +172,12 @@ $string['resubmit_tooltip'] = 'Retry report submission using the current origina
 $string['connectionerror'] = 'Could not connect to Originality API';
 $string['apitokenerror'] = 'Authentication failed. The API returned: "{$a}"';
 
-$string['resubmit_all_tool'] = 'Resubmission Tool';
+$string['resubmit_all_tool'] = 'Generate originality reports';
 $string['resubmit_all_tool_desc'] = 'Allows teachers to resubmit all student submissions for originality checking.';
+$string['resubmit_confirm'] = 'Are you sure you want to request originality reports for all eligible submissions in this assignment? This will run in the background.';
+$string['last_resubmit_run'] = 'Last requested: {$a}';
+$string['resubmit_pending'] = 'Request is currently processing...';
+
 $string['inspera:requestallreports'] = 'Allow to request all Originality reports at once';
 $string['inspera:enable'] = 'Allow to enable/disable Inspera Originality for activities';
 $string['inspera:viewreport'] = 'Allow to view Inspera Originality reports';

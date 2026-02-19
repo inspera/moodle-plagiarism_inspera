@@ -419,7 +419,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 if ($showcontent) { // If we should be handling in-line text.
                     $submission = $DB->get_record('assignsubmission_onlinetext', array('submission' => $eventdata['objectid']));
                     if (!empty($submission) && strlen(utf8_decode(strip_tags($submission->onlinetext))) >= $charcount) {
-                        $file = plagiarism_inspera_create_temp_file($cmid, $eventdata['courseid'], $userid, $submission->onlinetext);
+                        $file = plagiarism_inspera_create_temp_file($cmid, $eventdata['courseid'], $userid, $submission->onlinetext, $submissionid);
                         plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, $submissionid);
                         $queuedtext++;
                     }
@@ -443,7 +443,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
         if (!empty($eventdata['other']['content']) && $showcontent &&
             strlen(utf8_decode(strip_tags($eventdata['other']['content']))) >= $charcount) {
 
-            $file = plagiarism_inspera_create_temp_file($cmid, $eventdata['courseid'], $userid, $eventdata['other']['content']);
+            $file = plagiarism_inspera_create_temp_file($cmid, $eventdata['courseid'], $userid, $eventdata['other']['content'], $submissionid);
             plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, $submissionid);
         }
 
@@ -1431,25 +1431,20 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
     global $DB, $CFG;
 
     // === RESOLVE SUBMISSION ID ===
-    // If we didn't get the ID from the event try to find it.
     if (empty($submissionid)) {
         if ($file instanceof \stored_file) {
-            // Check if file belongs to assignment filearea
             $comp = $file->get_component();
             if ($comp === 'assignsubmission_file' || $comp === 'assignsubmission_onlinetext') {
                 $submissionid = $file->get_itemid();
             }
         }
 
-        // Fallback: If still empty (e.g. temp file for online text), try to fetch from Assign API
-        // This ensures we get the correct Group Submission ID if the user is in a group.
         if (empty($submissionid)) {
             $cm = get_coursemodule_from_id('assign', $cmid, 0, false, IGNORE_MISSING);
             if ($cm) {
                 require_once($CFG->dirroot . '/mod/assign/locallib.php');
                 $context = \context_module::instance($cm->id);
                 $assign = new \assign($context, $cm, null);
-                // Get the submission for this user (returns Group submission if applicable)
                 $submission = $assign->get_user_submission($userid, false);
                 if ($submission) {
                     $submissionid = $submission->id;
@@ -1457,14 +1452,13 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
             }
         }
     }
-    // Safety net: ensure we have an integer (defaults to 0 if totally failed)
     $submissionid = (int)$submissionid;
 
-    // Get plagiarism settings for this course module
+    // Get plagiarism settings.
     $plagiarismvalues = $DB->get_records_menu('plagiarism_inspera_config',
         array('cm' => $cmid), '', 'name, value');
 
-    // Determine filename based on file type
+    // Determine identifiers.
     if ($file instanceof \stored_file) {
         $filename = $file->get_filename();
         $storedfileid = $file->get_id();
@@ -1474,43 +1468,30 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
         $storedfileid = null;
         $identifier = $file->filepath;
     } else {
-        // Skip if we can't determine filename
         return;
     }
 
-    // Get the file extension
+    // Extension check.
     $pathinfo = pathinfo($filename);
     if (empty($pathinfo['extension'])) {
         return;
     }
-
     $ext = strtolower($pathinfo['extension']);
 
-    // Check if we should validate file types
-    if (isset($plagiarismvalues['originality_allowallfile']) &&
-        empty($plagiarismvalues['originality_allowallfile'])) {
-
-        // Get allowed file types from settings
+    // Allowed file types check.
+    if (isset($plagiarismvalues['originality_allowallfile']) && empty($plagiarismvalues['originality_allowallfile'])) {
         $allowedtypes = !empty($plagiarismvalues['originality_selectfiletypes'])
             ? explode(',', $plagiarismvalues['originality_selectfiletypes'])
             : array();
-
-        // Always allow html files for online submissions
         $allowedtypes[] = 'html';
         $allowedtypes[] = 'htm';
-
-        // Check if this file type is allowed
         if (!in_array($ext, $allowedtypes)) {
-            return; // Skip this file silently
+            return;
         }
     }
 
-    // Check if a record already exists for this file/online text
+    // === FIND EXISTING RECORD ===
     $existingrecord = null;
-
-    // Prioritize checking by 'submissionid' because it handles Groups correctly.
-    // (If one student uploaded, and another uploads a revision, they share the submissionid).
-
     if ($storedfileid) {
         if ($submissionid > 0) {
             $existingrecord = $DB->get_record('plagiarism_inspera_subs', [
@@ -1518,7 +1499,6 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
                 'storedfileid' => $storedfileid
             ]);
         } else {
-            // Legacy fallback (should rarely happen now)
             $existingrecord = $DB->get_record('plagiarism_inspera_subs', [
                 'cm' => $cmid,
                 'userid' => $userid,
@@ -1526,7 +1506,7 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
             ]);
         }
     } else if ($identifier) {
-        // Online text logic
+        // For online text, we identify by submissionid and the absence of a storedfileid.
         if ($submissionid > 0) {
             $sql = "SELECT * FROM {plagiarism_inspera_subs}
                     WHERE submissionid = ? AND storedfileid IS NULL
@@ -1542,86 +1522,65 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
 
     $currenttime = time();
 
-    // === INSERT OR UPDATE DEDUPLICATION LOGIC ===
+    // === INSERT OR UPDATE LOGIC ===
     if ($existingrecord) {
-        // A. PENDING/PROCESSING CHECK
-        // If it's currently being worked on, do nothing.
         $status = $existingrecord->status ?? '';
+
+        // 1. If currently processing, don't double-queue.
         if (in_array($status, ['pending', 'report_requested', 'processing'])) {
             return;
         }
 
-
-
-        // B. ALREADY SENT CHECK
+        // 2. Handle records that have already been attempted via API.
         if (!empty($existingrecord->externalid)) {
 
-            // CASE 1: IT IS A FILE (Immutable)
-            if ($storedfileid) {
-                // If we have the exact same file ID and it has an External ID,
-                // it was successfully sent. Do NOT send it again.
-                // It is impossible for a Moodle Stored File to change content while keeping the same ID.
+            // IF ERROR: Reset the existing row.
+            if ($status === 'error' || $status === 'external_error') {
+                $existingrecord->status = 'report_requested';
+                $existingrecord->description = ''; // Clear the error message.
+                $existingrecord->externalid = '';
+                $existingrecord->identifier = $identifier;
+                $existingrecord->timemodified = $currenttime;
+                $DB->update_record('plagiarism_inspera_subs', $existingrecord);
                 return;
             }
 
-            // CASE 2: IT IS ONLINE TEXT (Mutable)
-            // Text can change. If the previous text was sent, this is likely a new version.
-            // We treat this as a NEW submission.
-
-            // Mark old one as superseded just in case it was stuck
-            if ($existingrecord->status === 'report_requested' || $existingrecord->status === 'pending') {
-                $existingrecord->status = 'superseded';
-                $existingrecord->timemodified = $currenttime;
-                $DB->update_record('plagiarism_inspera_subs', $existingrecord);
+            // IF SUCCESSFUL FILE: Do nothing (files are immutable).
+            if ($storedfileid) {
+                return;
             }
 
-            // Create new record
-            $record = new \stdClass();
-            $record->cm = $cmid;
-            $record->userid = $userid;
-            $record->relateduserid = $relateduserid;
-            $record->submissionid = $submissionid;
-            $record->storedfileid = $storedfileid;
-            $record->identifier = $identifier;
-            $record->status = 'report_requested';
-            $record->timecreated = $currenttime;
-            $record->timemodified = $currenttime;
+            // IF SUCCESSFUL ONLINE TEXT: Mark as superseded so a new one can be created.
+            $existingrecord->status = 'superseded';
+            $existingrecord->timemodified = $currenttime;
+            $DB->update_record('plagiarism_inspera_subs', $existingrecord);
 
-            $DB->insert_record('plagiarism_inspera_subs', $record);
+            // Fall through to the NEW record creation at the bottom.
+        } else {
+            // No External ID yet: Just update the existing row and reset to queue.
+            $existingrecord->status = 'report_requested';
+            $existingrecord->description = '';
+            $existingrecord->identifier = $identifier;
+            $existingrecord->timemodified = $currenttime;
+            $DB->update_record('plagiarism_inspera_subs', $existingrecord);
             return;
-
         }
-
-        // Record exists but hasn't been sent to API yet - just update it
-        $existingrecord->storedfileid = $storedfileid;
-        $existingrecord->identifier = $identifier;
-        $existingrecord->relateduserid = $relateduserid;
-        $existingrecord->submissionid = $submissionid;
-        $existingrecord->status = 'report_requested';
-        $existingrecord->timemodified = $currenttime;
-
-        // Clear error message if retrying
-        if ($existingrecord->status == 'error') {
-            $existingrecord->error = '';
-        }
-
-        $DB->update_record('plagiarism_inspera_subs', $existingrecord);
-
-    } else {
-        // No existing record - create new one
-        $record = new \stdClass();
-        $record->cm = $cmid;
-        $record->userid = $userid;
-        $record->relateduserid = $relateduserid;
-        $record->submissionid = $submissionid;
-        $record->storedfileid = $storedfileid;
-        $record->identifier = $identifier;
-        $record->status = 'report_requested';
-        $record->timecreated = $currenttime;
-        $record->timemodified = $currenttime;
-
-        $DB->insert_record('plagiarism_inspera_subs', $record);
     }
+
+    // 3. Create NEW record (for brand new files or superseded text).
+    $record = new \stdClass();
+    $record->cm = $cmid;
+    $record->userid = $userid;
+    $record->relateduserid = $relateduserid;
+    $record->submissionid = $submissionid;
+    $record->storedfileid = $storedfileid;
+    $record->identifier = $identifier;
+    $record->status = 'report_requested';
+    $record->timecreated = $currenttime;
+    $record->timemodified = $currenttime;
+    $record->description = '';
+
+    $DB->insert_record('plagiarism_inspera_subs', $record);
 }
 
 /**
@@ -1692,9 +1651,9 @@ function plagiarism_inspera_cleanup_orphaned_records() {
  * @param string $content The text content to write to the file.
  * @return stdClass An object with ->filepath and ->filename properties.
  */
-function plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $content) {
+function plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $content, $submissionid) {
     global $CFG;
-    $filename = "onlinetext_{$cmid}_{$userid}_" . time() . ".html";
+    $filename = "onlinetext_{$cmid}_{$userid}_{$submissionid}.html";
     $filepath = $CFG->tempdir . "/plagiarism_inspera/" . $filename;
 
     if (!is_dir(dirname($filepath))) {
@@ -1906,10 +1865,6 @@ function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
             if (!empty($tempfilepath) && file_exists($tempfilepath)) {
                 if (unlink($tempfilepath)) {
                     mtrace("Deleted temporary file: {$tempfilepath}");
-
-                    // Clear the identifier field since temp file is deleted
-                    $plagiarismfile->identifier = null;
-                    $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
                 } else {
                     mtrace("Warning: Failed to delete temporary file: {$tempfilepath}");
                 }
@@ -2182,13 +2137,59 @@ function plagiarism_inspera_before_standard_top_of_body_html() {
         return;
     }
 
-    // 5. Create and Inject the Button
-    $url = new moodle_url('/plagiarism/inspera/resubmit_all.php', ['cmid' => $cm->id]);
+    // 5. Check if a task is currently queued (Pending)
+    // We check for our specific class and our specific CMID in the custom data.
+    $taskqueued = $DB->record_exists_select('task_adhoc',
+        "classname = :class AND customdata LIKE :cmid",
+        [
+            'class' => '\plagiarism_inspera\task\resubmit_all_reports',
+            'cmid' => '%"cmid":' . $cm->id . '%'
+        ]
+    );
 
-    // Render a single button using Moodle's Output API
-    $button = $OUTPUT->single_button($url, get_string('resubmit_all_tool', 'plagiarism_inspera'));
+    $infotext = '';
+    if ($taskqueued) {
+        $infotext = html_writer::tag('div',
+            get_string('resubmit_pending', 'plagiarism_inspera'),
+            ['class' => 'badge badge-info', 'style' => 'display: block; margin-top: 5px; text-align: right;']
+        );
+    } else {
+        // Fetch Last Run Time if no task is pending
+        $lastrun = $DB->get_field('plagiarism_inspera_config', 'value', [
+            'cm' => $cm->id,
+            'name' => 'last_resubmit_run'
+        ]);
 
-    // Append our button to the existing page buttons (e.g., "Edit Mode", "Grade")
-    // This places it in the top-right tertiary navigation area.
-    $PAGE->set_button($PAGE->button . $button);
+        if ($lastrun) {
+            $lastrundate = userdate($lastrun, get_string('strftimedatetimeshort', 'langconfig'));
+            $infotext = html_writer::tag('div',
+                get_string('last_resubmit_run', 'plagiarism_inspera', $lastrundate),
+                ['style' => 'font-size: 0.8em; color: #666; margin-top: 5px; text-align: right;']
+            );
+        }
+    }
+
+    // 6. Inject Button and Info with a vertical wrapper
+    $url = new moodle_url('/plagiarism/inspera/resubmit_all.php', [
+        'cmid' => $cm->id,
+        'sesskey' => sesskey()
+    ]);
+
+    $attributes = [
+        'title' => get_string('resubmit_all_tool_desc', 'plagiarism_inspera'),
+        'onclick' => "return confirm('" . get_string('resubmit_confirm', 'plagiarism_inspera') . "');"
+    ];
+
+    $button = $OUTPUT->single_button($url, get_string('resubmit_all_tool', 'plagiarism_inspera'), 'post', $attributes);
+
+    // Wrap button and text in a vertical flex container
+    $combinedhtml = html_writer::start_tag('div', [
+        'class' => 'd-flex flex-column align-items-end'
+    ]);
+    $combinedhtml .= $button;
+    $combinedhtml .= $infotext; // This is the div we created earlier
+    $combinedhtml .= html_writer::end_tag('div');
+
+    $PAGE->set_button($PAGE->button . $combinedhtml);
+
 }

@@ -29,7 +29,10 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 /**
- * Ad-hoc task to trigger resubmission of all files in a specific assignment.
+ * Ad-hoc task to trigger resubmission of all reports in an assignment.
+ * Logic:
+ * - Files: Supported for both Individual and Group assignments.
+ * - Online Text: Supported for Individual assignments only.
  */
 class resubmit_all_reports extends \core\task\adhoc_task {
 
@@ -39,20 +42,31 @@ class resubmit_all_reports extends \core\task\adhoc_task {
         $data = $this->get_custom_data();
         $cmid = $data->cmid;
 
+        // Save the 'last_resubmit_run' timestamp.
+        $params = ['cm' => $cmid, 'name' => 'last_resubmit_run'];
+        $config = $DB->get_record('plagiarism_inspera_config', $params);
+
+        if (!$config) {
+            $config = new \stdClass();
+            $config->cm = $cmid;
+            $config->name = 'last_resubmit_run';
+            $config->value = time();
+            $DB->insert_record('plagiarism_inspera_config', $config);
+        } else {
+            $config->value = time();
+            $DB->update_record('plagiarism_inspera_config', $config);
+        }
+
         mtrace("Starting Resubmit All for CMID: " . $cmid);
 
         $cm = get_coursemodule_from_id('assign', $cmid, 0, false, MUST_EXIST);
         $context = \context_module::instance($cmid);
-
-        // Fetch assignment details
         $assign_instance = $DB->get_record('assign', ['id' => $cm->instance], '*', MUST_EXIST);
 
         // ---------------------------------------------------------
-        // PART A: PROCESS FILES
+        // PART A: PROCESS FILES (Individual & Group)
         // ---------------------------------------------------------
         $fs = get_file_storage();
-
-        // Get all submission files (only the current active ones)
         $files = $fs->get_area_files($context->id, 'assignsubmission_file', 'submission_files', false, 'timemodified', false);
 
         mtrace("Found " . count($files) . " candidate files.");
@@ -61,113 +75,78 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             if ($file->get_filename() === '.') continue;
 
             $storedfileid = $file->get_id();
-            $userid = $file->get_userid();
-            $itemid = $file->get_itemid();
+            $itemid = $file->get_itemid(); // The Submission ID (shared by group members)
 
-            // FIX: Get strictly the LATEST record for this file
-            // If duplicates exist, we only care about the most recent one.
+            // Fetch latest record for this file.
             $sql = "SELECT * FROM {plagiarism_inspera_subs} 
                     WHERE storedfileid = ? 
                     ORDER BY timecreated DESC, id DESC";
-
-            // get_record_sql with IGNORE_MULTIPLE automatically fetches the first one (the latest)
             $record = $DB->get_record_sql($sql, [$storedfileid], IGNORE_MULTIPLE);
 
             if ($this->should_process($record)) {
-                mtrace("Queuing File ID: " . $storedfileid . " (User: $userid)");
-
-                if ($record) {
-                    $record->status = 'retrying';
-                    $record->error = '';
-                    $DB->update_record('plagiarism_inspera_subs', $record);
-                }
-
-                plagiarism_inspera_queue_file($cmid, $userid, $file, null, $itemid);
+                mtrace("Queuing File ID: " . $storedfileid);
+                plagiarism_inspera_queue_file($cmid, $file->get_userid(), $file, null, $itemid);
             }
         }
 
         // ---------------------------------------------------------
-        // PART B: PROCESS ONLINE TEXT
+        // PART B: PROCESS ONLINE TEXT (Individual Only)
         // ---------------------------------------------------------
-        $sql = "SELECT s.id as submissionid, s.userid, ot.onlinetext
-                FROM {assign_submission} s
-                JOIN {assignsubmission_onlinetext} ot ON ot.submission = s.id
-                WHERE s.assignment = ? AND s.status = 'submitted'";
+        // Only process if team submission is NOT enabled.
+        if (empty($assign_instance->teamsubmission)) {
+            $sql = "SELECT s.id as submissionid, s.userid, ot.onlinetext
+                    FROM {assign_submission} s
+                    JOIN {assignsubmission_onlinetext} ot ON ot.submission = s.id
+                    WHERE s.assignment = ? AND s.status = 'submitted'";
 
-        $text_submissions = $DB->get_records_sql($sql, [$assign_instance->id]);
+            $text_submissions = $DB->get_records_sql($sql, [$assign_instance->id]);
 
-        mtrace("Found " . count($text_submissions) . " online text submissions.");
+            mtrace("Found " . count($text_submissions) . " online text submissions.");
 
-        foreach ($text_submissions as $sub) {
+            foreach ($text_submissions as $sub) {
+                $sql = "SELECT * FROM {plagiarism_inspera_subs} 
+                        WHERE submissionid = ? AND storedfileid IS NULL
+                        ORDER BY timecreated DESC, id DESC";
 
-            // FIX: Get strictly the LATEST record for this online text
-            // Online text will DEFINITELY have superseded rows. We must ignore them.
-            $sql = "SELECT * FROM {plagiarism_inspera_subs} 
-                    WHERE submissionid = ? AND storedfileid IS NULL
-                    ORDER BY timecreated DESC, id DESC";
+                $record = $DB->get_record_sql($sql, [$sub->submissionid], IGNORE_MULTIPLE);
 
-            $record = $DB->get_record_sql($sql, [$sub->submissionid], IGNORE_MULTIPLE);
-
-            if ($this->should_process($record)) {
-                mtrace("Queuing Online Text for Submission ID: " . $sub->submissionid);
-
-                if ($record) {
-                    $record->status = 'retrying';
-                    $record->error = '';
-                    $DB->update_record('plagiarism_inspera_subs', $record);
+                if ($this->should_process($record)) {
+                    mtrace("Queuing Online Text for Submission ID: " . $sub->submissionid);
+                    $temp_file_object = plagiarism_inspera_create_temp_file($cmid, $cm->course, $sub->userid, $sub->onlinetext, $sub->submissionid);
+                    $dummy_file = new \stdClass();
+                    $dummy_file->filepath = $temp_file_object->filepath;
+                    plagiarism_inspera_queue_file($cmid, $sub->userid, $dummy_file, null, $sub->submissionid);
                 }
-
-                // 1. Create the temp file (returns an OBJECT containing filepath and filename)
-                $temp_file_object = plagiarism_inspera_create_temp_file($cmid, $cm->course, $sub->userid, $sub->onlinetext);
-
-                // 2. Create the dummy object expected by queue_file
-                $dummy_file = new \stdClass();
-                // FIX: Extract only the string path, not the whole object
-                $dummy_file->filepath = $temp_file_object->filepath;
-
-                // 3. Queue it
-                plagiarism_inspera_queue_file($cmid, $sub->userid, $dummy_file, null, $sub->submissionid);
             }
+        } else {
+            mtrace("Skipping Online Text: Team submission is enabled.");
         }
 
         mtrace("Resubmit All Task Completed.");
     }
 
     /**
-     * Determines if a submission needs to be (re)queued based on Inspera status logic.
-     * * Logic:
-     * - No record -> YES (queued)
-     * - Error / External Error -> YES (queued)
-     * - report_requested (Queued) > 10 mins -> YES (re-queued)
-     * - pending -> NO
-     * - finished -> NO
-     * * @param stdClass|false $record The plagiarism_inspera_subs record
-     * @return bool
+     * Helper to determine if a record matches Inspera's "Retry" criteria.
      */
     private function should_process($record) {
-        // 1. No record exists -> Queue it
         if (!$record) {
             return true;
         }
 
         $status = $record->status;
-
-        // 2. Error states -> Retry
         if ($status === 'error' || $status === 'external_error') {
             return true;
         }
 
-        // 3. Queued but stuck? (report_requested > 10 mins)
         if ($status === 'report_requested') {
             $ten_mins_ago = time() - (10 * 60);
             if ($record->timemodified < $ten_mins_ago) {
-                mtrace(" -> Found stuck item (queued > 10m). Retrying.");
                 return true;
             }
         }
 
-        // 4. Pending (Processing) or Finished (Success) -> Skip
-        if ($status === 'pending' || $status === 'finished' || $status === 'processing' || $status === 'superseded') {
+        // Do not re-process active or completed items.
+        if (in_array($status, ['pending', 'finished', 'superseded'])) {
             return false;
         }
 

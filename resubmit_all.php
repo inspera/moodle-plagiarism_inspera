@@ -38,7 +38,8 @@ require_sesskey(); // Protect against CSRF
 // 2. Queue the Ad-hoc Task
 $task = new \plagiarism_inspera\task\resubmit_all_reports();
 $task->set_custom_data(['cmid' => $cmid, 'userid' => $USER->id]);
-\core\task\manager::queue_adhoc_task($task, true); // true = run ASAP
+// Use true to ensure we don't queue multiple identical tasks for the same assignment.
+\core\task\manager::queue_adhoc_task($task, true);
 
 // 3. Log the event
 // (Optional: You can trigger a standard Moodle event here if you want audit logs)
