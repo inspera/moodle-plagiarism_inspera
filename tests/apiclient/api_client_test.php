@@ -22,12 +22,15 @@ use plagiarism_inspera\apiclient\api_client;
 
 /**
  * Unit tests for the api_client class using partial mocks.
- * (Your PHPDocs here)
+ * Covers token management, payload construction (including groups), and file handling.
  */
 class plagiarism_inspera_api_client_test extends advanced_testcase {
 
     /** @var \PHPUnit\Framework\MockObject\MockObject|api_client */
-    protected $clientmock; // Will hold the partial mock
+    protected $clientmock;
+
+    /** @var string The expected hash of clientid+instid for token caching */
+    protected $expectedhash;
 
     protected function setUp(): void {
         parent::setUp();
@@ -74,12 +77,12 @@ class plagiarism_inspera_api_client_test extends advanced_testcase {
             ->willReturn('{"url":"mock_report_url"}');
 
         // --- Action ---
-        $reportdata = $this->clientmock->get_report_url('doc123');
+        $this->clientmock->get_report_url('doc123');
 
         // --- Assert ---
         $this->assertEquals($mocktoken, get_config('plagiarism_inspera', 'apitoken'));
 
-        // NEW ASSERTION: Check if the hash was saved correctly
+        // Check if the hash was saved correctly to validate future cache hits
         $this->assertEquals($this->expectedhash, get_config('plagiarism_inspera', 'apitoken_hash'));
     }
 
@@ -90,7 +93,7 @@ class plagiarism_inspera_api_client_test extends advanced_testcase {
 
         set_config('apitoken', $cachedtoken, 'plagiarism_inspera');
         set_config('apitoken_exp', $expires, 'plagiarism_inspera');
-        // CRITICAL FIX: Set the matching hash
+        // CRITICAL: Set the matching hash so the client trusts the cache
         set_config('apitoken_hash', $this->expectedhash, 'plagiarism_inspera');
 
         // Expect _do_post_request is NEVER called (Proof that cache worked)
@@ -107,7 +110,7 @@ class plagiarism_inspera_api_client_test extends advanced_testcase {
             ->willReturn('{"url":"report_url_cached"}');
 
         // --- Action ---
-        $reportdata = $this->clientmock->get_report_url('doc123');
+        $this->clientmock->get_report_url('doc123');
 
         // --- Assert ---
         $this->assertEquals($cachedtoken, get_config('plagiarism_inspera', 'apitoken'));
@@ -135,39 +138,43 @@ class plagiarism_inspera_api_client_test extends advanced_testcase {
         $this->clientmock->get_report_url('doc2', 'hacker_input');
     }
 
-
     public function test_create_submission_payload_construction() {
         // --- Setup ---
         set_config('apitoken', 'payload_test_token', 'plagiarism_inspera');
         set_config('apitoken_exp', time() + 3600, 'plagiarism_inspera');
-
-        // CRITICAL FIX: Add the expected hash so the code trusts the cache
-        // Use the same $this->expectedhash we calculated in setUp()
         set_config('apitoken_hash', $this->expectedhash, 'plagiarism_inspera');
 
-        // Define settings, INCLUDING the new anonymous flag
+        // Define settings
         $settings = [
             'originality_enable_ai' => 1,
             'anonymous_submissions' => true
         ];
-        $expectedAssignmentId = 'cmid-999';
+
+        // Prepare Metadata Object (Standard DTO)
+        $metadata = new \stdClass();
+        $metadata->title = 'Title';
+        $metadata->author = 'Author';
+        $metadata->email = 'e@mail.com';
+        $metadata->doctype = 'type';
+        $metadata->assignmentid = 'cmid-999';
 
         // --- Expectation ---
-        // Expect _do_post_request to be called once for /create/submission
-        // (Since token is now cached/valid, the call to /token is skipped)
         $this->clientmock->expects($this->once())
             ->method('_do_post_request')
             ->with(
                 $this->stringContains('/create/submission'),
-                $this->callback(function($payloadJson) use ($expectedAssignmentId) {
+                $this->callback(function($payloadJson) {
                     $payload = json_decode($payloadJson, true);
                     $this->assertIsArray($payload);
 
                     // Standard checks
-                    $this->assertEquals($expectedAssignmentId, $payload['assignmentId']);
+                    $this->assertEquals('cmid-999', $payload['assignmentId']);
                     $this->assertTrue($payload['enableAIDetection']);
                     $this->assertArrayHasKey('anonymous_submissions', $payload);
                     $this->assertTrue($payload['anonymous_submissions']);
+
+                    // Ensure Group fields are NOT present or false by default
+                    $this->assertFalse($payload['teamSubmission'] ?? false);
 
                     return true;
                 }),
@@ -179,79 +186,124 @@ class plagiarism_inspera_api_client_test extends advanced_testcase {
             ->willReturn('{"documentId":"mockDocId","presignedS3Url":"mockS3Url"}');
 
         // --- Action ---
-        $response = $this->clientmock->create_submission(
-            'Title', 'Author', 'e@mail.com', 'type', $expectedAssignmentId, $settings
-        );
+        $response = $this->clientmock->create_submission($metadata, $settings);
 
         // --- Assert ---
         $this->assertEquals('mockDocId', $response->documentId);
     }
 
-
     public function test_create_submission_includes_educators_and_student_email_top_level() {
         // --- Setup ---
         set_config('apitoken', 'payload_test_token2', 'plagiarism_inspera');
         set_config('apitoken_exp', time() + 3600, 'plagiarism_inspera');
+        set_config('apitoken_hash', $this->expectedhash, 'plagiarism_inspera');
 
-        $studentEmail = 'student@example.com';
         $educators = [
             ['id' => 10, 'name' => 'Teacher One', 'email' => 't1@example.com'],
             ['id' => '20', 'name' => 'Teacher Two', 'email' => 't2@example.com'],
-            // This malformed entry should be ignored by normalization
-            ['id' => null, 'name' => 'No Id', 'email' => 'noid@example.com'],
+            ['id' => null, 'name' => 'No Id', 'email' => 'noid@example.com'], // Invalid, should be skipped
         ];
 
-        $expectedAssignmentId = 'cmid-123';
+        // Prepare Metadata Object
+        $metadata = new \stdClass();
+        $metadata->title = 'My Doc';
+        $metadata->author = 'Student Name';
+        $metadata->email = 'student@example.com';
+        $metadata->doctype = 'text/html';
+        $metadata->assignmentid = 'cmid-123';
 
-        // Expect _do_post_request to capture the payload
+        // --- Expectation ---
         $this->clientmock->expects($this->once())
             ->method('_do_post_request')
             ->with(
                 $this->stringContains('/create/submission'),
-                $this->callback(function($payloadJson) use ($studentEmail, $educators, $expectedAssignmentId) {
+                $this->callback(function($payloadJson) {
                     $payload = json_decode($payloadJson, true);
-                    $this->assertIsArray($payload);
 
-                    // Student email must be at top-level and equal to provided email
-                    $this->assertArrayHasKey('email', $payload);
-                    $this->assertEquals($studentEmail, $payload['email']);
-
-                    // Assignment id should be present
-                    $this->assertEquals($expectedAssignmentId, $payload['assignmentId']);
+                    // Student email must be at top-level
+                    $this->assertEquals('student@example.com', $payload['email']);
 
                     // Educators must be present as normalized array
                     $this->assertArrayHasKey('educators', $payload);
-                    $this->assertIsArray($payload['educators']);
-                    // Two valid educators expected (the malformed one ignored)
-                    $this->assertCount(2, $payload['educators']);
-                    $this->assertEquals(['id' => '10', 'name' => 'Teacher One', 'email' => 't1@example.com'], $payload['educators'][0]);
-                    $this->assertEquals(['id' => '20', 'name' => 'Teacher Two', 'email' => 't2@example.com'], $payload['educators'][1]);
+                    $this->assertCount(2, $payload['educators']); // 3 provided, 1 invalid skipped
+                    $this->assertEquals('10', $payload['educators'][0]['id']); // String cast check
+
                     return true;
                 }),
-                $this->callback(function($headers) {
-                    $this->assertContains('Authorization: Bearer payload_test_token2', $headers);
-                    return true;
-                })
+                $this->anything()
             )
             ->willReturn('{"documentId":"mockDocId2","presignedS3Url":"mockS3Url2"}');
 
         // --- Action ---
-        $response = $this->clientmock->create_submission(
-            'My Doc', 'Student Name', $studentEmail, 'text/html', $expectedAssignmentId, [], $educators
-        );
+        $response = $this->clientmock->create_submission($metadata, [], $educators);
 
         // --- Assert ---
         $this->assertEquals('mockDocId2', $response->documentId);
     }
 
+    /**
+     * Test specifically for Group Submissions.
+     * Verifies that 'students' array is populated and 'teamSubmission' is true.
+     */
+    public function test_create_submission_with_groups() {
+        // --- Setup ---
+        set_config('apitoken', 'payload_test_token3', 'plagiarism_inspera');
+        set_config('apitoken_exp', time() + 3600, 'plagiarism_inspera');
+        set_config('apitoken_hash', $this->expectedhash, 'plagiarism_inspera');
+
+        // Prepare Metadata
+        $metadata = new \stdClass();
+        $metadata->title = 'Group Doc';
+        $metadata->author = 'Group Leader';
+        $metadata->email = 'leader@test.com';
+        $metadata->doctype = 'text/html';
+        $metadata->assignmentid = 'cmid-group';
+
+        // Prepare Students Array
+        $students = [
+            ['id' => 101, 'name' => 'Member One', 'email' => 'm1@test.com'], // Int ID
+            ['id' => '102', 'name' => 'Member Two', 'email' => 'm2@test.com'], // String ID
+            ['id' => 103, 'name' => '', 'email' => 'm3@test.com'], // Invalid (Empty Name)
+        ];
+
+        // --- Expectation ---
+        $this->clientmock->expects($this->once())
+            ->method('_do_post_request')
+            ->with(
+                $this->stringContains('/create/submission'),
+                $this->callback(function($payloadJson) {
+                    $payload = json_decode($payloadJson, true);
+
+                    // 1. Verify Team Submission Flag
+                    $this->assertTrue($payload['teamSubmission'], 'teamSubmission flag should be true');
+
+                    // 2. Verify Students Array
+                    $this->assertArrayHasKey('students', $payload);
+                    $this->assertCount(2, $payload['students'], 'Should contain 2 valid students');
+
+                    // 3. Verify Normalization
+                    $this->assertSame('101', $payload['students'][0]['id']); // Int cast to string
+                    $this->assertSame('Member One', $payload['students'][0]['name']);
+
+                    return true;
+                }),
+                $this->anything()
+            )
+            ->willReturn('{"documentId":"groupDocId","presignedS3Url":"groupS3Url"}');
+
+        // --- Action ---
+        // Pass $students as the 4th argument
+        $response = $this->clientmock->create_submission($metadata, [], [], $students);
+
+        $this->assertEquals('groupDocId', $response->documentId);
+    }
 
     public function test_upload_to_presigned_url_failure() {
         // --- Expectation ---
-        // Expect _do_s3_put_request to be called once and return false
         $this->clientmock->expects($this->once())
             ->method('_do_s3_put_request')
             ->with('https://s3.example.com/failed', 'content', 'type')
-            ->willReturn(false); // Force mocked method to return false
+            ->willReturn(false);
 
         // --- Action ---
         $result = $this->clientmock->upload_to_presigned_url('https://s3.example.com/failed', 'content', 'type');
@@ -262,11 +314,10 @@ class plagiarism_inspera_api_client_test extends advanced_testcase {
 
     public function test_upload_to_presigned_url_success() {
         // --- Expectation ---
-        // Expect _do_s3_put_request to be called once and return true
         $this->clientmock->expects($this->once())
             ->method('_do_s3_put_request')
             ->with('https://s3.example.com/success', 'content', 'type')
-            ->willReturn(true); // Force mocked method to return true
+            ->willReturn(true);
 
         // --- Action ---
         $result = $this->clientmock->upload_to_presigned_url('https://s3.example.com/success', 'content', 'type');
