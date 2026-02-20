@@ -136,10 +136,15 @@ class hooks {
      * @param before_standard_footer_html_generation $hook The hook instance.
      * @return void
      */
+    /**
+     * Callback for before_standard_footer_html_generation hook.
+     *
+     * @param before_standard_footer_html_generation $hook
+     */
     public static function add_footer_logic(before_standard_footer_html_generation $hook): void {
         global $PAGE, $DB;
 
-        // 1. Basic Context Check.
+        // 1. Context & Permission Checks.
         if (!$PAGE->context instanceof \context_module) {
             return;
         }
@@ -148,12 +153,30 @@ class hooks {
             return;
         }
 
-        // 2. Permission Check.
         if (!has_capability('moodle/course:manageactivities', $PAGE->context)) {
             return;
         }
 
-        // 3. Logic: Check for Group Online Text mismatch.
+        // 2. CHECK: Is Plagiarism Check actually enabled for this assignment? (RESTORED)
+        $use_originality = $DB->get_field('plagiarism_inspera_config', 'value', [
+            'cm' => $cm->id,
+            'name' => 'use_originality_assign'
+        ], IGNORE_MISSING);
+
+        // Fallback to generic name if the assign-specific one isn't found.
+        if ($use_originality === false) {
+            $use_originality = $DB->get_field('plagiarism_inspera_config', 'value', [
+                'cm' => $cm->id,
+                'name' => 'use_originality'
+            ], IGNORE_MISSING);
+        }
+
+        // If explicitly set to 0 or not configured, stop here.
+        if (empty($use_originality)) {
+            return;
+        }
+
+        // 3. Determine Context (Edit vs View).
         $mode = '';
         if (strpos($PAGE->url->get_path(), 'modedit.php') !== false) {
             $mode = 'edit';
@@ -161,6 +184,8 @@ class hooks {
             // Check if it's a team submission with online text enabled.
             $assignment = $DB->get_record('assign', ['id' => $cm->instance], 'teamsubmission', IGNORE_MISSING);
             if ($assignment && !empty($assignment->teamsubmission)) {
+
+                // Fixed SQL for LONGTEXT 'value' column.
                 $select = "assignment = :assignment AND plugin = :plugin AND subtype = :subtype AND name = :name AND " .
                     $DB->sql_compare_text('value') . " = :value";
 
@@ -180,11 +205,9 @@ class hooks {
 
         // 4. Inject JS/HTML if conditions are met.
         if ($mode) {
-            // Inject the helper JS.
             $PAGE->requires->js(new moodle_url('/plagiarism/inspera/originality_form_behaviour.js'));
 
-            // Pass data to JS via a hidden div.
-            $html = html_writer::tag('div', '', [
+            $html = \html_writer::tag('div', '', [
                 'id' => 'inspera-warning-config',
                 'data-mode' => $mode,
                 'data-message' => get_string('warning_group_onlinetext', 'plagiarism_inspera'),
