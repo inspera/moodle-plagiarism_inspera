@@ -387,31 +387,6 @@ class api_client {
             if (!empty($includesources)) $payload['sources']['includeSources'] = $includesources;
         }
 
-        // =========================================================================
-        // DEBUG: DUMP PAYLOAD TO CRON LOGS
-        // =========================================================================
-        mtrace("\n" . str_repeat('-', 50));
-        mtrace("INSPERA API DEBUG - SUBMISSION PAYLOAD:");
-
-        // 1. Check if it's a group submission
-        if (!empty($payload['teamSubmission'])) {
-            mtrace("Type: GROUP SUBMISSION (teamSubmission=true)");
-            if (!empty($payload['students'])) {
-                mtrace("Student Count: " . count($payload['students']));
-                mtrace("Students Data: " . print_r($payload['students'], true));
-            } else {
-                mtrace("WARNING: teamSubmission is true but 'students' array is EMPTY!");
-            }
-        } else {
-            mtrace("Type: INDIVIDUAL SUBMISSION");
-        }
-
-        // 2. Dump full JSON for verification
-        //mtrace("FULL JSON PAYLOAD:");
-        //mtrace(json_encode($payload, JSON_PRETTY_PRINT));
-        //mtrace(str_repeat('-', 50) . "\n");
-        // =========================================================================
-
         try {
             $response = $this->_do_post_request($this->baseurl . '/create/submission', json_encode($payload), $headers);
         } catch (\moodle_exception $e) {
