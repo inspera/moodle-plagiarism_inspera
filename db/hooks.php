@@ -15,25 +15,24 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Hook definitions for the Inspera Originality plugin.
+ * Hook registration for the Inspera plagiarism plugin.
  *
- * This file registers modern hook callbacks to replace legacy plagiarism callbacks,
- * ensuring compatibility with Moodle 4.4 and above.
- *
- * @package    plagiarism_inspera
- * @copyright  2025 Inspera AS
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package     plagiarism_inspera
+ * @copyright   2025 Inspera AS
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$hooks = [
+$callbacks = [
     [
-        'hook' => \core\hook\output\before_standard_top_of_body_html_generation::class,
-        'callback' => [\plagiarism_inspera\output_callbacks::class, 'before_top_of_body'],
+        // Injects the "Resubmit All" button at the top of the body.
+        'hook'     => \core\hook\output\before_standard_top_of_body_html_generation::class,
+        'callback' => [\plagiarism_inspera\output\hooks::class, 'add_top_button'],
     ],
     [
-        'hook' => \core\hook\output\before_standard_footer_html_generation::class,
-        'callback' => [\plagiarism_inspera\output_callbacks::class, 'before_footer'],
+        // Injects configuration behavior warnings for group online text assignments.
+        'hook'     => \core\hook\output\before_standard_footer_html_generation::class,
+        'callback' => [\plagiarism_inspera\output\hooks::class, 'add_footer_logic'],
     ],
 ];

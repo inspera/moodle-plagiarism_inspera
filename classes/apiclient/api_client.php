@@ -407,9 +407,9 @@ class api_client {
         }
 
         // 2. Dump full JSON for verification
-        mtrace("FULL JSON PAYLOAD:");
-        mtrace(json_encode($payload, JSON_PRETTY_PRINT));
-        mtrace(str_repeat('-', 50) . "\n");
+        //mtrace("FULL JSON PAYLOAD:");
+        //mtrace(json_encode($payload, JSON_PRETTY_PRINT));
+        //mtrace(str_repeat('-', 50) . "\n");
         // =========================================================================
 
         try {

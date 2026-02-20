@@ -15,40 +15,38 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Hook callbacks for the Inspera Originality plugin.
+ * Hook callbacks for the Inspera plagiarism plugin.
  *
- * @package    plagiarism_inspera
- * @copyright  2025 Inspera AS
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package     plagiarism_inspera
+ * @copyright   2025 Inspera AS
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace plagiarism_inspera;
+namespace plagiarism_inspera\output;
 
 defined('MOODLE_INTERNAL') || die();
 
 use html_writer;
 use moodle_url;
-use function plagiarism_inspera\get_string;
-use function plagiarism_inspera\has_capability;
-use function plagiarism_inspera\optional_param;
-use function plagiarism_inspera\sesskey;
-use function plagiarism_inspera\userdate;
-use const plagiarism_inspera\CONTEXT_MODULE;
-use const plagiarism_inspera\IGNORE_MISSING;
+use core\hook\output\before_standard_top_of_body_html_generation;
+use core\hook\output\before_standard_footer_html_generation;
 
 /**
- * Output callbacks class to handle Moodle hooks.
+ * Class hooks
+ *
+ * Handles output injections for the Inspera plagiarism plugin using the Moodle Hook API.
  */
-class output_callbacks {
+class hooks {
 
     /**
-     * Replaces plagiarism_inspera_before_standard_top_of_body_html.
-     * Injects the "Resubmit All" button into the page header.
+     * Callback for before_standard_top_of_body_html_generation hook.
      *
-     * @param \core\hook\output\before_standard_top_of_body_html_generation $hook
+     * Injects the "Resubmit All" button in the assignment grading interface.
+     *
+     * @param before_standard_top_of_body_html_generation $hook The hook instance.
+     * @return void
      */
-    public static function before_top_of_body(\core\hook\output\before_standard_top_of_body_html_generation $hook): void {
-        debugging('INSIDE THE HOOK', DEBUG_DEVELOPER);
+    public static function add_top_button(before_standard_top_of_body_html_generation $hook): void {
         global $PAGE, $OUTPUT, $DB;
 
         // 1. Context & Capability Checks.
@@ -59,6 +57,7 @@ class output_callbacks {
         if (!$cm || $cm->modname !== 'assign') {
             return;
         }
+
         if (!has_capability('plagiarism/inspera:requestallreports', $PAGE->context)) {
             return;
         }
@@ -82,7 +81,7 @@ class output_callbacks {
             return;
         }
 
-        // 4. Determine Info Text (Pending vs Last Run).
+        // 4. Determine Info Text.
         $infotext = '';
         $taskqueued = $DB->record_exists_select('task_adhoc',
             "classname = :class AND customdata LIKE :cmid",
@@ -117,7 +116,11 @@ class output_callbacks {
         $button = $OUTPUT->single_button($url, get_string('resubmit_all_tool', 'plagiarism_inspera'), 'post', $attributes);
 
         // 6. Build Layout.
-        $combinedhtml = html_writer::start_tag('div', ['class' => 'd-flex flex-column align-items-end']);
+        // Margin-top is used to clear the fixed Moodle navbar when injected at top of body.
+        $combinedhtml = html_writer::start_tag('div', [
+            'class' => 'container-fluid d-flex flex-column align-items-end',
+            'style' => 'margin-left: -100px; margin-top: 80px; position: relative; pointer-events: auto;'
+        ]);
         $combinedhtml .= $button;
         $combinedhtml .= $infotext;
         $combinedhtml .= html_writer::end_tag('div');
@@ -126,47 +129,68 @@ class output_callbacks {
     }
 
     /**
-     * Replaces plagiarism_inspera_standard_footer_html.
-     * Injects warning configuration for Online Text group submissions.
+     * Callback for before_standard_footer_html_generation hook.
      *
-     * @param \core\hook\output\before_standard_footer_html_generation $hook
+     * Injects JS behavior warnings for group online-text assignments.
+     *
+     * @param before_standard_footer_html_generation $hook The hook instance.
+     * @return void
      */
-    public static function before_footer(\core\hook\output\before_standard_footer_html_generation $hook): void {
+    public static function add_footer_logic(before_standard_footer_html_generation $hook): void {
         global $PAGE, $DB;
 
-        if ($PAGE->context->contextlevel != CONTEXT_MODULE) return;
+        // 1. Basic Context Check.
+        if (!$PAGE->context instanceof \context_module) {
+            return;
+        }
         $cm = $PAGE->cm;
-        if (!$cm || $cm->modname !== 'assign') return;
-        if (!has_capability('moodle/course:manageactivities', $PAGE->context)) return;
+        if (!$cm || $cm->modname !== 'assign') {
+            return;
+        }
 
-        // Check if enabled.
-        $use_originality = $DB->get_field('plagiarism_inspera_config', 'value', ['cm' => $cm->id, 'name' => 'use_originality_assign'], IGNORE_MISSING)
-            ?: $DB->get_field('plagiarism_inspera_config', 'value', ['cm' => $cm->id, 'name' => 'use_originality'], IGNORE_MISSING);
+        // 2. Permission Check.
+        if (!has_capability('moodle/course:manageactivities', $PAGE->context)) {
+            return;
+        }
 
-        if (!$use_originality) return;
-
+        // 3. Logic: Check for Group Online Text mismatch.
         $mode = '';
         if (strpos($PAGE->url->get_path(), 'modedit.php') !== false) {
             $mode = 'edit';
         } elseif ($PAGE->pagetype === 'mod-assign-view') {
+            // Check if it's a team submission with online text enabled.
             $assignment = $DB->get_record('assign', ['id' => $cm->instance], 'teamsubmission', IGNORE_MISSING);
             if ($assignment && !empty($assignment->teamsubmission)) {
-                $compare_val = $DB->sql_compare_text('value', 2);
-                $sql = "SELECT 1 FROM {assign_plugin_config} WHERE assignment = ? AND plugin = ? AND subtype = ? AND name = ? AND $compare_val = ?";
-                if ($DB->record_exists_sql($sql, [$cm->instance, 'onlinetext', 'assignsubmission', 'enabled', '1'])) {
+                $select = "assignment = :assignment AND plugin = :plugin AND subtype = :subtype AND name = :name AND " .
+                    $DB->sql_compare_text('value') . " = :value";
+
+                $params = [
+                    'assignment' => $cm->instance,
+                    'plugin'     => 'onlinetext',
+                    'subtype'    => 'assignsubmission',
+                    'name'       => 'enabled',
+                    'value'      => '1'
+                ];
+
+                if ($DB->record_exists_select('assign_plugin_config', $select, $params)) {
                     $mode = 'view';
                 }
             }
         }
 
+        // 4. Inject JS/HTML if conditions are met.
         if ($mode) {
+            // Inject the helper JS.
             $PAGE->requires->js(new moodle_url('/plagiarism/inspera/originality_form_behaviour.js'));
+
+            // Pass data to JS via a hidden div.
             $html = html_writer::tag('div', '', [
                 'id' => 'inspera-warning-config',
                 'data-mode' => $mode,
                 'data-message' => get_string('warning_group_onlinetext', 'plagiarism_inspera'),
                 'style' => 'display:none;'
             ]);
+
             $hook->add_html($html);
         }
     }

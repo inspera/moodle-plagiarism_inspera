@@ -177,6 +177,7 @@ $string['resubmit_all_tool_desc'] = 'Allows teachers to resubmit all student sub
 $string['resubmit_confirm'] = 'Are you sure you want to request originality reports for all eligible submissions in this assignment? This will run in the background.';
 $string['last_resubmit_run'] = 'Last requested: {$a}';
 $string['resubmit_pending'] = 'Request is currently processing...';
+$string['warning_group_onlinetext'] = '<strong>Plagiarism Configuration Warning:</strong> "Students submit in groups" is enabled with "Online text". Inspera Originality cannot check Online Text for groups. Only File submissions will be checked.';
 
 $string['inspera:requestallreports'] = 'Allow to request all Originality reports at once';
 $string['inspera:enable'] = 'Allow to enable/disable Inspera Originality for activities';

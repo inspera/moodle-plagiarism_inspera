@@ -2059,3 +2059,4 @@ function plagiarism_inspera_checkcronhealth() {
         \core\notification::add(get_string('cronwarningsendfiles', 'plagiarism_inspera'), \core\notification::ERROR);
     }
 }
+
