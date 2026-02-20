@@ -18,7 +18,7 @@
  * Scheduled task definitions for the Inspera Originality plugin.
  *
  * @package    plagiarism_inspera
- * @copyright  2025 Your Name (Your Company)
+ * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
