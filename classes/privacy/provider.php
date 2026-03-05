@@ -27,15 +27,15 @@ namespace plagiarism_inspera\privacy;
 defined('MOODLE_INTERNAL') || die();
 
 use core_privacy\local\metadata\collection;
-use core_privacy\local\request\{writer, helper, contextlist, approved_contextlist, approved_userlist, userlist};
+use core_privacy\local\request\writer;
 
 /**
  * Privacy subsystem for plagiarism_inspera.
  */
 class provider implements
     \core_privacy\local\metadata\provider,
-    \core_privacy\local\request\core_userlist_provider,
-    \core_plagiarism\privacy\plagiarism_provider {
+    \core_plagiarism\privacy\plagiarism_provider,
+    \core_plagiarism\privacy\plagiarism_user_provider {
 
     /**
      * Describe the data stored by this plugin.
@@ -48,16 +48,16 @@ class provider implements
         $collection->add_database_table(
             'plagiarism_inspera_subs',
             [
-                'userid'                => 'privacy:metadata:plagiarism_inspera_subs:userid',
-                'submissionid'          => 'privacy:metadata:plagiarism_inspera_subs:submissionid',
-                'externalid'            => 'privacy:metadata:plagiarism_inspera_subs:externalid',
-                'similarity'            => 'privacy:metadata:plagiarism_inspera_subs:similarity',
+                'userid'                 => 'privacy:metadata:plagiarism_inspera_subs:userid',
+                'submissionid'           => 'privacy:metadata:plagiarism_inspera_subs:submissionid',
+                'externalid'             => 'privacy:metadata:plagiarism_inspera_subs:externalid',
+                'similarity'             => 'privacy:metadata:plagiarism_inspera_subs:similarity',
                 'translation_similarity' => 'privacy:metadata:plagiarism_inspera_subs:translation_similarity',
-                'ai_index'              => 'privacy:metadata:plagiarism_inspera_subs:ai_index',
-                'status'                => 'privacy:metadata:plagiarism_inspera_subs:status',
-                'description'           => 'privacy:metadata:plagiarism_inspera_subs:description',
-                'timecreated'           => 'privacy:metadata:plagiarism_inspera_subs:timecreated',
-                'timemodified'          => 'privacy:metadata:plagiarism_inspera_subs:timemodified',
+                'ai_index'               => 'privacy:metadata:plagiarism_inspera_subs:ai_index',
+                'status'                 => 'privacy:metadata:plagiarism_inspera_subs:status',
+                'description'            => 'privacy:metadata:plagiarism_inspera_subs:description',
+                'timecreated'            => 'privacy:metadata:plagiarism_inspera_subs:timecreated',
+                'timemodified'           => 'privacy:metadata:plagiarism_inspera_subs:timemodified',
             ],
             'privacy:metadata:plagiarism_inspera_subs'
         );
@@ -70,26 +70,6 @@ class provider implements
         ], 'privacy:metadata:inspera');
 
         return $collection;
-    }
-
-    /**
-     * Get the list of contexts that contain user information for the specified user.
-     */
-    public static function get_contexts_for_userid(int $userid) : contextlist {
-        $contextlist = new contextlist();
-        $params = [
-            'contextlevel' => CONTEXT_MODULE,
-            'userid'       => $userid
-        ];
-
-        $sql = "SELECT DISTINCT c.id
-                FROM {context} c
-                JOIN {course_modules} cm ON cm.id = c.instanceid AND c.contextlevel = :contextlevel
-                JOIN {plagiarism_inspera_subs} subs ON cm.id = subs.cm
-                WHERE subs.userid = :userid";
-
-        $contextlist->add_from_sql($sql, $params);
-        return $contextlist;
     }
 
     /**
@@ -106,8 +86,6 @@ class provider implements
 
         $records = $DB->get_records_sql($sql, $params);
         foreach ($records as $record) {
-            // Create a unique subcontext for each specific report.
-            // This will create folders like "Plagiarism/File_444" or "Plagiarism/OnlineText".
             $currentsubcontext = $subcontext;
 
             if (!empty($record->storedfileid)) {
@@ -144,28 +122,15 @@ class provider implements
     }
 
     /**
-     * Get the list of users who have data within a context.
-     */
-    public static function get_users_in_context(userlist $userlist) {
-        $context = $userlist->get_context();
-        if ($context instanceof \context_module) {
-            $params = ['cm' => $context->instanceid];
-            $sql = "SELECT userid FROM {plagiarism_inspera_subs} WHERE cm = :cm";
-            $userlist->add_from_sql('userid', $sql, $params);
-        }
-    }
-
-    /**
      * Delete multiple users within a single context.
+     * Required by \core_plagiarism\privacy\plagiarism_user_provider.
      */
-    public static function delete_data_for_users(approved_userlist $userlist) {
+    public static function delete_plagiarism_for_users(array $userids, \context $context) {
         global $DB;
-        $context = $userlist->get_context();
-        if (!$context instanceof \context_module) {
+        if (empty($userids) || !($context instanceof \context_module)) {
             return;
         }
 
-        $userids = $userlist->get_userids();
         list($insql, $inparams) = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
         $inparams['cm'] = $context->instanceid;
 
