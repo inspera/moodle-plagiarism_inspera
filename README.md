@@ -1,6 +1,6 @@
 # Inpera Originality Plagiarism Plugin for Moodle
 
-Originality is a plugin that integrates Moodle with the Inspera Originality plagiarism detection service.
+Inspera Originality is a plugin that integrates Moodle with the Inspera Originality plagiarism detection service.
 
 * **Copyright:** (C) 2025 Inspera AS
 * **License:** GNU GPL v3 or later
@@ -22,11 +22,11 @@ This initial release (`1.0.0`) currently supports:
 
 ### 1. Download
 Download the zip file or clone the repository into your Moodle `plagiarism` directory.
-The folder name **must** be `originality`.
+The folder name **must** be `inspera`.
 
 ```bash
 cd /path/to/your/moodle/plagiarism/
-git clone [https://github.com/your-repo/moodle-plagiarism_inspera.git](https://github.com/your-repo/moodle-plagiarism_inspera.git) originality
+git clone [https://github.com/inspera/moodle-plagiarism_inspera.git](https://github.com/inspera/moodle-plagiarism_inspera.git) inspera
 ```
 
 ### 2. Install
@@ -42,18 +42,18 @@ git clone [https://github.com/your-repo/moodle-plagiarism_inspera.git](https://g
 
 ## Configuration
 
-1.  Navigate to **Site administration > Plugins > Plagiarism > Originality**.
+1.  Navigate to **Site administration > Plugins > Plagiarism > Inspera Originality Plugin**.
 2.  Enter your API credentials:
-    * **API URL:** The base URL for the Originality API.
+    * **API URL:** The base URL for the Inspera Originality API.
     * **Client ID:** Your unique client identifier.
     * **Institution ID:** Your institution identifier.
 3.  Configure global defaults. 
 
 ## Usage in Assignments
 
-To enable Originality for a specific assignment:
+To enable Inspera Originality for a specific assignment:
 1.  Edit the Assignment settings.
-2.  Scroll down to the **Originality Plagiarism Plugin** section.
+2.  Scroll down to the **Inspera Originality settings** section.
 3.  Set **Enable Originality** to **Yes**.
 4.  Configure optional settings:
     * **Show similarity reports to students:** Choose when students can see the report.
