@@ -659,7 +659,7 @@ function plagiarism_inspera_supported_qtypes() {
  */
 function plagiarism_inspera_supported_modules() {
     global $CFG;
-    $supportedmodules = array('assign');
+    $supportedmodules = array('assign', 'quiz');
     return $supportedmodules;
 }
 
