@@ -26,6 +26,7 @@ namespace plagiarism_inspera;
 
 defined('MOODLE_INTERNAL') || die();
 
+global $CFG;
 require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 /**

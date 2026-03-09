@@ -138,10 +138,9 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
      * @return string
      */
     public function get_links($linkarray) {
-        global $DB, $CFG, $USER;
+        global $DB, $CFG;
 
         static $plagiarismvalues = [];
-        $fullquizlist = false;
         $output = '';
 
         // ==============================
@@ -158,16 +157,12 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 return '';
             }
 
-            // Determine course module id
-            if (!empty($linkarray['cmid'])) {
-                $fullquizlist = true;
-            } else {
-                if (!empty($linkarray['area'])) {
-                    $quba = question_engine::load_questions_usage_by_activity($linkarray['area']);
-                    $context = $quba->get_owning_context();
-                    if ($context->contextlevel == CONTEXT_MODULE) {
-                        $linkarray['cmid'] = get_coursemodule_from_id(false, $context->instanceid)->id;
-                    }
+            // Resolve cmid
+            if (empty($linkarray['cmid']) && !empty($linkarray['area'])) {
+                $quba = question_engine::load_questions_usage_by_activity($linkarray['area']);
+                $context = $quba->get_owning_context();
+                if ($context->contextlevel == CONTEXT_MODULE) {
+                    $linkarray['cmid'] = get_coursemodule_from_id(false, $context->instanceid)->id;
                 }
             }
 
@@ -194,6 +189,10 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             }
         }
 
+        if (empty($linkarray['cmid'])) {
+            return '';
+        }
+
         // ==============================
         // 2. Load plugin config for this cmid
         // ==============================
@@ -202,27 +201,8 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 ['cm' => $linkarray['cmid']], '', 'name,value');
         }
 
-        // Helper to resolve Submission ID for Assignments
-        $get_assign_submission_id = function($cmid, $userid) use ($CFG) {
-            try {
-                // We use the Assign API to find the correct submission (Group or Individual)
-                $cm = get_coursemodule_from_id('assign', $cmid, 0, false, IGNORE_MISSING);
-                if (!$cm) return 0;
-
-                require_once($CFG->dirroot . '/mod/assign/locallib.php');
-                $context = \context_module::instance($cm->id);
-                $assign = new \assign($context, $cm, null);
-                // 'false' means don't create one if missing.
-                // This automatically returns the GROUP submission if the assignment is in group mode.
-                $submission = $assign->get_user_submission($userid, false);
-                return $submission ? $submission->id : 0;
-            } catch (\Exception $e) {
-                return 0;
-            }
-        };
-
         // ==============================
-        // 5. Add "View Originality Report" if finished
+        // 3. FILES (Assignments & Quiz Attachments)
         // ==============================
         if (!empty($linkarray['cmid']) && !empty($linkarray['userid']) && !empty($linkarray['file'])) {
             // $linkarray['file'] should be a stored_file object.
@@ -230,10 +210,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
             // --- Resolve Submission ID ---
             $submissionid = 0;
-            $comp = $file->get_component();
-
-            // For standard assignment files, the itemid IS the submissionid
-            if ($comp === 'assignsubmission_file' || $comp === 'assignsubmission_onlinetext') {
+            if ($file->get_component() === 'assignsubmission_file' || $file->get_component() === 'assignsubmission_onlinetext') {
                 $submissionid = $file->get_itemid();
             }
 
@@ -271,7 +248,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             if ($record) {
                 // Determine if viewer is allowed to see this status/link.
                 $cmcontext = \context_module::instance($linkarray['cmid']);
-                $isgrader = has_capability('mod/assign:grade', $cmcontext);
+                $isgrader = has_capability('mod/assign:grade', $cmcontext) || has_capability('mod/quiz:grade', $cmcontext);
                 if ($isgrader || plagiarism_inspera_should_show_report($linkarray['cmid'], $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $record)) {
                     $output .= $this->get_originality_status($record, $plagiarismvalues[$linkarray['cmid']]);
                 }
@@ -279,40 +256,43 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
         }
 
         // ==============================
-        // 6. Add "View Originality Report" for ONLINE TEXT submissions (no file)
+        // 4. ONLINE TEXT (Assignments & Quiz Essay)
         // ==============================
         if (!empty($linkarray['content']) && !empty($linkarray['cmid']) && !empty($linkarray['userid'])) {
-
-            // --- Resolve Submission ID for Text ---
-            // Online text doesn't always come with an itemid in $linkarray, so we look it up.
-            $submissionid = $get_assign_submission_id($linkarray['cmid'], $linkarray['userid']);
-
             $textrecord = false;
 
-            // Strategy A: Query by Submission ID
-            if (!empty($submissionid)) {
-                $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                    WHERE submissionid = ? 
-                      AND storedfileid IS NULL
-                      AND status != 'superseded'
-                    ORDER BY timecreated DESC";
-                $textrecord = $DB->get_record_sql($sql, [$submissionid], IGNORE_MULTIPLE);
+            // Strategy A: Assignments
+            $cm = get_coursemodule_from_id('assign', $linkarray['cmid'], 0, false, IGNORE_MISSING);
+            if ($cm) {
+                require_once($CFG->dirroot . '/mod/assign/locallib.php');
+                $assign = new \assign(\context_module::instance($cm->id), $cm, null);
+                $submission = $assign->get_user_submission($linkarray['userid'], false);
+                if ($submission) {
+                    $sql = "SELECT * FROM {plagiarism_inspera_subs} WHERE submissionid = ? AND storedfileid IS NULL AND status != 'superseded' ORDER BY timecreated DESC";
+                    $textrecord = $DB->get_record_sql($sql, [$submission->id], IGNORE_MULTIPLE);
+                }
             }
 
-            // Strategy B: Fallback to User ID
-            if (!$textrecord) {
-                $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                    WHERE cm = ? 
-                      AND userid = ? 
-                      AND storedfileid IS NULL
-                      AND status != 'superseded'
-                    ORDER BY timecreated DESC";
-                $textrecord = $DB->get_record_sql($sql, [$linkarray['cmid'], $linkarray['userid']], IGNORE_MULTIPLE);
+            // Strategy B: Quizzes (Strict Mapping via Identifier)
+            if (!$textrecord && !empty($linkarray['itemid']) && !empty($linkarray['area'])) {
+                try {
+                    if (!isset($quba) || $quba->get_id() != $linkarray['area']) {
+                        $quba = \question_engine::load_questions_usage_by_activity($linkarray['area']);
+                    }
+                    $qa = $quba->get_question_attempt($linkarray['itemid']);
+                    $expected_filename = "quiz_{$linkarray['cmid']}_{$linkarray['userid']}_{$qa->get_database_id()}.html";
+
+                    $sql = "SELECT * FROM {plagiarism_inspera_subs} 
+                            WHERE cm = ? AND userid = ? AND storedfileid IS NULL 
+                            AND identifier LIKE ? AND status != 'superseded' 
+                            ORDER BY timecreated DESC";
+                    $textrecord = $DB->get_record_sql($sql, [$linkarray['cmid'], $linkarray['userid'], '%' . $expected_filename], IGNORE_MULTIPLE);
+                } catch (\Exception $e) {}
             }
 
             if ($textrecord) {
                 $cmcontext = \context_module::instance($linkarray['cmid']);
-                $isgrader = has_capability('mod/assign:grade', $cmcontext);
+                $isgrader = has_capability('mod/assign:grade', $cmcontext) || has_capability('mod/quiz:grade', $cmcontext);
                 if ($isgrader || plagiarism_inspera_should_show_report($linkarray['cmid'], $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $textrecord)) {
                     $output .= $this->get_originality_status($textrecord, $plagiarismvalues[$linkarray['cmid']]);
                 }
@@ -348,9 +328,15 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
         $userid = $eventdata['userid'];
         $relateduserid = !empty($eventdata['relateduserid']) ? $eventdata['relateduserid'] : null;
+        $courseid = $eventdata['courseid'] ?? 0;
 
-        // For assignsubmission_* events and assessable_uploaded in Assignments,
-        // the objectid IS the submissionid.
+        // --- QUIZ SUBMISSION ---
+        if ($eventdata['eventtype'] === 'quiz_submitted') {
+            $attemptid = $eventdata['objectid'];
+            $this->process_quiz_attempt($attemptid, $cmid, $courseid, $userid, $relateduserid);
+            return true;
+        }
+
         $submissionid = isset($eventdata['objectid']) ? $eventdata['objectid'] : null;
 
 
@@ -365,52 +351,27 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             }
         }
 
-        // === CHECK GROUP SUBMISSION ===
-        // If "Students submit in groups" is enabled, we MUST disable Online Text checking.
-        // We query the assignment table to check the 'teamsubmission' setting.
-        $assignment_config = $DB->get_record_sql("
-        SELECT a.teamsubmission
-        FROM {assign} a
-        JOIN {course_modules} cm ON a.id = cm.instance
-        WHERE cm.id = ?",
-            array($cmid)
-        );
-
+        // Check Group Submission
+        $assignment_config = $DB->get_record_sql("SELECT a.teamsubmission FROM {assign} a JOIN {course_modules} cm ON a.id = cm.instance WHERE cm.id = ?", array($cmid));
         if ($assignment_config && !empty($assignment_config->teamsubmission)) {
-            // Group submission is ON -> Disable Online Text checking
             if ($showcontent) {
-                mtrace("Originality: Group submission enabled for cmid={$cmid}. Disabling Online Text checking.");
                 $showcontent = false;
             }
         }
 
         $charcount = plagiarism_inspera_charcount();
 
-        // === CASE 1: Final Submission (Submit for Marking) ===
+        // Finalize event
         if ($eventdata['eventtype'] == 'assignsubmission_submitted' && empty($eventdata['other']['submission_editable'])) {
-            // Assignment-specific functionality:
-            // This is a 'finalize' event. No files from this event itself,
-            // but need to check if files from previous events need to be submitted for processing.
-            $result = true;
             if (isset($plagiarismvalues['originality_draft_submit']) &&
                 $plagiarismvalues['originality_draft_submit'] == PLAGIARISM_INSPERA_DRAFTSUBMIT_FINAL) {
-                // Any files attached to previous events were not submitted.
-                // These files are now finalized, and should be submitted for processing.
-                mtrace("Originality: Final submission detected (cmid={$cmid}, userid={$userid}). Queuing finalized content due to FINAL mode.");
                 require_once("$CFG->dirroot/mod/assign/locallib.php");
-                require_once("$CFG->dirroot/mod/assign/submission/file/locallib.php");
-
                 $modulecontext = context_module::instance($cmid);
-                $queuedfiles = 0;
-                $queuedtext = 0;
-
-                if ($showfiles) { // If we should be handling files.
+                if ($showfiles) {
                     $fs = get_file_storage();
-                    if ($files = $fs->get_area_files($modulecontext->id, 'assignsubmission_file',
-                        ASSIGNSUBMISSION_FILE_FILEAREA, $eventdata['objectid'], "id", false)) {
+                    if ($files = $fs->get_area_files($modulecontext->id, 'assignsubmission_file', 'submission_files', $eventdata['objectid'], "id", false)) {
                         foreach ($files as $file) {
                             plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, $submissionid);
-                            $queuedfiles++;
                         }
                     }
                 }
@@ -419,48 +380,148 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 if ($showcontent) { // If we should be handling in-line text.
                     $submission = $DB->get_record('assignsubmission_onlinetext', array('submission' => $eventdata['objectid']));
                     if (!empty($submission) && strlen(utf8_decode(strip_tags($submission->onlinetext))) >= $charcount) {
-                        $file = plagiarism_inspera_create_temp_file($cmid, $eventdata['courseid'], $userid, $submission->onlinetext, $submissionid);
+                        $file = plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $submission->onlinetext, $submissionid);
                         plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, $submissionid);
-                        $queuedtext++;
                     }
                 }
-
-                mtrace("Originality: Queued {$queuedfiles} file(s) and {$queuedtext} text item(s) on final submit (cmid={$cmid}, userid={$userid}).");
             }
-            return $result;
+            return true;
         }
 
         if (isset($plagiarismvalues['originality_draft_submit']) &&
             $plagiarismvalues['originality_draft_submit'] == PLAGIARISM_INSPERA_DRAFTSUBMIT_FINAL) {
-            // Assignment-specific functionality:
-            // Files should only be sent for checking once "finalized".
-            mtrace("Originality: Skipping draft event because FINAL mode is enabled (cmid={$cmid}, userid={$userid}). No rows created.");
             return true;
         }
 
-        // === CASE 2: Upload/Save Event (Draft Mode) ===
-        $result = true;
+        // Draft/Upload
         if (!empty($eventdata['other']['content']) && $showcontent &&
             strlen(utf8_decode(strip_tags($eventdata['other']['content']))) >= $charcount) {
-
-            $file = plagiarism_inspera_create_temp_file($cmid, $eventdata['courseid'], $userid, $eventdata['other']['content'], $submissionid);
+            $file = plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $eventdata['other']['content'], $submissionid);
             plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, $submissionid);
         }
 
-        // Normal situation: 1 or more assessable files attached to event, ready to be checked.
         if (!empty($eventdata['other']['pathnamehashes']) && $showfiles) {
             foreach ($eventdata['other']['pathnamehashes'] as $hash) {
                 $fs = get_file_storage();
                 $efile = $fs->get_file_by_hash($hash);
+                if ($efile && $efile->get_filename() !== '.') {
+                    plagiarism_inspera_queue_file($cmid, $userid, $efile, $relateduserid, $submissionid);
+                }
+            }
+        }
+        return true;
+    }
 
-                if (empty($efile) || $efile->get_filename() === '.') {
+    /**
+     * Helper to process a submitted quiz attempt.
+     */
+    /**
+     * Helper to process a submitted quiz attempt.
+     */
+    private function process_quiz_attempt($attemptid, $cmid, $courseid, $userid, $relateduserid) {
+        global $CFG, $DB;
+
+        // 1. Get Unique Usage ID
+        $uniqueid = $DB->get_field('quiz_attempts', 'uniqueid', ['id' => $attemptid], IGNORE_MISSING);
+        if (!$uniqueid) {
+            return;
+        }
+
+        // 2. Load Question Engine
+        try {
+            require_once($CFG->dirroot . '/question/engine/lib.php');
+            $quba = \question_engine::load_questions_usage_by_activity($uniqueid);
+        } catch (\Exception $e) {
+            error_log("INSPERA ERROR: Failed to load question usage: " . $e->getMessage());
+            return;
+        }
+
+        // 3. Load Plugin Settings & Determine What to Submit
+        $settings = plagiarism_plugin_inspera::get_settings_by_module($cmid);
+
+        // Default to '0' (PLAGIARISM_INSPERA_RESTRICTCONTENTNO) -> Submit Everything
+        $restrict_content = isset($settings['originality_restrictcontent'])
+            ? (int)$settings['originality_restrictcontent']
+            : PLAGIARISM_INSPERA_RESTRICTCONTENTNO;
+
+        // Define Logic Flags
+        // Process Text: If "No Restriction" (0) OR "Restrict to Text" (2)
+        $do_process_text = ($restrict_content === PLAGIARISM_INSPERA_RESTRICTCONTENTNO ||
+            $restrict_content === PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT);
+
+        // Process Files: If "No Restriction" (0) OR "Restrict to Files" (1)
+        $do_process_files = ($restrict_content === PLAGIARISM_INSPERA_RESTRICTCONTENTNO ||
+            $restrict_content === PLAGIARISM_INSPERA_RESTRICTCONTENTFILES);
+
+        $slots = $quba->get_slots();
+        $charcount = plagiarism_inspera_charcount();
+        $fs = get_file_storage();
+
+        // We need the exact Context ID to safely query the files table
+        $context = $quba->get_owning_context();
+
+        // 4. Loop through questions
+        foreach ($slots as $slot) {
+            try {
+                $qa = $quba->get_question_attempt($slot);
+                $question = $qa->get_question();
+
+                // Only process Essay questions
+                if ($question->qtype->name() !== 'essay') {
                     continue;
                 }
 
-                plagiarism_inspera_queue_file($cmid, $userid, $efile, $relateduserid, $submissionid);
+                // =================================================
+                // PART A: HANDLE ONLINE TEXT
+                // =================================================
+                if ($do_process_text) {
+                    $responsetext = $qa->get_response_summary();
+                    $cleantext = trim(strip_tags($responsetext));
+
+                    if (strlen(utf8_decode($cleantext)) >= $charcount) {
+                        $unique_filename = "quiz_{$cmid}_{$userid}_{$qa->get_database_id()}.html";
+                        // Note: Passing 0 for submissionid since quizzes don't use assign_submission IDs
+                        $file = plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $responsetext, 0, $unique_filename);
+                        plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, 0);
+                    }
+                }
+
+                // =================================================
+                // PART B: HANDLE ATTACHED FILES (FIXED)
+                // =================================================
+                if ($do_process_files) {
+                    $processed_hashes = []; // Avoid duplicates
+
+                    foreach ($qa->get_step_iterator() as $step) {
+                        $stepid = $step->get_id();
+
+                        // THE FIX: Use Moodle's File API to strictly filter by Context, Component, and Filearea
+                        $files = $fs->get_area_files(
+                            $context->id,             // Context ID
+                            'question',               // Component
+                            'response_attachments',   // Filearea for Essay uploads
+                            $stepid,                  // Item ID
+                            'id',                     // Sort
+                            false                     // Do not include directories
+                        );
+
+                        foreach ($files as $file) {
+                            // Filter Duplicates (Same file appearing in multiple steps)
+                            $contenthash = $file->get_contenthash();
+                            if (in_array($contenthash, $processed_hashes)) {
+                                continue;
+                            }
+                            $processed_hashes[] = $contenthash;
+
+                            // Queue the file
+                            plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, 0);
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                error_log("INSPERA ERROR: Slot $slot failed: " . $e->getMessage());
             }
         }
-        return $result;
     }
 
     /**
@@ -599,15 +660,24 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
                         return true;
                     }
                 }
+            } else if ($cm->modname === 'quiz') {
+                // Logic for Quiz: Check if the specific attempt is graded.
+                $sql = "SELECT qa.sumgrades 
+                        FROM {quiz_attempts} qa 
+                        JOIN {question_attempts} qu ON qa.uniqueid = qu.questionusageid 
+                        WHERE qu.id = ?";
+                if ($record->identifier && preg_match('/_(\d+)\.html$/', $record->identifier, $m)) {
+                    $sumgrades = $DB->get_field_sql($sql, [$m[1]]);
+                    return ($sumgrades !== null);
+                }
             }
             return false;
-        case 3: // Due date
+        case 3: // Due date / Close date
             $cm = get_coursemodule_from_id(false, $cmid, 0, false, MUST_EXIST);
-            if ($cm->modname === 'assign') {
-                $now = time();
+            $now = time();
 
+            if ($cm->modname === 'assign') {
                 // 1. CHECK EXTENSIONS (Highest Priority)
-                // If a teacher granted an extension, this is the only date that matters for this user.
                 $flags = $DB->get_record('assign_user_flags',
                     ['assignment' => $cm->instance, 'userid' => $userid],
                     'id, extensionduedate', IGNORE_MISSING);
@@ -635,6 +705,22 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
 
                 if (!empty($assign) && !empty($assign->duedate)) {
                     return $now >= (int)$assign->duedate;
+                }
+            } else if ($cm->modname === 'quiz') {
+                // Logic for Quiz: Check Close Date (including overrides).
+                // Check User Overrides first.
+                $q_u_override = $DB->get_record('quiz_overrides',
+                    ['quiz' => $cm->instance, 'userid' => $userid],
+                    'id, timeclose', IGNORE_MISSING);
+
+                if ($q_u_override && !empty($q_u_override->timeclose)) {
+                    return $now >= (int)$q_u_override->timeclose;
+                }
+
+                // Check Global Close Date.
+                $quiz = $DB->get_record('quiz', ['id' => $cm->instance], 'id, timeclose', IGNORE_MISSING);
+                if ($quiz && !empty($quiz->timeclose)) {
+                    return $now >= (int)$quiz->timeclose;
                 }
             }
             return false;
@@ -1514,9 +1600,8 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
             $existingrecord = $DB->get_record_sql($sql, [$submissionid], IGNORE_MULTIPLE);
         } else {
             $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                    WHERE cm = ? AND userid = ? AND storedfileid IS NULL
-                    ORDER BY timecreated DESC";
-            $existingrecord = $DB->get_record_sql($sql, [$cmid, $userid], IGNORE_MULTIPLE);
+                    WHERE cm = ? AND userid = ? AND identifier = ? AND storedfileid IS NULL";
+            $existingrecord = $DB->get_record_sql($sql, [$cmid, $userid, $identifier], IGNORE_MULTIPLE);
         }
     }
 
@@ -1649,11 +1734,20 @@ function plagiarism_inspera_cleanup_orphaned_records() {
  * @param int $courseid The course ID.
  * @param int $userid The user ID.
  * @param string $content The text content to write to the file.
+ * @param int $submissionid The assignment submission ID (0 for quizzes).
+ * @param string|null $specificname An optional strict filename (used by Quizzes to prevent overwrite).
  * @return stdClass An object with ->filepath and ->filename properties.
  */
-function plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $content, $submissionid) {
+function plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $content, $submissionid = 0, $specificname = null) {
     global $CFG;
-    $filename = "onlinetext_{$cmid}_{$userid}_{$submissionid}.html";
+
+    // Use the specific name if provided (Quizzes), otherwise use default (Assignments)
+    if ($specificname) {
+        $filename = $specificname;
+    } else {
+        $filename = "onlinetext_{$cmid}_{$userid}_{$submissionid}.html";
+    }
+
     $filepath = $CFG->tempdir . "/plagiarism_inspera/" . $filename;
 
     if (!is_dir(dirname($filepath))) {
@@ -1885,6 +1979,20 @@ function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
     // Check identifier field for temporary file path (online text)
     else if (!empty($plagiarismfile->identifier)) {
         $tempfilepath = $plagiarismfile->identifier;
+
+        // --- REHYDRATION LOGIC START ---
+        // If the file is missing (e.g. deleted by cleanup), try to recreate it from DB
+        if (!file_exists($tempfilepath)) {
+            mtrace("Temp file missing: {$tempfilepath}. Attempting rehydration...");
+
+            if (plagiarism_inspera_rehydrate_file($plagiarismfile, $tempfilepath)) {
+                mtrace("Rehydration successful: File recreated.");
+            } else {
+                mtrace("Rehydration failed: Could not retrieve content from database.");
+            }
+        }
+        // --- REHYDRATION LOGIC END ---
+
         $content = @file_get_contents($tempfilepath);
         if ($content === false) {
             mtrace("Failed to read temp file: {$tempfilepath}");
@@ -2058,5 +2166,62 @@ function plagiarism_inspera_checkcronhealth() {
     if (empty($send_files) || $send_files->lastruntime < time() - 3600 * 0.5) { // Check if run in last 30min.
         \core\notification::add(get_string('cronwarningsendfiles', 'plagiarism_inspera'), \core\notification::ERROR);
     }
+}
+
+/**
+ * Attempts to regenerate a missing temporary file for Online Text submissions.
+ * Supports both Assignments and Quizzes.
+ *
+ * @param stdClass $record The plagiarism_originality_subs record
+ * @param string $filepath The full path where the file should be
+ * @return boolean True if successfully recreated
+ */
+function plagiarism_inspera_rehydrate_file($record, $filepath) {
+    global $DB, $CFG;
+
+    // Safety check: We can only rehydrate Online Text (where storedfileid is NULL)
+    if (!empty($record->storedfileid)) {
+        return false;
+    }
+
+    $content = '';
+    $filename = basename($filepath); // e.g. quiz_17_4_29.html
+
+    // --- CASE A: QUIZ SUBMISSION ---
+    // We detect Quizzes by the filename pattern: quiz_{cmid}_{userid}_{qaid}.html
+    if (preg_match('/^quiz_(\d+)_(\d+)_(\d+)\.html$/', $filename, $matches)) {
+        // $matches[1] = cmid (unused here)
+        // $matches[2] = userid (unused here)
+        $qa_id = $matches[3]; // The Question Attempt ID
+
+        try {
+            require_once($CFG->dirroot . '/question/engine/lib.php');
+            // Load the specific question attempt
+            $qa = \question_engine::load_question_attempt($qa_id);
+            $content = $qa->get_response_summary();
+        } catch (\Exception $e) {
+            mtrace("Error rehydrating Quiz text: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    // --- CASE B: ASSIGNMENT SUBMISSION ---
+    // We detect Assignments if there is a valid submissionid
+    else if (!empty($record->submissionid)) {
+        // Get the online text from the assignment tables
+        $onlinetext = $DB->get_record('assignsubmission_onlinetext', ['submission' => $record->submissionid], 'onlinetext', IGNORE_MISSING);
+        if ($onlinetext) {
+            $content = $onlinetext->onlinetext;
+        }
+    }
+
+    // If we found content, write it to the file using your existing helper
+    if (!empty($content)) {
+        // We reuse the create function but force the specific filename
+        plagiarism_originality_create_temp_file($record->cm, 0, $record->userid, $content, $filename);
+        return file_exists($filepath);
+    }
+
+    return false;
 }
 
