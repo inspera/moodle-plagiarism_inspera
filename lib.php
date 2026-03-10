@@ -293,7 +293,9 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 $assign = new \assign(\context_module::instance($cm->id), $cm, null);
                 $submission = $assign->get_user_submission($linkarray['userid'], false);
                 if ($submission) {
-                    $sql = "SELECT * FROM {plagiarism_inspera_subs} WHERE submissionid = ? AND storedfileid IS NULL AND status != 'superseded' ORDER BY timecreated DESC";
+                    $sql = "SELECT * FROM {plagiarism_inspera_subs} 
+                            WHERE submissionid = ? AND storedfileid IS NULL AND status != 'superseded' 
+                            ORDER BY timecreated DESC, id DESC";
                     $textrecord = $DB->get_record_sql($sql, [$submission->id], IGNORE_MULTIPLE);
                 }
             }
@@ -310,7 +312,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                     $sql = "SELECT * FROM {plagiarism_inspera_subs} 
                             WHERE cm = ? AND userid = ? AND storedfileid IS NULL 
                             AND identifier LIKE ? AND status != 'superseded' 
-                            ORDER BY timecreated DESC";
+                            ORDER BY timecreated DESC, id DESC";
                     $textrecord = $DB->get_record_sql($sql, [$linkarray['cmid'], $linkarray['userid'], '%' . $expected_filename], IGNORE_MULTIPLE);
                 } catch (\Exception $e) {
                     debugging("INSPERA ERROR: Failed to load question attempt in get_links. " .
