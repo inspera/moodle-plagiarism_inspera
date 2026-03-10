@@ -239,4 +239,123 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
 
         $this->assertTrue($foundfile, 'Could not find the attachment queued in plagiarism_inspera_subs.');
     }
+
+    /**
+     * Test: Verify report visibility logic for Quiz attempts.
+     * Covers: Graded state, Close dates, User overrides, and file vs text identifiers.
+     */
+    public function test_should_show_report_quiz_logic() {
+        global $DB;
+
+        $this->setUser($this->student);
+        $timenow = time();
+
+        // Ensure quiz has no close date initially.
+        $DB->set_field('quiz', 'timeclose', 0, ['id' => $this->quiz->id]);
+
+        // --- 1. Setup Quiz with an Essay that requires attachments ---
+        $DB->insert_record('plagiarism_inspera_config', (object) ['cm' => $this->quiz->cmid, 'name' => 'use_originality', 'value' => '1']);
+
+        $questiongenerator = $this->getDataGenerator()->get_plugin_generator('core_question');
+        $cat = $questiongenerator->create_question_category();
+        $essay = $questiongenerator->create_question('essay', null, ['category' => $cat->id, 'attachments' => 1, 'attachmentsrequired' => 1]);
+        quiz_add_quiz_question($essay->id, $this->quiz, 0, 10.0);
+
+        $quizobj = \mod_quiz\quiz_settings::create($this->quiz->id);
+        $gradecalculator = \mod_quiz\grade_calculator::create($quizobj);
+        $gradecalculator->recompute_quiz_sumgrades();
+        $gradecalculator->update_quiz_maximum_grade(10.0);
+
+        // --- 2. Create Attempt and Submit Text + File ---
+        /** @var mod_quiz_generator $quizgenerator */
+        $quizgenerator = $this->getDataGenerator()->get_plugin_generator('mod_quiz');
+        $attemptrecord = $quizgenerator->create_attempt($this->quiz->id, $this->student->id);
+
+        $fs = get_file_storage();
+        $draftitemid = file_get_unused_draft_itemid();
+        $fs->create_file_from_string([
+            'contextid' => context_user::instance($this->student->id)->id,
+            'component' => 'user', 'filearea' => 'draft', 'itemid' => $draftitemid,
+            'filepath' => '/', 'filename' => 'visibility_test.pdf'
+        ], 'PDF content');
+
+        $attemptobj = \mod_quiz\quiz_attempt::create((int) $attemptrecord->id);
+
+        $attemptobj->process_submitted_actions($timenow, false, [
+            1 => ['answer' => 'Text response', 'answerformat' => FORMAT_HTML, 'attachments' => $draftitemid]
+        ]);
+        $attemptobj->process_finish($timenow, false);
+
+        $attemptrecord = $DB->get_record('quiz_attempts', ['id' => $attemptrecord->id], '*', MUST_EXIST);
+
+        // --- 3. Trigger Observer to generate REAL records ---
+        plagiarism_inspera_quiz_attempt_submitted($attemptrecord);
+
+        // --- 4. Fetch the REAL Text and File Records ---
+        $records = $DB->get_records('plagiarism_inspera_subs', ['cm' => $this->quiz->cmid, 'userid' => $this->student->id]);
+        $textrecord = null;
+        $filerecord = null;
+
+        foreach ($records as $rec) {
+            $rec->status = 'finished';
+
+            if (!empty($rec->storedfileid)) {
+                $filerecord = $rec;
+            } elseif (is_string($rec->identifier)) {
+                $textrecord = $rec;
+            }
+        }
+
+        $this->assertNotNull($textrecord, 'Text record was not generated.');
+        $this->assertNotNull($filerecord, 'File record was not generated.');
+
+        // --- 5. TEST SCENARIO 1: After Grading (Mode 2) ---
+        $settings = [
+            'use_originality' => 1,
+            'originality_show_student_report' => 2
+        ];
+
+        // A. Ungraded -> Should be False
+        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $textrecord));
+        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $filerecord));
+
+        // B. Grade the attempt (Set sumgrades AND insert overall quiz grade)
+        $DB->set_field('quiz_attempts', 'sumgrades', 10.0, ['id' => $attemptrecord->id]);
+        $DB->set_field('quiz_attempts', 'state', \mod_quiz\quiz_attempt::FINISHED, ['id' => $attemptrecord->id]);
+
+        $grade = new stdClass();
+        $grade->userid   = $this->student->id;
+        $grade->rawgrade = 10.0;
+        quiz_grade_item_update($quizobj->get_quiz(), $grade);
+
+        // C. Graded -> Should be True
+        $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $textrecord));
+        $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $filerecord));
+
+
+        // --- 6. TEST SCENARIO 2: After Close Date (Mode 3) ---
+        $settings = [
+            'use_originality' => 1,
+            'originality_show_student_report' => 3
+        ];
+
+        // A. Quiz closes in the FUTURE -> Should be False
+        $DB->set_field('quiz', 'timeclose', $timenow + 3600, ['id' => $this->quiz->id]);
+        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $textrecord));
+
+        // B. Quiz closed in the PAST -> Should be True
+        $DB->set_field('quiz', 'timeclose', $timenow - 3600, ['id' => $this->quiz->id]);
+        $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $textrecord));
+
+        // --- 7. TEST SCENARIO 3: User Override ---
+        $DB->insert_record('quiz_overrides', [
+            'quiz' => $this->quiz->id,
+            'userid' => $this->student->id,
+            'timeclose' => $timenow + 7200 // Extended 2 hours into the future
+        ]);
+
+        // Global quiz is closed, but override is active in the future -> Should be False
+        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $textrecord));
+        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $filerecord));
+    }
 }

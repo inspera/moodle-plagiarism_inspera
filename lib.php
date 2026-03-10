@@ -2291,7 +2291,7 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
 
     // --- CASE B: ASSIGNMENT SUBMISSION ---
     // We detect Assignments if there is a valid submissionid
-    else if (!empty($record->submissionid)) {
+    else if ($submissionid > 0) {
         // Get the online text from the assignment tables
         $onlinetext = $DB->get_record('assignsubmission_onlinetext', ['submission' => $record->submissionid], 'onlinetext', IGNORE_MISSING);
         if ($onlinetext) {
