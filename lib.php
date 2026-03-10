@@ -415,9 +415,6 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
     /**
      * Helper to process a submitted quiz attempt.
      */
-    /**
-     * Helper to process a submitted quiz attempt.
-     */
     private function process_quiz_attempt($attemptid, $cmid, $courseid, $userid, $relateduserid) {
         global $CFG, $DB;
 
@@ -475,14 +472,19 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 // PART A: HANDLE ONLINE TEXT
                 // =================================================
                 if ($do_process_text) {
-                    $responsetext = $qa->get_response_summary();
-                    $cleantext = trim(strip_tags($responsetext));
+                    // FIX: Get the raw, full answer directly from the question attempt step data
+                    // rather than the summarized/stripped version.
+                    $responsetext = $qa->get_last_qt_var('answer');
 
-                    if (strlen(utf8_decode($cleantext)) >= $charcount) {
-                        $unique_filename = "quiz_{$cmid}_{$userid}_{$qa->get_database_id()}.html";
-                        // Note: Passing 0 for submissionid since quizzes don't use assign_submission IDs
-                        $file = plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $responsetext, 0, $unique_filename);
-                        plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, 0);
+                    if ($responsetext !== null && $responsetext !== '') {
+                        $cleantext = trim(strip_tags($responsetext));
+
+                        if (strlen(utf8_decode($cleantext)) >= $charcount) {
+                            $unique_filename = "quiz_{$cmid}_{$userid}_{$qa->get_database_id()}.html";
+                            // Note: Passing 0 for submissionid since quizzes don't use assign_submission IDs
+                            $file = plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $responsetext, 0, $unique_filename);
+                            plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, 0);
+                        }
                     }
                 }
 
@@ -662,12 +664,25 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
                 }
             } else if ($cm->modname === 'quiz') {
                 // Logic for Quiz: Check if the specific attempt is graded.
-                $sql = "SELECT qa.sumgrades 
-                        FROM {quiz_attempts} qa 
-                        JOIN {question_attempts} qu ON qa.uniqueid = qu.questionusageid 
-                        WHERE qu.id = ?";
-                if ($record->identifier && preg_match('/_(\d+)\.html$/', $record->identifier, $m)) {
+                // Path A: Online Text (Extracted from filename)
+                if (!empty($record->identifier) && preg_match('/_(\d+)\.html$/', $record->identifier, $m)) {
+                    $sql = "SELECT qa.sumgrades 
+                            FROM {quiz_attempts} qa 
+                            JOIN {question_attempts} qu ON qa.uniqueid = qu.questionusageid 
+                            WHERE qu.id = ?";
                     $sumgrades = $DB->get_field_sql($sql, [$m[1]]);
+                    return ($sumgrades !== null);
+                }
+
+                // Path B: File Attachment (Walk the tables from file -> step -> attempt)
+                if (!empty($record->storedfileid)) {
+                    $sql = "SELECT qa.sumgrades
+                            FROM {files} f
+                            JOIN {question_attempt_steps} qas ON f.itemid = qas.id
+                            JOIN {question_attempts} qu ON qas.questionattemptid = qu.id
+                            JOIN {quiz_attempts} qa ON qu.questionusageid = qa.uniqueid
+                            WHERE f.id = ?";
+                    $sumgrades = $DB->get_field_sql($sql, [$record->storedfileid]);
                     return ($sumgrades !== null);
                 }
             }
@@ -2172,7 +2187,7 @@ function plagiarism_inspera_checkcronhealth() {
  * Attempts to regenerate a missing temporary file for Online Text submissions.
  * Supports both Assignments and Quizzes.
  *
- * @param stdClass $record The plagiarism_originality_subs record
+ * @param stdClass $record The plagiarism_inspera_subs record
  * @param string $filepath The full path where the file should be
  * @return boolean True if successfully recreated
  */
@@ -2186,6 +2201,7 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
 
     $content = '';
     $filename = basename($filepath); // e.g. quiz_17_4_29.html
+    $submissionid = !empty($record->submissionid) ? (int)$record->submissionid : 0;
 
     // --- CASE A: QUIZ SUBMISSION ---
     // We detect Quizzes by the filename pattern: quiz_{cmid}_{userid}_{qaid}.html
@@ -2198,7 +2214,7 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
             require_once($CFG->dirroot . '/question/engine/lib.php');
             // Load the specific question attempt
             $qa = \question_engine::load_question_attempt($qa_id);
-            $content = $qa->get_response_summary();
+            $content = $qa->get_last_qt_var('answer');
         } catch (\Exception $e) {
             mtrace("Error rehydrating Quiz text: " . $e->getMessage());
             return false;
@@ -2217,8 +2233,9 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
 
     // If we found content, write it to the file using your existing helper
     if (!empty($content)) {
-        // We reuse the create function but force the specific filename
-        plagiarism_originality_create_temp_file($record->cm, 0, $record->userid, $content, $filename);
+        // THE FIX: Correct function name, and correctly map parameters:
+        // ($cmid, $courseid, $userid, $content, $submissionid, $specificname)
+        plagiarism_inspera_create_temp_file($record->cm, 0, $record->userid, $content, $submissionid, $filename);
         return file_exists($filepath);
     }
 
