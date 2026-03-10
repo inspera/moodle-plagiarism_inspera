@@ -202,6 +202,21 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
         }
 
         // ==============================
+        // Determine Grader Status
+        // ==============================
+        $cm = get_coursemodule_from_id(false, $linkarray['cmid'], 0, false, IGNORE_MISSING);
+        $cmcontext = \context_module::instance($linkarray['cmid']);
+        $isgrader = false;
+
+        if ($cm) {
+            if ($cm->modname === 'assign') {
+                $isgrader = has_capability('mod/assign:grade', $cmcontext);
+            } else if ($cm->modname === 'quiz') {
+                $isgrader = has_capability('mod/quiz:grade', $cmcontext);
+            }
+        }
+
+        // ==============================
         // 3. FILES (Assignments & Quiz Attachments)
         // ==============================
         if (!empty($linkarray['cmid']) && !empty($linkarray['userid']) && !empty($linkarray['file'])) {
@@ -246,9 +261,6 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             }
 
             if ($record) {
-                // Determine if viewer is allowed to see this status/link.
-                $cmcontext = \context_module::instance($linkarray['cmid']);
-                $isgrader = has_capability('mod/assign:grade', $cmcontext) || has_capability('mod/quiz:grade', $cmcontext);
                 if ($isgrader || plagiarism_inspera_should_show_report($linkarray['cmid'], $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $record)) {
                     $output .= $this->get_originality_status($record, $plagiarismvalues[$linkarray['cmid']]);
                 }
@@ -287,12 +299,14 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                             AND identifier LIKE ? AND status != 'superseded' 
                             ORDER BY timecreated DESC";
                     $textrecord = $DB->get_record_sql($sql, [$linkarray['cmid'], $linkarray['userid'], '%' . $expected_filename], IGNORE_MULTIPLE);
-                } catch (\Exception $e) {}
+                } catch (\Exception $e) {
+                    error_log("INSPERA ERROR: Failed to load question attempt in get_links. " .
+                        "CMID: {$linkarray['cmid']}, Usage: {$linkarray['area']}, Slot: {$linkarray['itemid']}. " .
+                        "Message: " . $e->getMessage());
+                }
             }
 
             if ($textrecord) {
-                $cmcontext = \context_module::instance($linkarray['cmid']);
-                $isgrader = has_capability('mod/assign:grade', $cmcontext) || has_capability('mod/quiz:grade', $cmcontext);
                 if ($isgrader || plagiarism_inspera_should_show_report($linkarray['cmid'], $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $textrecord)) {
                     $output .= $this->get_originality_status($textrecord, $plagiarismvalues[$linkarray['cmid']]);
                 }
