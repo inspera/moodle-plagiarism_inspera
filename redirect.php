@@ -75,7 +75,7 @@ if (!empty($returnurlparam)) {
     if ($modulename === 'quiz') {
         if ($is_grader) {
             // Teacher: Go to Quiz Reports
-            $returnurl = new moodle_url('/mod/quiz/report.php', ['id' => $cm->id, 'mode' => 'grading']);
+            $returnurl = new moodle_url('/mod/quiz/report.php', ['id' => $cm->id, 'mode' => 'overview']);
         } else {
             // Student: Go to Quiz Summary
             $returnurl = new moodle_url('/mod/quiz/view.php', ['id' => $cm->id]);

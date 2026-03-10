@@ -309,11 +309,20 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                     $qa = $quba->get_question_attempt($linkarray['itemid']);
                     $expected_filename = "quiz_{$linkarray['cmid']}_{$linkarray['userid']}_{$qa->get_database_id()}.html";
 
+                    // Use named placeholders and escaped SQL LIKE patterns.
+                    $identifierlike = $DB->sql_like('identifier', ':identifier', false);
                     $sql = "SELECT * FROM {plagiarism_inspera_subs} 
-                            WHERE cm = ? AND userid = ? AND storedfileid IS NULL 
-                            AND identifier LIKE ? AND status != 'superseded' 
-                            ORDER BY timecreated DESC, id DESC";
-                    $textrecord = $DB->get_record_sql($sql, [$linkarray['cmid'], $linkarray['userid'], '%' . $expected_filename], IGNORE_MULTIPLE);
+                        WHERE cm = :cm AND userid = :userid AND storedfileid IS NULL 
+                        AND {$identifierlike} AND status != 'superseded' 
+                        ORDER BY timecreated DESC, id DESC";
+
+                    $params = [
+                        'cm'         => $linkarray['cmid'],
+                        'userid'     => $linkarray['userid'],
+                        'identifier' => '%' . $DB->sql_like_escape($expected_filename),
+                    ];
+
+                    $textrecord = $DB->get_record_sql($sql, $params, IGNORE_MULTIPLE);
                 } catch (\Exception $e) {
                     debugging("INSPERA ERROR: Failed to load question attempt in get_links. " .
                         "CMID: {$linkarray['cmid']}, Usage: {$linkarray['area']}, Slot: {$linkarray['itemid']}. " .
@@ -398,7 +407,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 $modulecontext = context_module::instance($cmid);
                 if ($showfiles) {
                     $fs = get_file_storage();
-                    if ($files = $fs->get_area_files($modulecontext->id, 'assignsubmission_file', 'submission_files', $eventdata['objectid'], "id", false)) {
+                    if ($files = $fs->get_area_files($modulecontext->id, 'assignsubmission_file', ASSIGNSUBMISSION_FILE_FILEAREA, $eventdata['objectid'], "id", false)) {
                         foreach ($files as $file) {
                             plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, $submissionid);
                         }
@@ -2261,12 +2270,21 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
         }
     }
 
-    // If we found content, write it to the file using your existing helper
+    // If we found content, write it directly to the exact path the caller expects.
     if (!empty($content)) {
-        // THE FIX: Correct function name, and correctly map parameters:
-        // ($cmid, $courseid, $userid, $content, $submissionid, $specificname)
-        plagiarism_inspera_create_temp_file($record->cm, 0, $record->userid, $content, $submissionid, $filename);
-        return file_exists($filepath);
+        // Ensure the directory exists (Moodle's temp folders can be cleared by Cron).
+        $dir = dirname($filepath);
+        if (!is_dir($dir)) {
+            make_writable_directory($dir);
+        }
+
+        // We write the string $content directly into the $filepath.
+        // This bypasses the 'create_temp_file' helper to ensure we don't
+        // accidentally save it to a different location than the one we're checking.
+        if (file_put_contents($filepath, $content) !== false) {
+            @chmod($filepath, $CFG->filepermissions); // Standard Moodle file permission practice.
+            return file_exists($filepath);
+        }
     }
 
     return false;
