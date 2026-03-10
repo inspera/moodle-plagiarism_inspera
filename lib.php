@@ -162,7 +162,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 $quba = question_engine::load_questions_usage_by_activity($linkarray['area']);
                 $context = $quba->get_owning_context();
                 if ($context->contextlevel == CONTEXT_MODULE) {
-                    $linkarray['cmid'] = get_coursemodule_from_id(false, $context->instanceid)->id;
+                    $linkarray['cmid'] = $context->instanceid;
                 }
             }
 
@@ -671,7 +671,7 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
                             JOIN {question_attempts} qu ON qa.uniqueid = qu.questionusageid 
                             WHERE qu.id = ?";
                     $sumgrades = $DB->get_field_sql($sql, [$m[1]]);
-                    return ($sumgrades !== null);
+                    return ($sumgrades !== false && $sumgrades !== null);
                 }
 
                 // Path B: File Attachment (Walk the tables from file -> step -> attempt)
@@ -683,7 +683,7 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
                             JOIN {quiz_attempts} qa ON qu.questionusageid = qa.uniqueid
                             WHERE f.id = ?";
                     $sumgrades = $DB->get_field_sql($sql, [$record->storedfileid]);
-                    return ($sumgrades !== null);
+                    return ($sumgrades !== false && $sumgrades !== null);
                 }
             }
             return false;
@@ -1611,11 +1611,12 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
         if ($submissionid > 0) {
             $sql = "SELECT * FROM {plagiarism_inspera_subs}
                     WHERE submissionid = ? AND storedfileid IS NULL
-                    ORDER BY timecreated DESC";
+                    ORDER BY timecreated DESC, id DESC";
             $existingrecord = $DB->get_record_sql($sql, [$submissionid], IGNORE_MULTIPLE);
         } else {
             $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                    WHERE cm = ? AND userid = ? AND identifier = ? AND storedfileid IS NULL";
+                    WHERE cm = ? AND userid = ? AND identifier = ? AND storedfileid IS NULL
+                    ORDER BY timecreated DESC, id DESC";
             $existingrecord = $DB->get_record_sql($sql, [$cmid, $userid, $identifier], IGNORE_MULTIPLE);
         }
     }
