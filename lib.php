@@ -170,22 +170,30 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 return '';
             }
 
-            // Determine userid if missing
-            if (empty($linkarray['userid']) && !empty($linkarray['itemid'])) {
-                if (empty($quba)) {
-                    $quba = question_engine::load_questions_usage_by_activity($linkarray['area']);
-                }
-                $attempt = $quba->get_question_attempt($linkarray['itemid']);
-                $linkarray['userid'] = $attempt->get_step(0)->get_user_id();
-            }
+            require_once($CFG->dirroot . '/question/engine/lib.php');
 
-            // Get content if missing
-            if (empty($linkarray['content']) && empty($linkarray['file'])) {
-                if (empty($attempt)) {
-                    $quba = question_engine::load_questions_usage_by_activity($linkarray['area']);
+            try {
+
+                // Determine userid if missing
+                if (empty($linkarray['userid']) && !empty($linkarray['itemid'])) {
+                    if (empty($quba)) {
+                        $quba = question_engine::load_questions_usage_by_activity($linkarray['area']);
+                    }
                     $attempt = $quba->get_question_attempt($linkarray['itemid']);
+                    $linkarray['userid'] = $attempt->get_step(0)->get_user_id();
                 }
-                $linkarray['content'] = $attempt->get_response_summary();
+
+                // Get content if missing
+                if (empty($linkarray['content']) && empty($linkarray['file'])) {
+                    if (empty($attempt)) {
+                        $quba = question_engine::load_questions_usage_by_activity($linkarray['area']);
+                        $attempt = $quba->get_question_attempt($linkarray['itemid']);
+                    }
+                    $linkarray['content'] = $attempt->get_response_summary();
+                }
+            } catch (\Exception $e) {
+                debugging("INSPERA ERROR: Failed to resolve question attempt details in get_links. Message: " . $e->getMessage(), DEBUG_DEVELOPER);
+                return '';
             }
         }
 
@@ -205,6 +213,11 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
         // Determine Grader Status
         // ==============================
         $cm = get_coursemodule_from_id(false, $linkarray['cmid'], 0, false, IGNORE_MISSING);
+
+        if (!$cm) {
+            return '';
+        }
+
         $cmcontext = \context_module::instance($linkarray['cmid']);
         $isgrader = false;
 
@@ -300,9 +313,9 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                             ORDER BY timecreated DESC";
                     $textrecord = $DB->get_record_sql($sql, [$linkarray['cmid'], $linkarray['userid'], '%' . $expected_filename], IGNORE_MULTIPLE);
                 } catch (\Exception $e) {
-                    error_log("INSPERA ERROR: Failed to load question attempt in get_links. " .
+                    debugging("INSPERA ERROR: Failed to load question attempt in get_links. " .
                         "CMID: {$linkarray['cmid']}, Usage: {$linkarray['area']}, Slot: {$linkarray['itemid']}. " .
-                        "Message: " . $e->getMessage());
+                        "Message: " . $e->getMessage(), DEBUG_DEVELOPER);
                 }
             }
 
@@ -443,7 +456,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             require_once($CFG->dirroot . '/question/engine/lib.php');
             $quba = \question_engine::load_questions_usage_by_activity($uniqueid);
         } catch (\Exception $e) {
-            error_log("INSPERA ERROR: Failed to load question usage: " . $e->getMessage());
+            debugging("INSPERA ERROR: Failed to load question usage: " . $e->getMessage(), DEBUG_DEVELOPER);
             return;
         }
 
@@ -535,7 +548,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                     }
                 }
             } catch (\Exception $e) {
-                error_log("INSPERA ERROR: Slot $slot failed: " . $e->getMessage());
+                debugging("INSPERA ERROR: Slot $slot failed: " . $e->getMessage(), DEBUG_DEVELOPER);
             }
         }
     }
