@@ -619,6 +619,35 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
 }
 
+/**
+ * Public helper that triggers plagiarism processing for a submitted quiz attempt.
+ *
+ * Builds the minimal event-data array expected by plagiarism_plugin_inspera::event_handler()
+ * from a raw {quiz_attempts} record and delegates to it.  This function exists so that
+ * tests and other callers can trigger the same processing path that the Moodle event
+ * observer would normally invoke, without needing to dispatch a real Moodle event.
+ *
+ * @param \stdClass $attempt A row from {quiz_attempts} containing at minimum id, quiz, userid.
+ */
+function plagiarism_inspera_quiz_attempt_submitted(\stdClass $attempt) {
+    global $DB;
+
+    $quiz = $DB->get_record('quiz', ['id' => $attempt->quiz], 'id, course', MUST_EXIST);
+    $cm   = get_coursemodule_from_instance('quiz', $attempt->quiz, $quiz->course, false, MUST_EXIST);
+
+    $eventdata = [
+        'eventtype'         => 'quiz_submitted',
+        'contextinstanceid' => (int) $cm->id,
+        'objectid'          => (int) $attempt->id,
+        'userid'            => (int) $attempt->userid,
+        'relateduserid'     => null,
+        'courseid'          => (int) $quiz->course,
+    ];
+
+    $plugin = new \plagiarism_plugin_inspera();
+    $plugin->event_handler($eventdata);
+}
+
 
 /**
  * Helper function to get allowed char count.
@@ -2272,17 +2301,20 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
 
     // If we found content, write it directly to the exact path the caller expects.
     if (!empty($content)) {
-        // Ensure the directory exists (Moodle's temp folders can be cleared by Cron).
+        // If your helper wraps in HTML, do it here too:
+        $wrappedcontent = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Online Text Submission</title></head><body>";
+        $wrappedcontent .= clean_text($content, FORMAT_HTML); // Use Moodle's standard cleaner
+        $wrappedcontent .= "</body></html>";
+
+        // 2. Ensure directory exists.
         $dir = dirname($filepath);
         if (!is_dir($dir)) {
             make_writable_directory($dir);
         }
 
-        // We write the string $content directly into the $filepath.
-        // This bypasses the 'create_temp_file' helper to ensure we don't
-        // accidentally save it to a different location than the one we're checking.
-        if (file_put_contents($filepath, $content) !== false) {
-            @chmod($filepath, $CFG->filepermissions); // Standard Moodle file permission practice.
+        // 3. Write the CLEANED content to the path.
+        if (file_put_contents($filepath, $wrappedcontent) !== false) {
+            @chmod($filepath, $GLOBALS['CFG']->filepermissions);
             return file_exists($filepath);
         }
     }
