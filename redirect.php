@@ -51,9 +51,11 @@ $modulename = $cm->modname; // 'assign' or 'quiz'
 
 if ($modulename === 'quiz') {
     $is_grader = has_capability('mod/quiz:grade', $context);
-} else {
-    // Default to assignment capability for assign or others
+} elseif ($modulename === 'assign') {
     $is_grader = has_capability('mod/assign:grade', $context);
+} else {
+    // SECURITY GUARD: Reject any unsupported module types immediately.
+    print_error('error', 'error', '', 'Unsupported module type: ' . s($modulename));
 }
 
 // Access Control: You must be a grader OR the owner of the submission

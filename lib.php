@@ -370,6 +370,12 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
         // --- QUIZ SUBMISSION ---
         if ($eventdata['eventtype'] === 'quiz_submitted') {
+            // SECURITY / LOGIC GUARD: Ensure quizzes are globally enabled before queuing.
+            // Note: If get_settings() returns an object in your plugin, use $plagiarismsettings->enable_mod_quiz instead.
+            if (empty($plagiarismsettings['enable_mod_quiz'])) {
+                return true;
+            }
+
             $attemptid = $eventdata['objectid'];
             $this->process_quiz_attempt($attemptid, $cmid, $courseid, $userid, $relateduserid);
             return true;
@@ -2262,6 +2268,25 @@ function plagiarism_inspera_checkcronhealth() {
 function plagiarism_inspera_rehydrate_file($record, $filepath) {
     global $DB, $CFG;
 
+    // --- Validate target directory ---
+    $expected_base = rtrim($CFG->tempdir, '/') . '/plagiarism_inspera/';
+
+    // Normalize paths to prevent slash-direction bypasses (e.g., on Windows servers)
+    $normalized_filepath = str_replace('\\', '/', $filepath);
+    $normalized_base     = str_replace('\\', '/', $expected_base);
+
+    // 1. Block any directory traversal attempts ("../")
+    if (strpos($normalized_filepath, '..') !== false) {
+        mtrace("Security block: Path traversal attempt detected in rehydration path.");
+        return false;
+    }
+
+    // 2. Enforce the base directory prefix
+    if (strpos($normalized_filepath, $normalized_base) !== 0) {
+        mtrace("Security block: Attempted to write rehydrated file outside of plugin temp directory.");
+        return false;
+    }
+
     // Safety check: We can only rehydrate Online Text (where storedfileid is NULL)
     if (!empty($record->storedfileid)) {
         return false;
@@ -2301,10 +2326,19 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
 
     // If we found content, write it directly to the exact path the caller expects.
     if (!empty($content)) {
-        // If your helper wraps in HTML, do it here too:
-        $wrappedcontent = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Online Text Submission</title></head><body>";
-        $wrappedcontent .= clean_text($content, FORMAT_HTML); // Use Moodle's standard cleaner
-        $wrappedcontent .= "</body></html>";
+        // Match the formatting and sanitization rules from create_temp_file exactly.
+        $cleanedcontent = format_text($content, FORMAT_HTML, [
+            'context' => context_system::instance(),
+            'filter' => false, // Don't apply filters, just clean
+            'noclean' => false  // DO apply cleaning
+        ]);
+
+        $htmlcontent = $cleanedcontent;
+
+        // Conditionally wrap only if it's not already a full HTML document.
+        if (!preg_match('/^\s*(<!DOCTYPE\s+html.*?>|<html[\s>])/i', $cleanedcontent)) {
+            $htmlcontent = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Online Text Submission</title></head><body>' . $cleanedcontent . '</body></html>';
+        }
 
         // 2. Ensure directory exists.
         $dir = dirname($filepath);
@@ -2312,8 +2346,8 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
             make_writable_directory($dir);
         }
 
-        // 3. Write the CLEANED content to the path.
-        if (file_put_contents($filepath, $wrappedcontent) !== false) {
+        // 3. Write the byte-equivalent content to the path.
+        if (file_put_contents($filepath, $htmlcontent) !== false) {
             @chmod($filepath, $GLOBALS['CFG']->filepermissions);
             return file_exists($filepath);
         }
