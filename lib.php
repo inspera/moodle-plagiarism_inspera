@@ -172,25 +172,33 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 return '';
             }
 
-
             try {
+                // Determine what data we are missing
+                $needs_userid  = empty($linkarray['userid']);
+                $needs_content = empty($linkarray['content']) && empty($linkarray['file']);
 
-                // Determine userid if missing
-                if (empty($linkarray['userid']) && !empty($linkarray['itemid'])) {
-                    if (empty($quba)) {
-                        $quba = question_engine::load_questions_usage_by_activity($linkarray['area']);
+                if ($needs_userid || $needs_content) {
+                    if (empty($linkarray['area']) || empty($linkarray['itemid'])) {
+                        // We lack the required context to query the Question Engine. Bail out early.
+                        return '';
                     }
-                    $attempt = $quba->get_question_attempt($linkarray['itemid']);
-                    $linkarray['userid'] = $attempt->get_step(0)->get_user_id();
-                }
 
-                // Get content if missing
-                if (empty($linkarray['content']) && empty($linkarray['file'])) {
+                    if (empty($quba)) {
+                        $quba = \question_engine::load_questions_usage_by_activity($linkarray['area']);
+                    }
                     if (empty($attempt)) {
-                        $quba = question_engine::load_questions_usage_by_activity($linkarray['area']);
                         $attempt = $quba->get_question_attempt($linkarray['itemid']);
                     }
-                    $linkarray['content'] = $attempt->get_response_summary();
+
+                    // Resolve the missing User ID
+                    if ($needs_userid) {
+                        $linkarray['userid'] = $attempt->get_step(0)->get_user_id();
+                    }
+
+                    // Resolve the missing Content
+                    if ($needs_content) {
+                        $linkarray['content'] = $attempt->get_response_summary();
+                    }
                 }
             } catch (\Exception $e) {
                 debugging("INSPERA ERROR: Failed to resolve question attempt details in get_links. Message: " . $e->getMessage(), DEBUG_DEVELOPER);
