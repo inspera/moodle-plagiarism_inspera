@@ -1841,7 +1841,14 @@ function plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $content
 
     // Use the specific name if provided (Quizzes), otherwise use default (Assignments)
     if ($specificname) {
-        $filename = $specificname;
+        // Strip all path separators and illegal characters to prevent Arbitrary File Write.
+        $filename = clean_param($specificname, PARAM_FILE);
+
+        // If the sanitizer stripped everything, the input was completely invalid/malicious.
+        if (empty($filename)) {
+            mtrace("SECURITY FATAL: Invalid specificname provided to create_temp_file. Aborting.");
+            return false; // Fail securely. Do not fallback to an assignment name!
+        }
     } else {
         $filename = "onlinetext_{$cmid}_{$userid}_{$submissionid}.html";
     }
@@ -2077,6 +2084,26 @@ function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
     // Check identifier field for temporary file path (online text)
     else if (!empty($plagiarismfile->identifier)) {
         $tempfilepath = $plagiarismfile->identifier;
+
+        // --- Validate target directory ---
+        // Prevent Arbitrary File Read via malicious backup restoration.
+        global $CFG;
+        $expected_base = rtrim($CFG->tempdir, '/') . '/plagiarism_inspera/';
+
+        $normalized_filepath = str_replace('\\', '/', $tempfilepath);
+        $normalized_base     = str_replace('\\', '/', $expected_base);
+
+        // 1. Block any directory traversal attempts ("../")
+        // 2. Enforce the base directory prefix
+        if (strpos($normalized_filepath, '..') !== false || strpos($normalized_filepath, $normalized_base) !== 0) {
+            mtrace("SECURITY FATAL: Unauthorized directory or traversal attempt detected in identifier path: {$tempfilepath}");
+
+            // Mark the record as an error so cron stops trying to process it
+            $plagiarismfile->status = 'error';
+            $plagiarismfile->description = 'Security violation: Invalid file path detected.';
+            $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+            return false;
+        }
 
         // --- REHYDRATION LOGIC START ---
         // If the file is missing (e.g. deleted by cleanup), try to recreate it from DB

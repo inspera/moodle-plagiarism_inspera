@@ -38,7 +38,7 @@ $record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], '*', MUST_EX
 
 // 2. Load CM and Determine Module Type
 // We pass false for the module name so Moodle loads it regardless of type (assign or quiz)
-$cm = get_coursemodule_from_id(false, $record->cm, 0, false, MUST_EXIST);
+$cm = get_coursemodule_from_id('', $record->cm, 0, false, MUST_EXIST);
 $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
 
 // 3. Security & Context
