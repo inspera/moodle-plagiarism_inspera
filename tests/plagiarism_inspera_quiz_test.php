@@ -366,7 +366,6 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
     public function test_rehydrate_file_logic() {
         global $DB, $CFG;
 
-        $this->resetAfterTest(true);
         $generator = $this->getDataGenerator();
 
         // --- SCENARIO 1: Security Guard (Path Traversal) ---
