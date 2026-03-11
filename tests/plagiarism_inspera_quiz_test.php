@@ -89,11 +89,10 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         $gradecalculator->update_quiz_maximum_grade(10.0);
 
         // --- 3. Attempt Creation ---
-        // CRITICAL FIX: Tell PHPUnit to act as the student!
         $this->setUser($this->student);
         $timenow = time();
 
-        // CRITICAL FIX: Use the data generator, which safely writes the record and bypasses web-only capability checks.
+        // Use the data generator, which safely writes the record and bypasses web-only capability checks.
         /** @var mod_quiz_generator $quizgenerator */
         $quizgenerator = $this->getDataGenerator()->get_plugin_generator('mod_quiz');
         $attemptrecord = $quizgenerator->create_attempt($this->quiz->id, $this->student->id);

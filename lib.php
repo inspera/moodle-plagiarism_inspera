@@ -525,7 +525,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 // PART A: HANDLE ONLINE TEXT
                 // =================================================
                 if ($do_process_text) {
-                    // FIX: Get the raw, full answer directly from the question attempt step data
+                    // Get the raw, full answer directly from the question attempt step data
                     // rather than the summarized/stripped version.
                     $responsetext = $qa->get_last_qt_var('answer');
 
@@ -542,7 +542,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 }
 
                 // =================================================
-                // PART B: HANDLE ATTACHED FILES (FIXED)
+                // PART B: HANDLE ATTACHED FILES
                 // =================================================
                 if ($do_process_files) {
                     $processed_hashes = []; // Avoid duplicates
@@ -550,7 +550,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                     foreach ($qa->get_step_iterator() as $step) {
                         $stepid = $step->get_id();
 
-                        // THE FIX: Use Moodle's File API to strictly filter by Context, Component, and Filearea
+                        // Use Moodle's File API to strictly filter by Context, Component, and Filearea
                         $files = $fs->get_area_files(
                             $context->id,             // Context ID
                             'question',               // Component
@@ -1313,11 +1313,6 @@ function plagiarism_inspera_get_form_elements($mform) {
     ];
     ksort($languages); // Alphabetical
 
-    $draftoptions = array(
-        PLAGIARISM_INSPERA_DRAFTSUBMIT_IMMEDIATE => get_string("submitondraft", "plagiarism_inspera"),
-        PLAGIARISM_INSPERA_DRAFTSUBMIT_FINAL => get_string("submitonfinal", "plagiarism_inspera")
-    );
-
     $mform->addElement('header', 'plagiarismdesc', get_string('originality', 'plagiarism_inspera'));
 
     // create a static empty div on top. The "Show more" link will be always on top.
@@ -1925,7 +1920,7 @@ function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
             }
         } catch (\Exception $e) {
             // Fallback: If cm lookup fails, stick to the default name or log it.
-            // keeping $authorname as fullname
+            mtrace("Warning: Failed to load CM for blind marking check (fileid: {$plagiarismfile->id}). " . $e->getMessage());
         }
 
         $filename = 'submission.html';
@@ -1983,6 +1978,7 @@ function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
             }
         } catch (\Throwable $e) {
             // Non-fatal if educator fetching fails; proceed without educators
+            mtrace("Warning: Failed to fetch educators list for CM {$plagiarismfile->cm}. " . $e->getMessage());
         }
 
         // --- 2. BUILD STUDENTS LIST  ---
@@ -2349,7 +2345,7 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
         }
 
         try {
-            // FIX: Moodle requires loading the full Usage first, then extracting the Slot.
+            // Moodle requires loading the full Usage first, then extracting the Slot.
             $qarecord = $DB->get_record('question_attempts', ['id' => $qa_id], 'questionusageid, slot', IGNORE_MISSING);
 
             if ($qarecord) {
