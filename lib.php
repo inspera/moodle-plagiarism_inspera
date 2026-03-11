@@ -157,6 +157,8 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 return '';
             }
 
+            require_once($CFG->dirroot . '/question/engine/lib.php');
+
             // Resolve cmid
             if (empty($linkarray['cmid']) && !empty($linkarray['area'])) {
                 $quba = question_engine::load_questions_usage_by_activity($linkarray['area']);
@@ -170,7 +172,6 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 return '';
             }
 
-            require_once($CFG->dirroot . '/question/engine/lib.php');
 
             try {
 
@@ -2304,10 +2305,18 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
         $qa_id = $matches[3]; // The Question Attempt ID
 
         try {
-            require_once($CFG->dirroot . '/question/engine/lib.php');
-            // Load the specific question attempt
-            $qa = \question_engine::load_question_attempt($qa_id);
-            $content = $qa->get_last_qt_var('answer');
+            // FIX: Moodle requires loading the full Usage first, then extracting the Slot.
+            $qarecord = $DB->get_record('question_attempts', ['id' => $qa_id], 'questionusageid, slot', IGNORE_MISSING);
+
+            if ($qarecord) {
+                require_once($CFG->dirroot . '/question/engine/lib.php');
+                // 1. Load the entire attempt usage
+                $quba = \question_engine::load_questions_usage_by_activity($qarecord->questionusageid);
+                // 2. Extract the specific question attempt using the slot number
+                $qa = $quba->get_question_attempt($qarecord->slot);
+                // 3. Get the submitted text
+                $content = $qa->get_last_qt_var('answer');
+            }
         } catch (\Exception $e) {
             mtrace("Error rehydrating Quiz text: " . $e->getMessage());
             return false;

@@ -55,7 +55,7 @@ if ($modulename === 'quiz') {
     $is_grader = has_capability('mod/assign:grade', $context);
 } else {
     // SECURITY GUARD: Reject any unsupported module types immediately.
-    print_error('error', 'error', '', 'Unsupported module type: ' . s($modulename));
+    print_error('error', 'error', '', null, 'Unsupported module type: ' . s($modulename));
 }
 
 // Access Control: You must be a grader OR the owner of the submission
