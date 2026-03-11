@@ -1848,8 +1848,8 @@ function plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $content
     // Wrap content in basic HTML structure if not already HTML
     $htmlcontent = $cleanedcontent;
     // Check if content starts with a DOCTYPE or <html> tag (ignoring whitespace)
-    if (!preg_match('/^\s*(<!DOCTYPE\s+html.*?>|<html[\s>])/i', $content)) {
-        $htmlcontent = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Online Text Submission</title></head><body>' . $content . '</body></html>';
+    if (!preg_match('/^\s*(<!DOCTYPE\s+html.*?>|<html[\s>])/i', $cleanedcontent)) {
+        $htmlcontent = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Online Text Submission</title></head><body>' . $cleanedcontent . '</body></html>';
     }
 
     file_put_contents($filepath, $htmlcontent);

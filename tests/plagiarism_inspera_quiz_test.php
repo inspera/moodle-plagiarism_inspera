@@ -145,7 +145,7 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
      * Test: Verify that an essay response with a file attachment queues the file.
      */
     public function test_quiz_attachment_queuing() {
-        global $DB, $USER;
+        global $DB;
 
         // --- 1. Enable Inspera for this module ---
         $DB->insert_record('plagiarism_inspera_config', (object) [
