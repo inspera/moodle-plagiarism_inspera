@@ -213,7 +213,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
         // ==============================
         // Determine Grader Status
         // ==============================
-        $cm = get_coursemodule_from_id(false, $linkarray['cmid'], 0, false, IGNORE_MISSING);
+        $cm = get_coursemodule_from_id('', $linkarray['cmid'], 0, false, IGNORE_MISSING);
 
         if (!$cm) {
             return '';
@@ -724,7 +724,7 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
         case 2: // After grading
             // Determine if there is a grade for this assignment instance for this user.
             // Resolve course module and instance.
-            $cm = get_coursemodule_from_id(false, $cmid, 0, false, MUST_EXIST);
+            $cm = get_coursemodule_from_id('', $cmid, 0, false, MUST_EXIST);
             if ($cm->modname === 'assign') {
                 // Use the grade API to see if a grade exists and is not null.
                 require_once($GLOBALS['CFG']->libdir . '/gradelib.php');
@@ -762,7 +762,7 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
             }
             return false;
         case 3: // Due date / Close date
-            $cm = get_coursemodule_from_id(false, $cmid, 0, false, MUST_EXIST);
+            $cm = get_coursemodule_from_id('', $cmid, 0, false, MUST_EXIST);
             $now = time();
 
             if ($cm->modname === 'assign') {
