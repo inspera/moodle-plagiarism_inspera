@@ -517,7 +517,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 $question = $qa->get_question();
 
                 // Only process Essay questions
-                if ($question->qtype->name() !== 'essay') {
+                if ($question->get_type_name() !== 'essay') {
                     continue;
                 }
 
@@ -1846,8 +1846,7 @@ function plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $content
 
         // If the sanitizer stripped everything, the input was completely invalid/malicious.
         if (empty($filename)) {
-            mtrace("SECURITY FATAL: Invalid specificname provided to create_temp_file. Aborting.");
-            return false; // Fail securely. Do not fallback to an assignment name!
+            throw new \coding_exception('Invalid specificname provided to plagiarism_inspera_create_temp_file');
         }
     } else {
         $filename = "onlinetext_{$cmid}_{$userid}_{$submissionid}.html";
