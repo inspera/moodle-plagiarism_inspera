@@ -2335,9 +2335,19 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
     // --- CASE A: QUIZ SUBMISSION ---
     // We detect Quizzes by the filename pattern: quiz_{cmid}_{userid}_{qaid}.html
     if (preg_match('/^quiz_(\d+)_(\d+)_(\d+)\.html$/', $filename, $matches)) {
-        // $matches[1] = cmid (unused here)
-        // $matches[2] = userid (unused here)
-        $qa_id = $matches[3]; // The Question Attempt ID
+        $cmidfromfilename   = (int)$matches[1];
+        $useridfromfilename = (int)$matches[2];
+        $qa_id              = (int)$matches[3]; // The Question Attempt ID
+
+        // --- Validate filename ownership ---
+        if (!empty($record->cm) && (int)$record->cm !== $cmidfromfilename) {
+            mtrace("Security block: cmid in quiz filename does not match record cm.");
+            return false;
+        }
+        if (!empty($record->userid) && (int)$record->userid !== $useridfromfilename) {
+            mtrace("Security block: userid in quiz filename does not match record userid.");
+            return false;
+        }
 
         try {
             // FIX: Moodle requires loading the full Usage first, then extracting the Slot.
