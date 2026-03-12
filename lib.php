@@ -1704,44 +1704,50 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
     if ($existingrecord) {
         $status = $existingrecord->status ?? '';
 
-        // 1. If currently processing, don't double-queue.
-        if (in_array($status, ['pending', 'report_requested', 'processing'])) {
+        // --- SCENARIO 1: FILES (Immutable in Moodle) ---
+        if ($storedfileid) {
+            // If the file previously failed, reset it so cron tries again.
+            if (in_array($status, ['error', 'external_error'])) {
+                $existingrecord->status = 'report_requested';
+                $existingrecord->description = '';
+                $existingrecord->externalid = ''; // Clear external ID to force a fresh upload
+                $existingrecord->timemodified = $currenttime;
+                $DB->update_record('plagiarism_inspera_subs', $existingrecord);
+            }
+            // Moodle files are immutable. If it has any other status
+            // (report_requested, pending, processing, finished, superseded),
+            // it's the exact same file content. We do not need to queue it again.
             return;
         }
 
-        // 2. Handle records that have already been attempted via API.
-        if (!empty($existingrecord->externalid)) {
+        // --- SCENARIO 2: ONLINE TEXT (Mutable, temp file gets overwritten) ---
+        if ($identifier) {
+            // If it hasn't been picked up by the cron yet, the cron will naturally
+            // read the freshly overwritten temp file when it runs. No DB changes needed.
+            if ($status === 'report_requested') {
+                return;
+            }
 
-            // IF ERROR: Reset the existing row.
-            if ($status === 'error' || $status === 'external_error') {
+            // If it previously failed, reset the row so cron tries again.
+            if (in_array($status, ['error', 'external_error'])) {
                 $existingrecord->status = 'report_requested';
-                $existingrecord->description = ''; // Clear the error message.
+                $existingrecord->description = '';
                 $existingrecord->externalid = '';
-                $existingrecord->identifier = $identifier;
                 $existingrecord->timemodified = $currenttime;
                 $DB->update_record('plagiarism_inspera_subs', $existingrecord);
                 return;
             }
 
-            // IF SUCCESSFUL FILE: Do nothing (files are immutable).
-            if ($storedfileid) {
-                return;
+            // If it has already been transmitted to the external API (pending, finished),
+            // the API is analyzing the OLD text. We must mark the old record as superseded
+            // and fall through to create a brand new row for the NEW text.
+            if (in_array($status, ['pending', 'finished'])) {
+                $existingrecord->status = 'superseded';
+                $existingrecord->timemodified = $currenttime;
+                $DB->update_record('plagiarism_inspera_subs', $existingrecord);
+
+                // DO NOT RETURN! Let it fall through to create the new record below.
             }
-
-            // IF SUCCESSFUL ONLINE TEXT: Mark as superseded so a new one can be created.
-            $existingrecord->status = 'superseded';
-            $existingrecord->timemodified = $currenttime;
-            $DB->update_record('plagiarism_inspera_subs', $existingrecord);
-
-            // Fall through to the NEW record creation at the bottom.
-        } else {
-            // No External ID yet: Just update the existing row and reset to queue.
-            $existingrecord->status = 'report_requested';
-            $existingrecord->description = '';
-            $existingrecord->identifier = $identifier;
-            $existingrecord->timemodified = $currenttime;
-            $DB->update_record('plagiarism_inspera_subs', $existingrecord);
-            return;
         }
     }
 
