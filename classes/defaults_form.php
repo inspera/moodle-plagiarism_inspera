@@ -44,6 +44,10 @@ class plagiarism_inspera_defaults_form extends moodleform {
             PLAGIARISM_INSPERA_DRAFTSUBMIT_FINAL => get_string("submitonfinal", "plagiarism_inspera")
         );
 
+        // Explain why module-level settings (like Translations) appear in the lists below.
+        $infomsg = get_string('admin_overrides_info', 'plagiarism_inspera');
+        $mform->addElement('html', '<div class="alert alert-info mt-4 mb-3" role="alert"><strong>' . get_string('admin_overrides_info_note', 'plagiarism_inspera') . ':</strong> ' . s($infomsg) . '</div>');
+
         foreach ($supportedmodules as $sm) {
             if (!plugin_supports('mod', $sm, FEATURE_PLAGIARISM)) {
                 continue;
@@ -163,9 +167,6 @@ class plagiarism_inspera_defaults_form extends moodleform {
                     get_string("originality_draft_submit", "plagiarism_inspera"), $draftoptions);
                 $mform->addHelpButton('originality_draft_submit_'.$sm, 'originality_draft_submit', 'plagiarism_inspera');
             }
-            // Explain why module-level settings (like Translations) appear in the lists below.
-            $infomsg = get_string('admin_overrides_info', 'plagiarism_inspera');
-            $mform->addElement('html', '<div class="alert alert-info mt-4 mb-3" role="alert">' . $infomsg . '</div>');
 
             $items = array();
             foreach (plagiarism_plugin_inspera::config_options() as $setting) {
