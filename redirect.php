@@ -19,7 +19,7 @@
  * and redirects the user to it.
  *
  * @package    plagiarism_inspera
- * @copyright  2025 Your Name (Your Company)
+ * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -36,15 +36,27 @@ global $DB, $USER;
 
 $record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], '*', MUST_EXIST);
 
-// Load cm + course
-$cm = get_coursemodule_from_id('assign', $record->cm, 0, false, MUST_EXIST);
+// 2. Load CM and Determine Module Type
+// We pass false for the module name so Moodle loads it regardless of type (assign or quiz)
+$cm = get_coursemodule_from_id('', $record->cm, 0, false, MUST_EXIST);
 $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
 
-// Security
+// 3. Security & Context
 $context = context_module::instance($cm->id);
 require_login($course, true, $cm);
 
-$is_grader = has_capability('mod/assign:grade', $context);
+// 4. Determine Capability based on Module
+$is_grader = false;
+$modulename = $cm->modname; // 'assign' or 'quiz'
+
+if ($modulename === 'quiz') {
+    $is_grader = has_capability('mod/quiz:grade', $context);
+} elseif ($modulename === 'assign') {
+    $is_grader = has_capability('mod/assign:grade', $context);
+} else {
+    // SECURITY GUARD: Reject any unsupported module types immediately.
+    print_error('error', 'error', '', null, 'Unsupported module type: ' . s($modulename));
+}
 
 // Access Control: You must be a grader OR the owner of the submission
 if (!$is_grader && $record->userid != $USER->id) {
@@ -57,13 +69,28 @@ $PAGE->set_context($context);
 $PAGE->set_title(get_string('pluginname', 'plagiarism_inspera'));
 $PAGE->set_pagelayout('standard');
 
-// Work out where to return on error. Prefer explicitly provided returnurl.
-// Otherwise, send teachers to the grading (Submissions) tab and students to their submission page.
-$returnurl = !empty($returnurlparam)
-    ? new moodle_url($returnurlparam)
-    : (has_capability('mod/assign:grade', $context)
-        ? new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'grading'])
-        : new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'editsubmission']));
+// 6. Determine Return URL (Fallback if not provided)
+if (!empty($returnurlparam)) {
+    $returnurl = new moodle_url($returnurlparam);
+} else {
+    // Generate intelligent fallbacks based on module type
+    if ($modulename === 'quiz') {
+        if ($is_grader) {
+            // Teacher: Go to Quiz Reports
+            $returnurl = new moodle_url('/mod/quiz/report.php', ['id' => $cm->id, 'mode' => 'overview']);
+        } else {
+            // Student: Go to Quiz Summary
+            $returnurl = new moodle_url('/mod/quiz/view.php', ['id' => $cm->id]);
+        }
+    } else {
+        // Assignment Logic
+        if ($is_grader) {
+            $returnurl = new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'grading']);
+        } else {
+            $returnurl = new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'editsubmission']);
+        }
+    }
+}
 
 // Helper to render a non-redirecting message page and exit.
 $render_error_and_exit = function(string $message, moodle_url $continueurl) use ($OUTPUT) {
