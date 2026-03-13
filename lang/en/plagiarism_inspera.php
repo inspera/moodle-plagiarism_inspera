@@ -204,3 +204,5 @@ $string['privacy:metadata:inspera'] = 'Data is transferred to the external Inspe
 $string['privacy:metadata:inspera:filename'] = 'The name of the file being processed.';
 $string['privacy:metadata:inspera:fullname'] = 'The full name of the user assigned to the submission.';
 $string['privacy:metadata:inspera:content'] = 'The actual text or file content sent for analysis.';
+
+$string['admin_overrides_info'] = '<strong>Note:</strong> Some features (like Translations and Select supported translation languages) do not have global defaults and are enabled by teachers directly within each activity. However, you can still use the lists below to globally hide, lock, or mark those features as advanced across the entire site.';
