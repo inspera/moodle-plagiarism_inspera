@@ -1131,9 +1131,21 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         if (isset($plagiarismvalues[$element])) {
             // Priority 1: Use value saved for this specific activity.
             $mform->setDefault($element, $plagiarismvalues[$element]);
+
         } else if (isset($plagiarismdefaults[$defaultelement])) {
-            // Priority 2: Use the admin-defined default for this module type.
-            $mform->setDefault($element, $plagiarismdefaults[$defaultelement]);
+            // Even if legacy admin defaults exist in the DB, we ignore them for Translations.
+            // This ensures new activities always default to "Off" (0) as intended.
+            $excluded = [
+                'originality_enable_translations',
+                'originality_translation_languages'
+            ];
+
+            if (in_array($element, $excluded)) {
+                $mform->setDefault($element, 0); // Force safe default
+            } else {
+                // Priority 2: Use the admin-defined default for this module type.
+                $mform->setDefault($element, $plagiarismdefaults[$defaultelement]);
+            }
         }
     }
 
