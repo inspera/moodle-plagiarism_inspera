@@ -87,10 +87,42 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
         global $DB;
         $settings = [];
 
+        // Map of setting names to expected parameter types.
+        // This ensures that even hidden/locked fields are cleaned consistently.
+        $typesmap = [
+            'use_originality'                       => PARAM_INT,
+            'originality_display_type'              => PARAM_ALPHA, // Your new setting
+            'originality_allowallfile'              => PARAM_INT,
+            'originality_archive'                   => PARAM_INT,
+            'originality_restrictcontent'           => PARAM_INT,
+            'originality_selectfiletypes'           => PARAM_TAGLIST,
+            'originality_metadata_analysis'         => PARAM_INT,
+            'originality_enable_ai'                 => PARAM_INT,
+            'originality_enable_translations'       => PARAM_INT,
+            'originality_translation_languages'     => PARAM_TAGLIST,
+            'originality_enable_context_similarity' => PARAM_INT,
+            'originality_context_threshold'         => PARAM_INT,
+            'originality_enable_include_urls'       => PARAM_INT,
+            'originality_include_urls'              => PARAM_TEXT,
+            'originality_enable_exclude_urls'       => PARAM_INT,
+            'originality_exclude_urls'              => PARAM_TEXT,
+            'originality_show_student_report'       => PARAM_INT,
+            'originality_draft_submit'              => PARAM_INT,
+        ];
+
         // Load module config from plagiarism config table.
         $records = $DB->get_records('plagiarism_inspera_config', ['cm' => $cmid]);
         foreach ($records as $rec) {
-            $settings[$rec->name] = $rec->value;
+            $value = $rec->value;
+
+            // Apply strict cleaning if the type is known, otherwise fallback to standard cleaning.
+            if (isset($typesmap[$rec->name])) {
+                $value = clean_param($value, $typesmap[$rec->name]);
+            } else {
+                $value = clean_param($value, PARAM_RAW);
+            }
+
+            $settings[$rec->name] = $value;
         }
 
         return $settings;
