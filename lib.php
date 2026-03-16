@@ -1126,6 +1126,10 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
     // === 5. Set Default Values ===
     // Now that all elements exist (either visible or hidden), set their default values.
     // Priority: 1) Specific activity values, 2) Admin defaults.
+    $excludeddefaults = [
+        'originality_enable_translations',
+        'originality_translation_languages'
+    ];
     foreach ($plagiarismelements as $element) {
         $defaultelement = $element . '_' . str_replace('mod_', '', $modulename);
         if (isset($plagiarismvalues[$element])) {
@@ -1135,12 +1139,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         } else if (isset($plagiarismdefaults[$defaultelement])) {
             // Even if legacy admin defaults exist in the DB, we ignore them for Translations.
             // This ensures new activities always default to "Off" (0) as intended.
-            $excluded = [
-                'originality_enable_translations',
-                'originality_translation_languages'
-            ];
-
-            if (in_array($element, $excluded, true)) {
+            if (in_array($element, $excludeddefaults, true)) {
                 if ($element === 'originality_enable_translations') {
                     // Force the translations toggle to be disabled by default.
                     $mform->setDefault($element, 0);
