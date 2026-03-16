@@ -1126,14 +1126,32 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
     // === 5. Set Default Values ===
     // Now that all elements exist (either visible or hidden), set their default values.
     // Priority: 1) Specific activity values, 2) Admin defaults.
+    $excludeddefaults = [
+        'originality_enable_translations',
+        'originality_translation_languages'
+    ];
     foreach ($plagiarismelements as $element) {
         $defaultelement = $element . '_' . str_replace('mod_', '', $modulename);
         if (isset($plagiarismvalues[$element])) {
             // Priority 1: Use value saved for this specific activity.
             $mform->setDefault($element, $plagiarismvalues[$element]);
+
         } else if (isset($plagiarismdefaults[$defaultelement])) {
-            // Priority 2: Use the admin-defined default for this module type.
-            $mform->setDefault($element, $plagiarismdefaults[$defaultelement]);
+            // Even if legacy admin defaults exist in the DB, we ignore them for Translations.
+            // This ensures new activities always default to "Off" (0) as intended.
+            if (in_array($element, $excludeddefaults, true)) {
+                if ($element === 'originality_enable_translations') {
+                    // Force the translations toggle to be disabled by default.
+                    $mform->setDefault($element, 0);
+                } else if ($element === 'originality_translation_languages') {
+                    // For the multi-select languages field, use an empty selection,
+                    // not a scalar 0, to avoid it being treated as a language code.
+                    $mform->setDefault($element, []);
+                }
+            } else {
+                // Priority 2: Use the admin-defined default for this module type.
+                $mform->setDefault($element, $plagiarismdefaults[$defaultelement]);
+            }
         }
     }
 
@@ -1143,14 +1161,41 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
     $get_list_values = function($base_name) use ($suffix, $plagiarismvalues, $plagiarismdefaults) {
         $fullname = $base_name . $suffix;
 
-        // 1. Try Local Assignment Setting (Snapshot)
+
+        // 1. Try Local Assignment Setting (Snapshot).
+        // Note: for this plugin, per-activity/module snapshot values are stored using the suffixed name (e.g. originality_hiddenitems_assign),
         if (isset($plagiarismvalues[$fullname])) {
-            return !empty($plagiarismvalues[$fullname]) ? explode(',', $plagiarismvalues[$fullname]) : [];
+            $val = $plagiarismvalues[$fullname];
+            if (!is_array($val)) {
+                $valstr = trim((string)$val);
+                if ($valstr === '') {
+                    return [];
+                }
+                $items = array_map('trim', explode(',', $valstr));
+                $items = array_values(array_filter($items, static function($v) {
+                    return $v !== '';
+                }));
+                return $items;
+            }
+            return $val;
         }
 
-        // 2. Fallback to Admin Default
+        // 2. Fallback to Admin Default.
+        // Note: admin-level config IS stored with the module suffix.
         if (isset($plagiarismdefaults[$fullname])) {
-            return !empty($plagiarismdefaults[$fullname]) ? explode(',', $plagiarismdefaults[$fullname]) : [];
+            $val = $plagiarismdefaults[$fullname];
+            if (!is_array($val)) {
+                $valstr = trim((string)$val);
+                if ($valstr === '') {
+                    return [];
+                }
+                $items = array_map('trim', explode(',', $valstr));
+                $items = array_values(array_filter($items, static function($v) {
+                    return $v !== '';
+                }));
+                return $items;
+            }
+            return $val;
         }
 
         return [];

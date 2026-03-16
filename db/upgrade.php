@@ -32,11 +32,26 @@ defined('MOODLE_INTERNAL') || die();
 function xmldb_plagiarism_inspera_upgrade($oldversion) {
     global $DB;
 
-    $dbman = $DB->get_manager();
+    // ---  CLEANUP LEGACY TRANSLATION DEFAULTS ---
+    // This removes global defaults (cm=0) for translations that were
+    // removed from the admin UI, preventing them from affecting new activities.
+    if ($oldversion < 2026031301) {
+        $likeenable = $DB->sql_like('name', ':nameenable', false);
+        $likelangs = $DB->sql_like('name', ':namelangs', false);
+        $params = [
+            'nameenable' => $DB->sql_like_escape('originality_enable_translations_') . '%',
+            'namelangs' => $DB->sql_like_escape('originality_translation_languages_') . '%',
+        ];
 
-    // No upgrade steps needed yet.
-    // The plugin starts at a version higher than any of the historical steps.
-    // Future upgrades will go here.
+        $DB->delete_records_select(
+            'plagiarism_inspera_config',
+             "cm = 0 AND ($likeenable OR $likelangs)",
+             $params
+        );
+
+        // Plagiarism savepoint reached.
+        upgrade_plugin_savepoint(true, 2026031301, 'plagiarism', 'inspera');
+    }
 
     return true;
 }

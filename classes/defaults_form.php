@@ -39,21 +39,14 @@ class plagiarism_inspera_defaults_form extends moodleform {
         $supportedmodules = plagiarism_inspera_supported_modules();
         $ynoptions = [0 => get_string('no'), 1 => get_string('yes')];
 
-        // Supported languages for Translations
-        $languages = [
-            'en' => 'English', 'sq' => 'Albanian', 'bg' => 'Bulgarian', 'hr' => 'Croatian', 'cs' => 'Czech',
-            'da' => 'Danish', 'nl' => 'Dutch', 'et' => 'Estonian', 'fi' => 'Finnish', 'fr' => 'French',
-            'de' => 'German', 'el' => 'Greek', 'hu' => 'Hungarian', 'it' => 'Italian', 'lv' => 'Latvian',
-            'lt' => 'Lithuanian', 'mk' => 'Macedonian', 'no' => 'Norwegian', 'pl' => 'Polish', 'pt' => 'Portuguese',
-            'ro' => 'Romanian', 'ru' => 'Russian', 'sr' => 'Serbian', 'sk' => 'Slovak', 'sl' => 'Slovenian',
-            'es' => 'Spanish', 'sv' => 'Swedish', 'tr' => 'Turkish', 'bs' => 'Bosnian'
-        ];
-        ksort($languages); // Alphabetical
-
         $draftoptions = array(
             PLAGIARISM_INSPERA_DRAFTSUBMIT_IMMEDIATE => get_string("submitondraft", "plagiarism_inspera"),
             PLAGIARISM_INSPERA_DRAFTSUBMIT_FINAL => get_string("submitonfinal", "plagiarism_inspera")
         );
+
+        // Explain why module-level settings (like Translations) appear in the lists below.
+        $infomsg = get_string('admin_overrides_info', 'plagiarism_inspera');
+        $mform->addElement('html', '<div class="alert alert-info mt-4 mb-3" role="alert"><strong>' . s(get_string('admin_overrides_info_note', 'plagiarism_inspera')) . ':</strong> ' . s($infomsg) . '</div>');
 
         foreach ($supportedmodules as $sm) {
             if (!plugin_supports('mod', $sm, FEATURE_PLAGIARISM)) {
@@ -168,16 +161,6 @@ class plagiarism_inspera_defaults_form extends moodleform {
                 get_string('originality_restrictcontent', 'plagiarism_inspera'), $contentoptions);
             $mform->addHelpButton('originality_restrictcontent_'.$sm, 'originality_restrictcontent_admin', 'plagiarism_inspera');
             $mform->setType('originality_restrictcontent_'.$sm, PARAM_INT);
-
-            // Translations
-            $mform->addElement('select', 'originality_enable_translations_' . $sm, get_string('originality_enable_translations', 'plagiarism_inspera'), $ynoptions);
-            $mform->addHelpButton('originality_enable_translations_' . $sm, 'originality_enable_translations', 'plagiarism_inspera');
-            $mform->setType('originality_enable_translations_' . $sm, PARAM_INT);
-
-            $mform->addElement('select', 'originality_translation_languages_' . $sm, get_string('originality_translation_languages', 'plagiarism_inspera'), $languages, ['multiple' => true]);
-            $mform->setType('originality_translation_languages_' . $sm, PARAM_TAGLIST);
-            $mform->addHelpButton('originality_translation_languages_' . $sm, 'originality_translation_languages', 'plagiarism_inspera');
-            $mform->hideIf('originality_translation_languages_' . $sm, 'originality_enable_translations_' . $sm, 'eq', 0);
 
             if ($sm == 'assign') {
                 $mform->addElement('select', 'originality_draft_submit_'.$sm,
