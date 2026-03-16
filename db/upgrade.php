@@ -31,6 +31,7 @@ defined('MOODLE_INTERNAL') || die();
  */
 function xmldb_plagiarism_inspera_upgrade($oldversion) {
     global $DB;
+    $dbman = $DB->get_manager();
 
     // ---  CLEANUP LEGACY TRANSLATION DEFAULTS ---
     // This removes global defaults (cm=0) for translations that were
