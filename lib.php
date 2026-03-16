@@ -1140,8 +1140,15 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
                 'originality_translation_languages'
             ];
 
-            if (in_array($element, $excluded)) {
-                $mform->setDefault($element, 0); // Force safe default
+            if (in_array($element, $excluded, true)) {
+                if ($element === 'originality_enable_translations') {
+                    // Force the translations toggle to be disabled by default.
+                    $mform->setDefault($element, 0);
+                } else if ($element === 'originality_translation_languages') {
+                    // For the multi-select languages field, use an empty selection,
+                    // not a scalar 0, to avoid it being treated as a language code.
+                    $mform->setDefault($element, []);
+                }
             } else {
                 // Priority 2: Use the admin-defined default for this module type.
                 $mform->setDefault($element, $plagiarismdefaults[$defaultelement]);
@@ -1162,16 +1169,38 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
 
         // 1. Try Local Assignment Setting (Snapshot).
         // Note: module-level config is stored as the base name (no suffix).
-        if (isset($plagiarismvalues[$base_name])) {
-            $val = $plagiarismvalues[$base_name];
-            return !is_array($val) ? explode(',', (string)$val) : $val;
+        if (isset($plagiarismvalues[$fullname])) {
+            $val = $plagiarismvalues[$fullname];
+            if (!is_array($val)) {
+                $valstr = trim((string)$val);
+                if ($valstr === '') {
+                    return [];
+                }
+                $items = array_map('trim', explode(',', $valstr));
+                $items = array_values(array_filter($items, static function($v) {
+                    return $v !== '';
+                }));
+                return $items;
+            }
+            return $val;
         }
 
         // 2. Fallback to Admin Default (unless excluded).
         // Note: admin-level config IS stored with the module suffix.
         if (!in_array($base_name, $excluded, true) && isset($plagiarismdefaults[$fullname])) {
             $val = $plagiarismdefaults[$fullname];
-            return !is_array($val) ? explode(',', (string)$val) : $val;
+            if (!is_array($val)) {
+                $valstr = trim((string)$val);
+                if ($valstr === '') {
+                    return [];
+                }
+                $items = array_map('trim', explode(',', $valstr));
+                $items = array_values(array_filter($items, static function($v) {
+                    return $v !== '';
+                }));
+                return $items;
+            }
+            return $val;
         }
 
         return [];
