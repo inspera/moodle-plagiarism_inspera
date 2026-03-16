@@ -61,6 +61,7 @@ class backup_plagiarism_inspera_plugin extends backup_plagiarism_plugin {
                 'identifier',
                 'status',
                 'similarity',
+                'originality_score',
                 'originality',
                 'externalid',
                 'error',

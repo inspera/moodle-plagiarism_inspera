@@ -52,6 +52,7 @@ class provider implements
                 'submissionid'           => 'privacy:metadata:plagiarism_inspera_subs:submissionid',
                 'externalid'             => 'privacy:metadata:plagiarism_inspera_subs:externalid',
                 'similarity'             => 'privacy:metadata:plagiarism_inspera_subs:similarity',
+                'originality_score'      => 'privacy:metadata:plagiarism_inspera_subs:originality_score',
                 'translation_similarity' => 'privacy:metadata:plagiarism_inspera_subs:translation_similarity',
                 'ai_index'               => 'privacy:metadata:plagiarism_inspera_subs:ai_index',
                 'status'                 => 'privacy:metadata:plagiarism_inspera_subs:status',

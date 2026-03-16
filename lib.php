@@ -107,6 +107,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
     public static function config_options($adminsettings = false) {
         $options = array(
             'use_originality',
+            'originality_display_type',
             'originality_allowallfile',
             'originality_archive',
             'originality_restrictcontent',
@@ -586,7 +587,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
      * @return string HTML output
      */
     private function get_originality_status($record) {
-        global $OUTPUT;
+        global $OUTPUT, $DB;
 
         $linkclass = 'plagiarism-originality-status';
         $linkcontent = '';
@@ -594,7 +595,27 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
         switch ($record->status) {
             case 'finished':
                 $url = new moodle_url('/plagiarism/inspera/redirect.php', ['id' => $record->id]);
-                $score = round($record->similarity);
+
+                $displaytype = 'similarity'; // Safe fallback for old activities
+
+                // 1. Check specific setting for this module
+                if (!empty($record->cm)) {
+                    $setting = $DB->get_record('plagiarism_inspera_config', ['cm' => $record->cm, 'name' => 'originality_display_type'], 'id, value');
+                    if ($setting) {
+                        $displaytype = $setting->value;
+                    }
+                }
+
+                // Select the correct score based on setting AND data availability
+                if ($displaytype === 'originality' && $record->originality_score !== null) {
+                    // User wants Originality AND we have data for it.
+                    $scoreValue = $record->originality_score;
+                } else {
+                    // Fallback: User wants Similarity OR it's an old record with no originality data.
+                    $scoreValue = $record->similarity;
+                }
+
+                $score = round((float)$scoreValue);
 
                 // Defaults to 'low' if the value is missing.
                 $riskClass = strtolower(explode(' ', $record->originality ?? 'Low')[0]);
@@ -1382,6 +1403,15 @@ function plagiarism_inspera_get_form_elements($mform) {
     $mform->addElement('select', 'use_originality', get_string("use_originality", "plagiarism_inspera"), $ynoptions);
     $mform->addHelpButton('use_originality', 'use_originality_teachers', 'plagiarism_inspera');
     $mform->setType('use_originality', PARAM_INT);
+
+    // --- Score to Display ---
+    $displayoptions = [
+        'originality' => get_string('originality_score', 'plagiarism_inspera'),
+        'similarity' => get_string('similarity_score', 'plagiarism_inspera')
+    ];
+    $mform->addElement('select', 'originality_display_type', get_string('displaytype', 'plagiarism_inspera'), $displayoptions);
+    $mform->addHelpButton('originality_display_type', 'displaytype', 'plagiarism_inspera');
+    $mform->setType('originality_display_type', PARAM_ALPHA);
 
     // Allow all supported File Types
     $filetypes = plagiarism_inspera_default_allowed_file_types(true);
@@ -2266,12 +2296,16 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, api_client $client
                 // processed successfully → update record with returned data
                 $plagiarismfile->status = 'finished';
 
-                // Accept multiple possible key names/cases from API response
+                // 1. Similarity Score
                 $similarity = null;
-                if (isset($status->originality_percentage)) {
-                    $similarity = $status->originality_percentage;
-                } else if (isset($status->similarity)) {
+                if (isset($status->similarity)) {
                     $similarity = $status->similarity;
+                }
+
+                // 2. Originality Percentage
+                $originality_score = null;
+                if (isset($status->originality_percentage)) {
+                    $originality_score = $status->originality_percentage;
                 }
 
                 $translation = null;
@@ -2297,6 +2331,7 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, api_client $client
 
                 // Assign back to record (DB columns tolerate strings or numbers)
                 $plagiarismfile->similarity = $similarity;
+                $plagiarismfile->originality_score = $originality_score;
                 $plagiarismfile->translation_similarity = $translation;
                 $plagiarismfile->ai_index = $aiindex;
                 $plagiarismfile->originality = $status->originality ?? null;
