@@ -1155,14 +1155,23 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
     $get_list_values = function($base_name) use ($suffix, $plagiarismvalues, $plagiarismdefaults) {
         $fullname = $base_name . $suffix;
 
-        // 1. Try Local Assignment Setting (Snapshot)
-        if (isset($plagiarismvalues[$fullname])) {
-            return !empty($plagiarismvalues[$fullname]) ? explode(',', $plagiarismvalues[$fullname]) : [];
+        $excluded = [
+            'originality_enable_translations',
+            'originality_translation_languages'
+        ];
+
+        // 1. Try Local Assignment Setting (Snapshot).
+        // Note: module-level config is stored as the base name (no suffix).
+        if (isset($plagiarismvalues[$base_name])) {
+            $val = $plagiarismvalues[$base_name];
+            return !is_array($val) ? explode(',', (string)$val) : $val;
         }
 
-        // 2. Fallback to Admin Default
-        if (isset($plagiarismdefaults[$fullname])) {
-            return !empty($plagiarismdefaults[$fullname]) ? explode(',', $plagiarismdefaults[$fullname]) : [];
+        // 2. Fallback to Admin Default (unless excluded).
+        // Note: admin-level config IS stored with the module suffix.
+        if (!in_array($base_name, $excluded, true) && isset($plagiarismdefaults[$fullname])) {
+            $val = $plagiarismdefaults[$fullname];
+            return !is_array($val) ? explode(',', (string)$val) : $val;
         }
 
         return [];

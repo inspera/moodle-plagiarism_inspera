@@ -46,7 +46,7 @@ class plagiarism_inspera_defaults_form extends moodleform {
 
         // Explain why module-level settings (like Translations) appear in the lists below.
         $infomsg = get_string('admin_overrides_info', 'plagiarism_inspera');
-        $mform->addElement('html', '<div class="alert alert-info mt-4 mb-3" role="alert"><strong>' . get_string('admin_overrides_info_note', 'plagiarism_inspera') . ':</strong> ' . s($infomsg) . '</div>');
+        $mform->addElement('html', '<div class="alert alert-info mt-4 mb-3" role="alert"><strong>' . s(get_string('admin_overrides_info_note', 'plagiarism_inspera')) . ':</strong> ' . s($infomsg) . '</div>');
 
         foreach ($supportedmodules as $sm) {
             if (!plugin_supports('mod', $sm, FEATURE_PLAGIARISM)) {
