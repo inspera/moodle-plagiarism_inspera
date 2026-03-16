@@ -1162,13 +1162,9 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
     $get_list_values = function($base_name) use ($suffix, $plagiarismvalues, $plagiarismdefaults) {
         $fullname = $base_name . $suffix;
 
-        $excluded = [
-            'originality_enable_translations',
-            'originality_translation_languages'
-        ];
 
         // 1. Try Local Assignment Setting (Snapshot).
-        // Note: module-level config is stored as the base name (no suffix).
+        // Note: for this plugin, per-activity/module snapshot values are stored using the suffixed name (e.g. originality_hiddenitems_assign),
         if (isset($plagiarismvalues[$fullname])) {
             $val = $plagiarismvalues[$fullname];
             if (!is_array($val)) {
@@ -1187,7 +1183,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
 
         // 2. Fallback to Admin Default (unless excluded).
         // Note: admin-level config IS stored with the module suffix.
-        if (!in_array($base_name, $excluded, true) && isset($plagiarismdefaults[$fullname])) {
+        if (isset($plagiarismdefaults[$fullname])) {
             $val = $plagiarismdefaults[$fullname];
             if (!is_array($val)) {
                 $valstr = trim((string)$val);
