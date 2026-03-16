@@ -589,6 +589,9 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
     private function get_originality_status($record) {
         global $OUTPUT, $DB;
 
+        // Cache originality_display_type per course module to avoid N+1 DB queries.
+        static $cmoriginalitydisplaytype = [];
+
         $linkclass = 'plagiarism-originality-status';
         $linkcontent = '';
 
@@ -600,9 +603,22 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
                 // 1. Check specific setting for this module
                 if (!empty($record->cm)) {
-                    $setting = $DB->get_record('plagiarism_inspera_config', ['cm' => $record->cm, 'name' => 'originality_display_type'], 'id, value');
-                    if ($setting) {
-                        $displaytype = $setting->value;
+                    $cmid = (int)$record->cm;
+                    if (array_key_exists($cmid, $cmoriginalitydisplaytype)) {
+                        $displaytype = $cmoriginalitydisplaytype[$cmid];
+                    } else {
+                        $setting = $DB->get_record(
+                            'plagiarism_inspera_config',
+                            ['cm' => $cmid, 'name' => 'originality_display_type'],
+                            'value'
+                        );
+                        // If no setting is found, we stick with the 'similarity' default.
+                        if ($setting && !empty($setting->value)) {
+                            $displaytype = $setting->value;
+                        }
+
+                        // Cache the resolved value for this cmid.
+                        $cmoriginalitydisplaytype[$cmid] = $displaytype;
                     }
                 }
 
@@ -917,11 +933,23 @@ function plagiarism_inspera_coursemodule_edit_post_actions($data, $course) {
             $newelement = new stdClass();
             $newelement->cm = $data->coursemodule;
             $newelement->name = $element;
+
             if (isset($data->$element) && is_array($data->$element)) {
                 $newelement->value = implode(',', $data->$element);
             } else {
-                $newelement->value = (isset($data->$element) ? $data->$element : 0);
+                // Determine the value, defaulting to 0 for most fields.
+                $val = (isset($data->$element) ? $data->$element : 0);
+
+                // --- NEW: Normalization for Display Type ---
+                if ($element === 'originality_display_type') {
+                    // If the value is 0, empty, or invalid, force it to 'similarity'.
+                    if (empty($val) || !in_array($val, ['similarity', 'originality'])) {
+                        $val = 'similarity';
+                    }
+                }
+                $newelement->value = $val;
             }
+
             if (isset($existingelements[$element])) {
                 $newelement->id = $existingelements[$element];
                 $DB->update_record('plagiarism_inspera_config', $newelement);
@@ -1406,12 +1434,18 @@ function plagiarism_inspera_get_form_elements($mform) {
 
     // --- Score to Display ---
     $displayoptions = [
-        'originality' => get_string('originality_score', 'plagiarism_inspera'),
-        'similarity' => get_string('similarity_score', 'plagiarism_inspera')
+        'similarity' => get_string('similarity_score', 'plagiarism_inspera'),
+        'originality' => get_string('originality_score', 'plagiarism_inspera')
     ];
     $mform->addElement('select', 'originality_display_type', get_string('originality_display_type', 'plagiarism_inspera'), $displayoptions);
     $mform->addHelpButton('originality_display_type', 'originality_display_type', 'plagiarism_inspera');
     $mform->setType('originality_display_type', PARAM_ALPHA);
+
+    // Set the default based on the Admin Global setting for this module type.
+    $adminconfig = get_config('plagiarism_inspera');
+    $modname = $mform->_instance; // Usually 'assign' or 'workshop'
+    $defaultsetting = $adminconfig->{'originality_display_type_' . $modname} ?? 'similarity';
+    $mform->setDefault('originality_display_type', $defaultsetting);
 
     // Allow all supported File Types
     $filetypes = plagiarism_inspera_default_allowed_file_types(true);
