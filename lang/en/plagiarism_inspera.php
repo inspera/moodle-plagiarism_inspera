@@ -209,7 +209,7 @@ $string['privacy:metadata:inspera:content'] = 'The actual text or file content s
 $string['admin_overrides_info_note'] = 'Note';
 $string['admin_overrides_info'] = 'Some features (like "Translations" and "Select supported translation languages") do not have global defaults and are enabled by teachers directly within each activity. However, you can still use the "Hidden", "Locked", and "Advanced" lists to manage these features globally across the entire site.';
 
-$string['displaytype'] = 'Score to display';
-$string['displaytype_help'] = 'Choose whether to display the Originality or the Similarity score. This affects the score shown to teachers and students.';
+$string['originality_display_type'] = 'Score to display';
+$string['originality_display_type_help'] = 'Choose whether to display the Originality or the Similarity score. This affects the score shown to teachers and students.';
 $string['originality_score'] = 'Originality score';
 $string['similarity_score'] = 'Similarity';

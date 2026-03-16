@@ -1409,8 +1409,8 @@ function plagiarism_inspera_get_form_elements($mform) {
         'originality' => get_string('originality_score', 'plagiarism_inspera'),
         'similarity' => get_string('similarity_score', 'plagiarism_inspera')
     ];
-    $mform->addElement('select', 'originality_display_type', get_string('displaytype', 'plagiarism_inspera'), $displayoptions);
-    $mform->addHelpButton('originality_display_type', 'displaytype', 'plagiarism_inspera');
+    $mform->addElement('select', 'originality_display_type', get_string('originality_display_type', 'plagiarism_inspera'), $displayoptions);
+    $mform->addHelpButton('originality_display_type', 'originality_display_type', 'plagiarism_inspera');
     $mform->setType('originality_display_type', PARAM_ALPHA);
 
     // Allow all supported File Types

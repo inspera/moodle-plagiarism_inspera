@@ -65,9 +65,9 @@ class plagiarism_inspera_defaults_form extends moodleform {
                 'originality' => get_string('originality_score', 'plagiarism_inspera')
             ];
             $mform->addElement('select', 'originality_display_type_' . $sm,
-                get_string('displaytype', 'plagiarism_inspera'), $displayoptions);
-            $mform->addHelpButton('originality_display_type_' . $sm, 'displaytype', 'plagiarism_inspera');
-            $mform->setDefault('originality_display_type_' . $sm, 'originality');
+                get_string('originality_display_type', 'plagiarism_inspera'), $displayoptions);
+            $mform->addHelpButton('originality_display_type_' . $sm, 'originality_display_type', 'plagiarism_inspera');
+            $mform->setDefault('originality_display_type_' . $sm, 'similarity');
             $mform->setType('originality_display_type_' . $sm, PARAM_ALPHA);
 
             $mform->addElement('select', 'originality_allowallfile_'.$sm,
