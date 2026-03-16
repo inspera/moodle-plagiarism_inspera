@@ -70,3 +70,10 @@
 #fitem_id_originality_selectfiletypes .error select {
     background-image: none !important;
 }
+
+.originality-error-desc {
+    max-width: 200px;
+    line-height: 1.2;
+    display: block; /* Replaces d-block if you want to be even cleaner */
+    word-wrap: break-word; /* Good safety for long unbroken strings */
+}

@@ -284,7 +284,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
             if ($record) {
                 if ($isgrader || plagiarism_inspera_should_show_report($linkarray['cmid'], $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $record)) {
-                    $output .= $this->get_originality_status($record, $plagiarismvalues[$linkarray['cmid']]);
+                    $output .= $this->get_originality_status($record);
                 }
             }
         }
@@ -341,7 +341,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
             if ($textrecord) {
                 if ($isgrader || plagiarism_inspera_should_show_report($linkarray['cmid'], $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $textrecord)) {
-                    $output .= $this->get_originality_status($textrecord, $plagiarismvalues[$linkarray['cmid']]);
+                    $output .= $this->get_originality_status($textrecord);
                 }
             }
         }
@@ -583,10 +583,9 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
      * Generates HTML for a plagiarism report link/status.
      *
      * @param stdClass $record The plagiarism submission record
-     * @param array $settings The module settings
      * @return string HTML output
      */
-    private function get_originality_status($record, $settings) {
+    private function get_originality_status($record) {
         global $OUTPUT;
 
         $linkclass = 'plagiarism-originality-status';
@@ -624,7 +623,22 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
             case 'error':
             case 'external_error':
+                // Display main error label.
                 $linkcontent = get_string('statuserror', 'plagiarism_inspera');
+
+                if (!empty($record->description)) {
+                    $rawdescription = (string)$record->description;
+
+                    // Truncate first to get a clean 200 chars.
+                    $shortdescription = shorten_text($rawdescription, 200, true);
+
+                    $description = html_writer::tag('div', s($shortdescription), [
+                        'class' => 'originality-error-desc small text-muted mt-1',
+                        'title' => s($rawdescription),
+                    ]);
+                    $linkcontent .= $description;
+                }
+
                 $linkclass .= ' error';
                 break;
         }
