@@ -1181,7 +1181,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
             return $val;
         }
 
-        // 2. Fallback to Admin Default (unless excluded).
+        // 2. Fallback to Admin Default.
         // Note: admin-level config IS stored with the module suffix.
         if (isset($plagiarismdefaults[$fullname])) {
             $val = $plagiarismdefaults[$fullname];
