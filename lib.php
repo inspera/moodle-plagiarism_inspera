@@ -284,7 +284,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
             if ($record) {
                 if ($isgrader || plagiarism_inspera_should_show_report($linkarray['cmid'], $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $record)) {
-                        $output .= $this->get_originality_status($record);
+                    $output .= $this->get_originality_status($record);
                 }
             }
         }
@@ -627,10 +627,14 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 $linkcontent = get_string('statuserror', 'plagiarism_inspera');
 
                 if (!empty($record->description)) {
-                    // We use s() for security and d-block to put it on a new line.
-                    $description = html_writer::tag('div', s($record->description), [
+                    $rawdescription = (string)$record->description;
+
+                    // Truncate first to get a clean 200 chars.
+                    $shortdescription = shorten_text($rawdescription, 200, true);
+
+                    $description = html_writer::tag('div', s($shortdescription), [
                         'class' => 'originality-error-desc small text-muted mt-1',
-                        'style' => 'max-width: 200px; line-height: 1.2;'
+                        'title' => s($rawdescription),
                     ]);
                     $linkcontent .= $description;
                 }
