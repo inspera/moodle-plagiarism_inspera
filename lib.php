@@ -78,20 +78,14 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
     }
 
     /**
-     * Gets the activity-specific settings for a given course module ID.
+     * Returns the mapping of settings to their expected PARAM types.
      *
-     * @param int $cmid The course module ID.
-     * @return array An array of settings (name => value) for that module.
+     * @return array
      */
-    public static function get_settings_by_module($cmid) {
-        global $DB;
-        $settings = [];
-
-        // Map of setting names to expected parameter types.
-        // This ensures that even hidden/locked fields are cleaned consistently.
-        $typesmap = [
+    public static function get_param_types() {
+        return [
             'use_originality'                       => PARAM_INT,
-            'originality_display_type'              => PARAM_ALPHA, // Your new setting
+            'originality_display_type'              => PARAM_ALPHA,
             'originality_allowallfile'              => PARAM_INT,
             'originality_archive'                   => PARAM_INT,
             'originality_restrictcontent'           => PARAM_INT,
@@ -109,6 +103,18 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             'originality_show_student_report'       => PARAM_INT,
             'originality_draft_submit'              => PARAM_INT,
         ];
+    }
+
+    /**
+     * Gets the activity-specific settings for a given course module ID.
+     *
+     * @param int $cmid The course module ID.
+     * @return array An array of settings (name => value) for that module.
+     */
+    public static function get_settings_by_module($cmid) {
+        global $DB;
+        $settings = [];
+        $typesmap = self::get_param_types();
 
         // Load module config from plagiarism config table.
         $records = $DB->get_records('plagiarism_inspera_config', ['cm' => $cmid]);
@@ -1118,29 +1124,9 @@ function plagiarism_inspera_coursemodule_validation($formwrapper = null, $data =
 function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform) {
     global $DB, $CFG;
 
-    // === 1. Define Type Map (Single Source of Truth) ===
-    // We define this early so it can be reused in all logic blocks.
-    $types_map = [
-        'use_originality' => PARAM_INT,
-        'originality_allowallfile' => PARAM_INT,
-        'originality_selectfiletypes' => PARAM_TAGLIST,
-        'originality_enable_ai' => PARAM_INT,
-        'originality_archive' => PARAM_INT,
-        'originality_enable_context_similarity' => PARAM_INT,
-        'originality_context_threshold' => PARAM_INT,
-        'originality_enable_exclude_urls' => PARAM_INT,
-        'originality_exclude_urls' => PARAM_TEXT,
-        'originality_enable_include_urls' => PARAM_INT,
-        'originality_include_urls' => PARAM_TEXT,
-        'originality_metadata_analysis' => PARAM_INT,
-        'originality_show_student_report' => PARAM_INT,
-        'originality_draft_submit' => PARAM_INT,
-        'originality_enable_translations' => PARAM_INT,
-        'originality_translation_languages' => PARAM_TAGLIST,
-        'originality_restrictcontent' => PARAM_INT,
-    ];
+    $types_map = plagiarism_plugin_inspera::get_param_types();
 
-    // === 2. Guard Clauses (Early Exit) ===
+    // === 1. Guard Clauses (Early Exit) ===
     $plugin = new plagiarism_plugin_inspera();
     // Check if plugin is enabled globally.
     $plagiarismsettings = $plugin->get_settings();
@@ -1161,7 +1147,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         return;
     }
 
-    // === 3. Load Settings Data ===
+    // === 2. Load Settings Data ===
     $cmid = null;
     if ($cm = $formwrapper->get_coursemodule()) {
         $cmid = $cm->id;
@@ -1178,7 +1164,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
     // Get Admin Defaults - cmid(0) is the default list.
     $plagiarismdefaults = $DB->get_records_menu('plagiarism_inspera_config', array('cm' => 0), '', 'name, value');
 
-    // === 4. Add Form Elements (Based on Capability) ===
+    // === 3. Add Form Elements (Based on Capability) ===
     // Check user's permissions.
     if (has_capability('plagiarism/inspera:enable', $context)) {
         // User HAS permission: Build and display all the visible form fields.
@@ -1218,7 +1204,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         }
     }
 
-    // === 5. Set Default Values ===
+    // === 4. Set Default Values ===
     // Now that all elements exist (either visible or hidden), set their default values.
     // Priority: 1) Specific activity values, 2) Admin defaults.
     $excludeddefaults = [
@@ -1250,7 +1236,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         }
     }
 
-    // === 6. Handle Hidden, Locked, and Advanced Settings ===
+    // === 5. Handle Hidden, Locked, and Advanced Settings ===
     $suffix = '_' . str_replace('mod_', '', $modulename);
 
     $get_list_values = function($base_name) use ($suffix, $plagiarismvalues, $plagiarismdefaults) {
