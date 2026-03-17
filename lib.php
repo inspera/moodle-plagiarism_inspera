@@ -626,6 +626,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
      * Generates HTML for a plagiarism report link/status.
      *
      * @param stdClass $record The plagiarism submission record
+     * @param string $displaytype similarity|originality Display type of the score to show
      * @return string HTML output
      */
     private function get_originality_status($record, $displaytype = 'similarity') {
