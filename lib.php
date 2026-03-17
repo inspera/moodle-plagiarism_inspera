@@ -1459,12 +1459,6 @@ function plagiarism_inspera_get_form_elements($mform) {
     $mform->addHelpButton('originality_display_type', 'originality_display_type', 'plagiarism_inspera');
     $mform->setType('originality_display_type', PARAM_ALPHA);
 
-    // Set the default based on the Admin Global setting for this module type.
-    $adminconfig = get_config('plagiarism_inspera');
-    $modname = $mform->_instance; // Usually 'assign' or 'workshop'
-    $defaultsetting = $adminconfig->{'originality_display_type_' . $modname} ?? 'similarity';
-    $mform->setDefault('originality_display_type', $defaultsetting);
-
     // Allow all supported File Types
     $filetypes = plagiarism_inspera_default_allowed_file_types(true);
     $supportedfiles = array();
