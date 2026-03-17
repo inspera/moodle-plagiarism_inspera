@@ -959,7 +959,7 @@ function plagiarism_inspera_coursemodule_edit_post_actions($data, $course) {
                 // --- NEW: Normalization for Display Type ---
                 if ($element === 'originality_display_type') {
                     // If the value is 0, empty, or invalid, force it to 'similarity'.
-                    if (empty($val) || !in_array($val, ['similarity', 'originality'])) {
+                    if (empty($val) || !in_array($val, ['similarity', 'originality'], true)) {
                         $val = 'similarity';
                     }
                 }
