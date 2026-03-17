@@ -121,11 +121,11 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
         foreach ($records as $rec) {
             $value = $rec->value;
 
-            // Apply strict cleaning if the type is known, otherwise fallback to standard cleaning.
+            // Apply strict cleaning if the type is known, otherwise apply generic trimmed/raw cleaning.
             if (isset($typesmap[$rec->name])) {
                 $value = clean_param($value, $typesmap[$rec->name]);
             } else {
-                $value = clean_param($value, PARAM_RAW);
+                $value = clean_param($value, PARAM_RAW_TRIMMED);
             }
 
             $settings[$rec->name] = $value;
