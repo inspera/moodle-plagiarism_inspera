@@ -101,7 +101,7 @@ class plagiarism_inspera_score_display_test extends advanced_testcase {
         $this->set_display_type($cmid, 'similarity');
 
         $record = $this->make_sub_record($cmid, 45.0, 78.0);
-        $html = $this->getoriginalitystatus->invoke($this->plugin, $record);
+        $html = $this->getoriginalitystatus->invoke($this->plugin, $record, 'similarity');
 
         $this->assertStringContainsString(
             '45%',
@@ -124,7 +124,7 @@ class plagiarism_inspera_score_display_test extends advanced_testcase {
         $this->set_display_type($cmid, 'originality');
 
         $record = $this->make_sub_record($cmid, 45.0, 78.0);
-        $html = $this->getoriginalitystatus->invoke($this->plugin, $record);
+        $html = $this->getoriginalitystatus->invoke($this->plugin, $record, 'originality');
 
         $this->assertStringContainsString(
             '78%',
@@ -148,7 +148,7 @@ class plagiarism_inspera_score_display_test extends advanced_testcase {
 
         // NULL originality_score simulates a legacy submission that pre-dates the column.
         $record = $this->make_sub_record($cmid, 33.0, null);
-        $html = $this->getoriginalitystatus->invoke($this->plugin, $record);
+        $html = $this->getoriginalitystatus->invoke($this->plugin, $record, 'originality');
 
         $this->assertStringContainsString(
             '33%',
