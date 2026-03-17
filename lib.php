@@ -323,7 +323,9 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
             if ($record) {
                 if ($isgrader || plagiarism_inspera_should_show_report($linkarray['cmid'], $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $record)) {
-                    $output .= $this->get_originality_status($record);
+                    // Grab the display type from the already-loaded static cache (fallback to 'similarity')
+                    $displaytype = $plagiarismvalues[$linkarray['cmid']]['originality_display_type'] ?? 'similarity';
+                    $output .= $this->get_originality_status($record, $displaytype);
                 }
             }
         }
@@ -380,7 +382,9 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
             if ($textrecord) {
                 if ($isgrader || plagiarism_inspera_should_show_report($linkarray['cmid'], $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $textrecord)) {
-                    $output .= $this->get_originality_status($textrecord);
+                    // Grab the display type from the already-loaded static cache (fallback to 'similarity')
+                    $displaytype = $plagiarismvalues[$linkarray['cmid']]['originality_display_type'] ?? 'similarity';
+                    $output .= $this->get_originality_status($textrecord, $displaytype);
                 }
             }
         }
@@ -624,11 +628,8 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
      * @param stdClass $record The plagiarism submission record
      * @return string HTML output
      */
-    private function get_originality_status($record) {
-        global $OUTPUT, $DB;
-
-        // Cache originality_display_type per course module to avoid N+1 DB queries.
-        static $cmoriginalitydisplaytype = [];
+    private function get_originality_status($record, $displaytype = 'similarity') {
+        global $OUTPUT;
 
         $linkclass = 'plagiarism-originality-status';
         $linkcontent = '';
@@ -637,30 +638,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             case 'finished':
                 $url = new moodle_url('/plagiarism/inspera/redirect.php', ['id' => $record->id]);
 
-                $displaytype = 'similarity'; // Safe fallback for old activities
-
-                // 1. Check specific setting for this module
-                if (!empty($record->cm)) {
-                    $cmid = (int)$record->cm;
-                    if (array_key_exists($cmid, $cmoriginalitydisplaytype)) {
-                        $displaytype = $cmoriginalitydisplaytype[$cmid];
-                    } else {
-                        $setting = $DB->get_record(
-                            'plagiarism_inspera_config',
-                            ['cm' => $cmid, 'name' => 'originality_display_type'],
-                            'value'
-                        );
-                        // If no setting is found, we stick with the 'similarity' default.
-                        if ($setting && !empty($setting->value)) {
-                            $displaytype = $setting->value;
-                        }
-
-                        // Cache the resolved value for this cmid.
-                        $cmoriginalitydisplaytype[$cmid] = $displaytype;
-                    }
-                }
-
-                // Select the correct score based on setting AND data availability
+                // Select the correct score based on passed setting AND data availability
                 if ($displaytype === 'originality' && $record->originality_score !== null) {
                     // User wants Originality AND we have data for it.
                     $scoreValue = $record->originality_score;
