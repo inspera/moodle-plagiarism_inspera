@@ -1,0 +1,91 @@
+name: Moodle Plugin CI
+
+on: [push, pull_request]
+
+# FIX 1: Silence the Node.js deprecation warning
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: 'postgres'
+          POSTGRES_HOST_AUTH_METHOD: 'trust'
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 3
+
+    strategy:
+      fail-fast: false
+      matrix:
+        moodle-branch:
+          - 'MOODLE_403_STABLE'
+        php:
+          - '8.1'
+        database:
+          - pgsql
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, pgsql, mysqli, gd, xml, zip, sodium
+          coverage: none
+
+      - name: Install moodle-plugin-ci
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4.0
+          echo $(cd ci/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
+
+      - name: Install Moodle
+        run: moodle-plugin-ci install --plugin ./
+        env:
+          DB: ${{ matrix.database }}
+          MOODLE_BRANCH: ${{ matrix.moodle-branch }} # FIX 2: Added missing branch variable!
+
+      - name: PHP Lint
+        run: moodle-plugin-ci phplint
+
+      - name: PHP Copy/Paste Detector
+        run: moodle-plugin-ci phpcpd
+
+      - name: PHP Mess Detector
+        run: moodle-plugin-ci phpmd
+
+      - name: Moodle Codechecker
+        run: moodle-plugin-ci codechecker
+
+      - name: Moodle Plugin Validate
+        run: moodle-plugin-ci validate
+
+      - name: Savepoints
+        run: moodle-plugin-ci savepoints
+
+      - name: Mustache Lint
+        run: moodle-plugin-ci mustache
+
+      - name: Grunt
+        run: moodle-plugin-ci grunt
+
+      - name: PHPUnit tests
+        run: moodle-plugin-ci phpunit
+
+      # You can comment this out if you haven't written Behat tests yet,
+      # as it takes a long time to run!
+      # - name: Behat features
+      #   run: moodle-plugin-ci behat
