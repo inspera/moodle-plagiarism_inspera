@@ -193,6 +193,7 @@ $string['privacy:metadata:plagiarism_inspera_subs:userid'] = 'The ID of the user
 $string['privacy:metadata:plagiarism_inspera_subs:submissionid'] = 'The internal Moodle submission identifier.';
 $string['privacy:metadata:plagiarism_inspera_subs:externalid'] = 'The document identifier used by the Inspera Originality.';
 $string['privacy:metadata:plagiarism_inspera_subs:similarity'] = 'The similarity score percentage returned by Inspera Originality.';
+$string['privacy:metadata:plagiarism_inspera_subs:originality_score'] = 'The originality percentage returned by Inspera for the submission.';
 $string['privacy:metadata:plagiarism_inspera_subs:translation_similarity'] = 'The score for potential translated plagiarism.';
 $string['privacy:metadata:plagiarism_inspera_subs:ai_index'] = 'An indicator of potential AI-generated content.';
 $string['privacy:metadata:plagiarism_inspera_subs:status'] = 'The current state of the submission in the Inspera Originality workflow.';
@@ -207,3 +208,8 @@ $string['privacy:metadata:inspera:content'] = 'The actual text or file content s
 
 $string['admin_overrides_info_note'] = 'Note';
 $string['admin_overrides_info'] = 'Some features (like "Translations" and "Select supported translation languages") do not have global defaults and are enabled by teachers directly within each activity. However, you can still use the "Hidden", "Locked", and "Advanced" lists to manage these features globally across the entire site.';
+
+$string['originality_display_type'] = 'Score to display';
+$string['originality_display_type_help'] = 'Choose whether to display the Originality or the Similarity score. This affects the score shown to teachers and students.';
+$string['originality_score'] = 'Originality score';
+$string['similarity_score'] = 'Similarity';

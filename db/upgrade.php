@@ -31,6 +31,7 @@ defined('MOODLE_INTERNAL') || die();
  */
 function xmldb_plagiarism_inspera_upgrade($oldversion) {
     global $DB;
+    $dbman = $DB->get_manager();
 
     // ---  CLEANUP LEGACY TRANSLATION DEFAULTS ---
     // This removes global defaults (cm=0) for translations that were
@@ -51,6 +52,23 @@ function xmldb_plagiarism_inspera_upgrade($oldversion) {
 
         // Plagiarism savepoint reached.
         upgrade_plugin_savepoint(true, 2026031301, 'plagiarism', 'inspera');
+    }
+
+
+    // --- ADD ORIGINALITY_SCORE COLUMN ---
+    if ($oldversion < 2026031601) {
+        $table = new xmldb_table('plagiarism_inspera_subs');
+
+        // Define the field exactly as it appears in install.xml.
+        // Parameters: name, type, precision, unsigned, notnull, sequence, default, previous field.
+        $field = new xmldb_field('originality_score', XMLDB_TYPE_NUMBER, '10, 2', null, null, null, null, 'similarity');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Plagiarism savepoint reached.
+        upgrade_plugin_savepoint(true, 2026031601, 'plagiarism', 'inspera');
     }
 
     return true;

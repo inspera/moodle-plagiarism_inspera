@@ -78,6 +78,34 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
     }
 
     /**
+     * Returns the mapping of settings to their expected PARAM types.
+     *
+     * @return array
+     */
+    public static function get_param_types() {
+        return [
+            'use_originality'                       => PARAM_INT,
+            'originality_display_type'              => PARAM_ALPHA,
+            'originality_allowallfile'              => PARAM_INT,
+            'originality_archive'                   => PARAM_INT,
+            'originality_restrictcontent'           => PARAM_INT,
+            'originality_selectfiletypes'           => PARAM_TAGLIST,
+            'originality_metadata_analysis'         => PARAM_INT,
+            'originality_enable_ai'                 => PARAM_INT,
+            'originality_enable_translations'       => PARAM_INT,
+            'originality_translation_languages'     => PARAM_TAGLIST,
+            'originality_enable_context_similarity' => PARAM_INT,
+            'originality_context_threshold'         => PARAM_INT,
+            'originality_enable_include_urls'       => PARAM_INT,
+            'originality_include_urls'              => PARAM_TEXT,
+            'originality_enable_exclude_urls'       => PARAM_INT,
+            'originality_exclude_urls'              => PARAM_TEXT,
+            'originality_show_student_report'       => PARAM_INT,
+            'originality_draft_submit'              => PARAM_INT,
+        ];
+    }
+
+    /**
      * Gets the activity-specific settings for a given course module ID.
      *
      * @param int $cmid The course module ID.
@@ -86,11 +114,21 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
     public static function get_settings_by_module($cmid) {
         global $DB;
         $settings = [];
+        $typesmap = self::get_param_types();
 
         // Load module config from plagiarism config table.
         $records = $DB->get_records('plagiarism_inspera_config', ['cm' => $cmid]);
         foreach ($records as $rec) {
-            $settings[$rec->name] = $rec->value;
+            $value = $rec->value;
+
+            // Apply strict cleaning if the type is known, otherwise apply generic trimmed/raw cleaning.
+            if (isset($typesmap[$rec->name])) {
+                $value = clean_param($value, $typesmap[$rec->name]);
+            } else {
+                $value = clean_param($value, PARAM_RAW_TRIMMED);
+            }
+
+            $settings[$rec->name] = $value;
         }
 
         return $settings;
@@ -107,6 +145,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
     public static function config_options($adminsettings = false) {
         $options = array(
             'use_originality',
+            'originality_display_type',
             'originality_allowallfile',
             'originality_archive',
             'originality_restrictcontent',
@@ -284,7 +323,9 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
             if ($record) {
                 if ($isgrader || plagiarism_inspera_should_show_report($linkarray['cmid'], $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $record)) {
-                    $output .= $this->get_originality_status($record);
+                    // Grab the display type from the already-loaded static cache (fallback to 'similarity')
+                    $displaytype = $plagiarismvalues[$linkarray['cmid']]['originality_display_type'] ?? 'similarity';
+                    $output .= $this->get_originality_status($record, $displaytype);
                 }
             }
         }
@@ -341,7 +382,9 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
             if ($textrecord) {
                 if ($isgrader || plagiarism_inspera_should_show_report($linkarray['cmid'], $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $textrecord)) {
-                    $output .= $this->get_originality_status($textrecord);
+                    // Grab the display type from the already-loaded static cache (fallback to 'similarity')
+                    $displaytype = $plagiarismvalues[$linkarray['cmid']]['originality_display_type'] ?? 'similarity';
+                    $output .= $this->get_originality_status($textrecord, $displaytype);
                 }
             }
         }
@@ -583,9 +626,10 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
      * Generates HTML for a plagiarism report link/status.
      *
      * @param stdClass $record The plagiarism submission record
+     * @param string $displaytype similarity|originality Display type of the score to show
      * @return string HTML output
      */
-    private function get_originality_status($record) {
+    private function get_originality_status($record, $displaytype = 'similarity') {
         global $OUTPUT;
 
         $linkclass = 'plagiarism-originality-status';
@@ -594,7 +638,17 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
         switch ($record->status) {
             case 'finished':
                 $url = new moodle_url('/plagiarism/inspera/redirect.php', ['id' => $record->id]);
-                $score = round($record->similarity);
+
+                // Select the correct score based on passed setting AND data availability
+                if ($displaytype === 'originality' && $record->originality_score !== null) {
+                    // User wants Originality AND we have data for it.
+                    $scoreValue = $record->originality_score;
+                } else {
+                    // Fallback: User wants Similarity OR it's an old record with no originality data.
+                    $scoreValue = $record->similarity;
+                }
+
+                $score = round((float)$scoreValue);
 
                 // Defaults to 'low' if the value is missing.
                 $riskClass = strtolower(explode(' ', $record->originality ?? 'Low')[0]);
@@ -896,11 +950,23 @@ function plagiarism_inspera_coursemodule_edit_post_actions($data, $course) {
             $newelement = new stdClass();
             $newelement->cm = $data->coursemodule;
             $newelement->name = $element;
+
             if (isset($data->$element) && is_array($data->$element)) {
                 $newelement->value = implode(',', $data->$element);
             } else {
-                $newelement->value = (isset($data->$element) ? $data->$element : 0);
+                // Determine the value, defaulting to 0 for most fields.
+                $val = (isset($data->$element) ? $data->$element : 0);
+
+                // --- NEW: Normalization for Display Type ---
+                if ($element === 'originality_display_type') {
+                    // If the value is 0, empty, or invalid, force it to 'similarity'.
+                    if (empty($val) || !in_array($val, ['similarity', 'originality'], true)) {
+                        $val = 'similarity';
+                    }
+                }
+                $newelement->value = $val;
             }
+
             if (isset($existingelements[$element])) {
                 $newelement->id = $existingelements[$element];
                 $DB->update_record('plagiarism_inspera_config', $newelement);
@@ -1037,29 +1103,9 @@ function plagiarism_inspera_coursemodule_validation($formwrapper = null, $data =
 function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform) {
     global $DB, $CFG;
 
-    // === 1. Define Type Map (Single Source of Truth) ===
-    // We define this early so it can be reused in all logic blocks.
-    $types_map = [
-        'use_originality' => PARAM_INT,
-        'originality_allowallfile' => PARAM_INT,
-        'originality_selectfiletypes' => PARAM_TAGLIST,
-        'originality_enable_ai' => PARAM_INT,
-        'originality_archive' => PARAM_INT,
-        'originality_enable_context_similarity' => PARAM_INT,
-        'originality_context_threshold' => PARAM_INT,
-        'originality_enable_exclude_urls' => PARAM_INT,
-        'originality_exclude_urls' => PARAM_TEXT,
-        'originality_enable_include_urls' => PARAM_INT,
-        'originality_include_urls' => PARAM_TEXT,
-        'originality_metadata_analysis' => PARAM_INT,
-        'originality_show_student_report' => PARAM_INT,
-        'originality_draft_submit' => PARAM_INT,
-        'originality_enable_translations' => PARAM_INT,
-        'originality_translation_languages' => PARAM_TAGLIST,
-        'originality_restrictcontent' => PARAM_INT,
-    ];
+    $types_map = plagiarism_plugin_inspera::get_param_types();
 
-    // === 2. Guard Clauses (Early Exit) ===
+    // === 1. Guard Clauses (Early Exit) ===
     $plugin = new plagiarism_plugin_inspera();
     // Check if plugin is enabled globally.
     $plagiarismsettings = $plugin->get_settings();
@@ -1080,7 +1126,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         return;
     }
 
-    // === 3. Load Settings Data ===
+    // === 2. Load Settings Data ===
     $cmid = null;
     if ($cm = $formwrapper->get_coursemodule()) {
         $cmid = $cm->id;
@@ -1097,7 +1143,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
     // Get Admin Defaults - cmid(0) is the default list.
     $plagiarismdefaults = $DB->get_records_menu('plagiarism_inspera_config', array('cm' => 0), '', 'name, value');
 
-    // === 4. Add Form Elements (Based on Capability) ===
+    // === 3. Add Form Elements (Based on Capability) ===
     // Check user's permissions.
     if (has_capability('plagiarism/inspera:enable', $context)) {
         // User HAS permission: Build and display all the visible form fields.
@@ -1137,7 +1183,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         }
     }
 
-    // === 5. Set Default Values ===
+    // === 4. Set Default Values ===
     // Now that all elements exist (either visible or hidden), set their default values.
     // Priority: 1) Specific activity values, 2) Admin defaults.
     $excludeddefaults = [
@@ -1169,7 +1215,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         }
     }
 
-    // === 6. Handle Hidden, Locked, and Advanced Settings ===
+    // === 5. Handle Hidden, Locked, and Advanced Settings ===
     $suffix = '_' . str_replace('mod_', '', $modulename);
 
     $get_list_values = function($base_name) use ($suffix, $plagiarismvalues, $plagiarismdefaults) {
@@ -1382,6 +1428,15 @@ function plagiarism_inspera_get_form_elements($mform) {
     $mform->addElement('select', 'use_originality', get_string("use_originality", "plagiarism_inspera"), $ynoptions);
     $mform->addHelpButton('use_originality', 'use_originality_teachers', 'plagiarism_inspera');
     $mform->setType('use_originality', PARAM_INT);
+
+    // --- Score to Display ---
+    $displayoptions = [
+        'similarity' => get_string('similarity_score', 'plagiarism_inspera'),
+        'originality' => get_string('originality_score', 'plagiarism_inspera')
+    ];
+    $mform->addElement('select', 'originality_display_type', get_string('originality_display_type', 'plagiarism_inspera'), $displayoptions);
+    $mform->addHelpButton('originality_display_type', 'originality_display_type', 'plagiarism_inspera');
+    $mform->setType('originality_display_type', PARAM_ALPHA);
 
     // Allow all supported File Types
     $filetypes = plagiarism_inspera_default_allowed_file_types(true);
@@ -2266,12 +2321,16 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, api_client $client
                 // processed successfully → update record with returned data
                 $plagiarismfile->status = 'finished';
 
-                // Accept multiple possible key names/cases from API response
+                // 1. Similarity Score
                 $similarity = null;
-                if (isset($status->originality_percentage)) {
-                    $similarity = $status->originality_percentage;
-                } else if (isset($status->similarity)) {
+                if (isset($status->similarity)) {
                     $similarity = $status->similarity;
+                }
+
+                // 2. Originality Percentage
+                $originality_score = null;
+                if (isset($status->originality_percentage)) {
+                    $originality_score = $status->originality_percentage;
                 }
 
                 $translation = null;
@@ -2297,6 +2356,7 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, api_client $client
 
                 // Assign back to record (DB columns tolerate strings or numbers)
                 $plagiarismfile->similarity = $similarity;
+                $plagiarismfile->originality_score = $originality_score;
                 $plagiarismfile->translation_similarity = $translation;
                 $plagiarismfile->ai_index = $aiindex;
                 $plagiarismfile->originality = $status->originality ?? null;
