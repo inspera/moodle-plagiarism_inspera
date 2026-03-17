@@ -1,6 +1,18 @@
 name: Moodle Plugin CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+    branches:
+      - master
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 # FIX 1: Silence the Node.js deprecation warning
 env:
@@ -54,7 +66,7 @@ jobs:
           echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
 
       - name: Install Moodle
-        run: moodle-plugin-ci install --plugin ./
+        run: moodle-plugin-ci install
         env:
           DB: ${{ matrix.database }}
           MOODLE_BRANCH: ${{ matrix.moodle-branch }} # FIX 2: Added missing branch variable!
