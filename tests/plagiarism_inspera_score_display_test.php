@@ -73,21 +73,6 @@ class plagiarism_inspera_score_display_test extends advanced_testcase {
         return $record;
     }
 
-    /**
-     * Insert an originality_display_type setting into plagiarism_inspera_config.
-     *
-     * @param int    $cmid  Course-module ID (fake – config table has no FK on cm).
-     * @param string $value 'similarity' or 'originality'.
-     */
-    private function set_display_type(int $cmid, string $value): void {
-        global $DB;
-        $DB->insert_record('plagiarism_inspera_config', (object)[
-            'cm'    => $cmid,
-            'name'  => 'originality_display_type',
-            'value' => $value,
-        ]);
-    }
-
     // -------------------------------------------------------------------------
     // Tests
     // -------------------------------------------------------------------------
@@ -98,7 +83,6 @@ class plagiarism_inspera_score_display_test extends advanced_testcase {
      */
     public function test_score_display_similarity_type(): void {
         $cmid = 6001; // unique cmid avoids static-cache collision with other tests
-        $this->set_display_type($cmid, 'similarity');
 
         $record = $this->make_sub_record($cmid, 45.0, 78.0);
         $html = $this->getoriginalitystatus->invoke($this->plugin, $record, 'similarity');
@@ -121,7 +105,6 @@ class plagiarism_inspera_score_display_test extends advanced_testcase {
      */
     public function test_score_display_originality_type_with_score(): void {
         $cmid = 6002;
-        $this->set_display_type($cmid, 'originality');
 
         $record = $this->make_sub_record($cmid, 45.0, 78.0);
         $html = $this->getoriginalitystatus->invoke($this->plugin, $record, 'originality');
@@ -144,7 +127,6 @@ class plagiarism_inspera_score_display_test extends advanced_testcase {
      */
     public function test_score_display_originality_type_null_fallback(): void {
         $cmid = 6003;
-        $this->set_display_type($cmid, 'originality');
 
         // NULL originality_score simulates a legacy submission that pre-dates the column.
         $record = $this->make_sub_record($cmid, 33.0, null);
