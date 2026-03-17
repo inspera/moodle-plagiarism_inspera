@@ -62,8 +62,8 @@ jobs:
       - name: Install moodle-plugin-ci
         run: |
           composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4.0
-          echo $(cd ci/bin; pwd) >> $GITHUB_PATH
-          echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ../ci/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ../ci/vendor/bin; pwd) >> $GITHUB_PATH
 
       - name: Install Moodle
         run: moodle-plugin-ci install --plugin ./ --no-init
