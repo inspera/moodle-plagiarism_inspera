@@ -2,6 +2,10 @@ name: Moodle Plugin CI
 
 on: [push, pull_request]
 
+# FIX 1: Silence the Node.js deprecation warning
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   test:
     runs-on: ubuntu-22.04
@@ -19,7 +23,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Testing one combination for now to save private minutes
         moodle-branch:
           - 'MOODLE_403_STABLE'
         php:
@@ -29,10 +32,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4 # FIX 1: Updated to v4
+        uses: actions/checkout@v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4 # FIX 1: Updated to v4
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
 
@@ -53,6 +56,7 @@ jobs:
         run: moodle-plugin-ci install --plugin ./
         env:
           DB: ${{ matrix.database }}
+          MOODLE_BRANCH: ${{ matrix.moodle-branch }} # FIX 2: Added missing branch variable!
 
       - name: PHP Lint
         run: moodle-plugin-ci phplint
