@@ -19,35 +19,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # -------------------------------------------------------------------
-        # PRIVATE REPO TIP: I have commented out all the older versions.
-        # Just run ONE combination (Moodle 4.3 + PHP 8.1) while testing privately.
-        # When you go public, uncomment the rest of these lines!
-        # -------------------------------------------------------------------
-        moodle-branch: 
-          # - 'MOODLE_311_STABLE'
-          # - 'MOODLE_400_STABLE'
-          # - 'MOODLE_401_STABLE'
-          # - 'MOODLE_402_STABLE'
+        # Testing one combination for now to save private minutes
+        moodle-branch:
           - 'MOODLE_403_STABLE'
-          # - 'master'
-        php: 
-          # - '7.4'
-          # - '8.0'
+        php:
           - '8.1'
-          # - '8.2'
-        database: 
+        database:
           - pgsql
-          # - mysqli
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # FIX 1: Updated to v4
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4 # FIX 1: Updated to v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -63,7 +50,7 @@ jobs:
           echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
 
       - name: Install Moodle
-        run: moodle-plugin-ci install
+        run: moodle-plugin-ci install --plugin ./
         env:
           DB: ${{ matrix.database }}
 
@@ -94,7 +81,7 @@ jobs:
       - name: PHPUnit tests
         run: moodle-plugin-ci phpunit
 
-      # You can comment this out if you haven't written Behat tests yet, 
+      # You can comment this out if you haven't written Behat tests yet,
       # as it takes a long time to run!
       # - name: Behat features
       #   run: moodle-plugin-ci behat
