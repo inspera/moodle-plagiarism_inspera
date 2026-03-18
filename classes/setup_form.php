@@ -28,17 +28,16 @@ require_once($CFG->libdir . '/formslib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class plagiarism_inspera_setup_form extends moodleform {
-
     /**
      * Defines the form elements for the plugin settings.
      *
      * @return void
      */
-    public function definition () {
+    public function definition() {
         $mform = $this->_form;
 
         // Explanation at the top.
-        //$mform->addElement('html', get_string('originalityexplain', 'plagiarism_inspera'));
+        // $mform->addElement('html', get_string('originalityexplain', 'plagiarism_inspera'));
 
         // Enable checkbox.
         $mform->addElement('checkbox', 'enabled', get_string('use_originality', 'plagiarism_inspera'));
@@ -103,7 +102,6 @@ class plagiarism_inspera_setup_form extends moodleform {
 
         // Only validate if we have the minimum required fields filled in.
         if (!empty($data['baseurl']) && !empty($data['clientid'])) {
-
             // Prepare the config object for the client
             $config = new stdClass();
             $config->baseurl = $data['baseurl'];
@@ -116,7 +114,6 @@ class plagiarism_inspera_setup_form extends moodleform {
 
                 // Attempt to fetch a token
                 $client->test_connection();
-
             } catch (\Exception $e) {
                 // If it fails, mark the 'baseurl' field with the error.
                 // You could also map specific errors to clientid if you parsed the message.

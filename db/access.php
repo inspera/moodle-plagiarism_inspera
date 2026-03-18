@@ -24,52 +24,52 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$capabilities = array(
-    'plagiarism/inspera:enable' => array(
+$capabilities = [
+    'plagiarism/inspera:enable' => [
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
-         'legacy' => array(
+         'legacy' => [
          'editingteacher' => CAP_ALLOW,
-         'manager' => CAP_ALLOW)
-    ),
-    'plagiarism/inspera:viewreport' => array(
+         'manager' => CAP_ALLOW],
+    ],
+    'plagiarism/inspera:viewreport' => [
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
-         'legacy' => array(
-         'editingteacher' => CAP_ALLOW,
-         'teacher' => CAP_ALLOW,
-         'manager' => CAP_ALLOW)
-    ),
-    'plagiarism/inspera:resetfile' => array(
-        'captype' => 'write',
-        'contextlevel' => CONTEXT_COURSE,
-         'legacy' => array(
+         'legacy' => [
          'editingteacher' => CAP_ALLOW,
          'teacher' => CAP_ALLOW,
-         'manager' => CAP_ALLOW)
-    ),
-    'plagiarism/inspera:manage_locked_settings' => array(
+         'manager' => CAP_ALLOW],
+    ],
+    'plagiarism/inspera:resetfile' => [
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
-        'legacy' => array(
+         'legacy' => [
+         'editingteacher' => CAP_ALLOW,
+         'teacher' => CAP_ALLOW,
+         'manager' => CAP_ALLOW],
+    ],
+    'plagiarism/inspera:manage_locked_settings' => [
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_COURSE,
+        'legacy' => [
             // We leave this EMPTY.
             // By default, Site Admins have all capabilities.
             // Teachers/Managers will NOT have this, so they cannot edit these settings.
-        )
-    ),
-    'plagiarism/inspera:requestallreports' => array(
+        ],
+    ],
+    'plagiarism/inspera:requestallreports' => [
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
-        'legacy' => array(
+        'legacy' => [
             // EMPTY
-        )
-    ),
-    'plagiarism/inspera:resubmitonclose' => array(
+        ],
+    ],
+    'plagiarism/inspera:resubmitonclose' => [
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
-         'legacy' => array(
+         'legacy' => [
          'editingteacher' => CAP_ALLOW,
          'teacher' => CAP_ALLOW,
-         'manager' => CAP_ALLOW)
-    ),
-);
+         'manager' => CAP_ALLOW],
+    ],
+];

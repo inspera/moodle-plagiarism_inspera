@@ -25,7 +25,7 @@
  */
 
 require_once('../../config.php');
-require_once($CFG->dirroot.'/plagiarism/inspera/lib.php');
+require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 $id = required_param('id', PARAM_INT); // ID of the record in plagiarism_inspera_subs
 global $DB, $USER;
@@ -53,15 +53,16 @@ $PAGE->set_title(get_string('viewreport', 'plagiarism_inspera'));
 $PAGE->set_heading(format_string($course->fullname));
 
 echo $OUTPUT->header();
-//echo $OUTPUT->heading(get_string('originality:viewreport', 'plagiarism_inspera'));
+// echo $OUTPUT->heading(get_string('originality:viewreport', 'plagiarism_inspera'));
 
 // Display submission info
-echo html_writer::tag('p', 'Submitted file ID: '.$record->id);
-echo html_writer::tag('p', 'Status: '.$record->status);
+echo html_writer::tag('p', 'Submitted file ID: ' . $record->id);
+echo html_writer::tag('p', 'Status: ' . $record->status);
 
 // Optionally show report data
 if ($record->status === 'finished') {
-    echo html_writer::tag('ul',
+    echo html_writer::tag(
+        'ul',
         html_writer::tag('li', get_string('similarity', 'plagiarism_inspera') . ': ' . $record->similarity) .
         html_writer::tag('li', get_string('translation_similarity', 'plagiarism_inspera') . ': ' . $record->translation_similarity) .
         html_writer::tag('li', get_string('ai_index', 'plagiarism_inspera') . ': ' . $record->ai_index) .
@@ -76,12 +77,12 @@ if ($record->status === 'finished') {
 if ($record->status === 'finished' && !empty($record->externalid)) {
     // Instead of hardcoding external URL, call our redirect handler
     $redirecturl = new moodle_url('/plagiarism/inspera/redirect.php', [
-        'id' => $record->id
+        'id' => $record->id,
     ]);
 
     echo html_writer::link($redirecturl, get_string('viewreport', 'plagiarism_inspera'), [
         'class' => 'btn btn-primary',
-        'target' => '_blank'
+        'target' => '_blank',
     ]);
 }
 

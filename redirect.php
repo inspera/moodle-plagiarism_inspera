@@ -25,7 +25,7 @@
 
 require_once('../../config.php');
 global $CFG, $PAGE, $OUTPUT;
-require_once($CFG->dirroot.'/plagiarism/inspera/lib.php');
+require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 use plagiarism_inspera\apiclient\api_client;
 
@@ -51,7 +51,7 @@ $modulename = $cm->modname; // 'assign' or 'quiz'
 
 if ($modulename === 'quiz') {
     $is_grader = has_capability('mod/quiz:grade', $context);
-} elseif ($modulename === 'assign') {
+} else if ($modulename === 'assign') {
     $is_grader = has_capability('mod/assign:grade', $context);
 } else {
     // SECURITY GUARD: Reject any unsupported module types immediately.
@@ -93,7 +93,7 @@ if (!empty($returnurlparam)) {
 }
 
 // Helper to render a non-redirecting message page and exit.
-$render_error_and_exit = function(string $message, moodle_url $continueurl) use ($OUTPUT) {
+$render_error_and_exit = function (string $message, moodle_url $continueurl) use ($OUTPUT) {
     echo $OUTPUT->header();
     echo $OUTPUT->notification($message, \core\output\notification::NOTIFY_ERROR);
     // Provide a continue button back to the originating page (or fallback).
@@ -122,7 +122,6 @@ try {
 
     // Redirect to the report URL
     redirect($response->url);
-
 } catch (\Exception $e) {
     // Display a friendly message page and offer a continue button back.
     // Do NOT append raw exception text to the user-facing message.

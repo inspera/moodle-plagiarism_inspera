@@ -41,7 +41,6 @@ use plagiarism_inspera\apiclient\api_client;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class send_files extends scheduled_task {
-
     /**
      * Returns the name of this task (shown in admin screens)
      */

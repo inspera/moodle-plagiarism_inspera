@@ -29,7 +29,6 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class plagiarism_inspera_quiz_test extends advanced_testcase {
-
     /** @var stdClass */
     protected $course;
 
@@ -44,9 +43,9 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         $this->resetAfterTest();
 
         // Configure the Inspera plagiarism plugin globally so event_handler() proceeds.
-        set_config('enabled',       1,                         'plagiarism_inspera');
-        set_config('baseurl',       'https://api.example.com', 'plagiarism_inspera');
-        set_config('enable_mod_quiz', 1,                       'plagiarism_inspera');
+        set_config('enabled', 1, 'plagiarism_inspera');
+        set_config('baseurl', 'https://api.example.com', 'plagiarism_inspera');
+        set_config('enable_mod_quiz', 1, 'plagiarism_inspera');
         // Lower the char-count threshold so the short essay text in the test is processed.
         set_config('charcount', 1, 'plagiarism_inspera');
 
@@ -111,8 +110,8 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         $tosubmit = [
             1 => [
                 'answer'       => 'This is my plagiarized essay content.',
-                'answerformat' => FORMAT_HTML
-            ]
+                'answerformat' => FORMAT_HTML,
+            ],
         ];
         // Process the typed text into the database.
         $attemptobj->process_submitted_actions($timenow, false, $tosubmit);
@@ -161,7 +160,7 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         $essay = $questiongenerator->create_question('essay', null, [
             'category' => $cat->id,
             'attachments' => 1,
-            'attachmentsrequired' => 1
+            'attachmentsrequired' => 1,
         ]);
 
         quiz_add_quiz_question($essay->id, $this->quiz, 0, 10.0);
@@ -203,8 +202,8 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
             1 => [
                 'answer'       => 'Please see the attached file.',
                 'answerformat' => FORMAT_HTML,
-                'attachments'  => $draftitemid // This triggers the file move!
-            ]
+                'attachments'  => $draftitemid, // This triggers the file move!
+            ],
         ];
 
         $attemptobj->process_submitted_actions($timenow, false, $tosubmit);
@@ -275,13 +274,13 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         $fs->create_file_from_string([
             'contextid' => context_user::instance($this->student->id)->id,
             'component' => 'user', 'filearea' => 'draft', 'itemid' => $draftitemid,
-            'filepath' => '/', 'filename' => 'visibility_test.pdf'
+            'filepath' => '/', 'filename' => 'visibility_test.pdf',
         ], 'PDF content');
 
         $attemptobj = \mod_quiz\quiz_attempt::create((int) $attemptrecord->id);
 
         $attemptobj->process_submitted_actions($timenow, false, [
-            1 => ['answer' => 'Text response', 'answerformat' => FORMAT_HTML, 'attachments' => $draftitemid]
+            1 => ['answer' => 'Text response', 'answerformat' => FORMAT_HTML, 'attachments' => $draftitemid],
         ]);
         $attemptobj->process_finish($timenow, false);
 
@@ -300,7 +299,7 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
 
             if (!empty($rec->storedfileid)) {
                 $filerecord = $rec;
-            } elseif (is_string($rec->identifier)) {
+            } else if (is_string($rec->identifier)) {
                 $textrecord = $rec;
             }
         }
@@ -311,7 +310,7 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         // --- 5. TEST SCENARIO 1: After Grading (Mode 2) ---
         $settings = [
             'use_originality' => 1,
-            'originality_show_student_report' => 2
+            'originality_show_student_report' => 2,
         ];
 
         // A. Ungraded -> Should be False
@@ -331,11 +330,10 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $textrecord));
         $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $filerecord));
 
-
         // --- 6. TEST SCENARIO 2: After Close Date (Mode 3) ---
         $settings = [
             'use_originality' => 1,
-            'originality_show_student_report' => 3
+            'originality_show_student_report' => 3,
         ];
 
         // A. Quiz closes in the FUTURE -> Should be False
@@ -350,7 +348,7 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         $DB->insert_record('quiz_overrides', [
             'quiz' => $this->quiz->id,
             'userid' => $this->student->id,
-            'timeclose' => $timenow + 7200 // Extended 2 hours into the future
+            'timeclose' => $timenow + 7200, // Extended 2 hours into the future
         ]);
 
         // Global quiz is closed, but override is active in the future -> Should be False
@@ -389,7 +387,7 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         $DB->insert_record('assignsubmission_onlinetext', (object)[
             'assignment' => 1,
             'submission' => $assign_sub_id,
-            'onlinetext' => 'Hello Assignment Rehydration'
+            'onlinetext' => 'Hello Assignment Rehydration',
         ]);
 
         $assign_record = (object)['storedfileid' => null, 'submissionid' => $assign_sub_id];
@@ -408,7 +406,6 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         $assign_content = file_get_contents($assign_filepath);
         $this->assertStringContainsString('<!DOCTYPE html>', $assign_content);
         $this->assertStringContainsString('Hello Assignment Rehydration', $assign_content);
-
 
         // --- SCENARIO 3: Quiz Rehydration ---
         // Reuse the globally prepared student and quiz!
@@ -433,7 +430,7 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
 
         $attemptobj = \mod_quiz\quiz_attempt::create((int) $attemptrecord->id);
         $attemptobj->process_submitted_actions(time(), false, [
-            1 => ['answer' => 'Hello Quiz Rehydration', 'answerformat' => FORMAT_HTML]
+            1 => ['answer' => 'Hello Quiz Rehydration', 'answerformat' => FORMAT_HTML],
         ]);
         $attemptobj->process_finish(time(), false);
 

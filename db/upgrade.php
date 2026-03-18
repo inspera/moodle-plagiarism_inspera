@@ -46,14 +46,13 @@ function xmldb_plagiarism_inspera_upgrade($oldversion) {
 
         $DB->delete_records_select(
             'plagiarism_inspera_config',
-             "cm = 0 AND ($likeenable OR $likelangs)",
-             $params
+            "cm = 0 AND ($likeenable OR $likelangs)",
+            $params
         );
 
         // Plagiarism savepoint reached.
         upgrade_plugin_savepoint(true, 2026031301, 'plagiarism', 'inspera');
     }
-
 
     // --- ADD ORIGINALITY_SCORE COLUMN ---
     if ($oldversion < 2026031601) {

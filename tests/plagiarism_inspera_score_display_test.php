@@ -32,7 +32,6 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class plagiarism_inspera_score_display_test extends advanced_testcase {
-
     /** @var plagiarism_plugin_inspera */
     private $plugin;
 
@@ -57,10 +56,10 @@ class plagiarism_inspera_score_display_test extends advanced_testcase {
      *
      * @param int        $cmid             Course-module ID stored in the config table.
      * @param float      $similarity       Similarity percentage.
-     * @param float|null $originalityScore Originality percentage, or NULL for legacy rows.
+     * @param float|null $originality_score Originality percentage, or NULL for legacy rows.
      * @return stdClass
      */
-    private function make_sub_record(int $cmid, float $similarity, ?float $originalityScore): stdClass {
+    private function make_sub_record(int $cmid, float $similarity, ?float $originality_score): stdClass {
         $record = new stdClass();
         // Use a high integer for the record ID so the redirect URL is deterministic;
         // this value is never inserted into the DB and cannot conflict with real records.
@@ -68,7 +67,7 @@ class plagiarism_inspera_score_display_test extends advanced_testcase {
         $record->cm               = $cmid;
         $record->status           = 'finished';
         $record->similarity       = $similarity;
-        $record->originality_score = $originalityScore;
+        $record->originality_score = $originality_score;
         $record->originality      = 'Low'; // determines risk CSS class
         return $record;
     }

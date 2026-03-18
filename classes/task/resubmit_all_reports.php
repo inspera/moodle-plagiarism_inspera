@@ -35,7 +35,6 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
  * - Online Text: Supported for Individual assignments only.
  */
 class resubmit_all_reports extends \core\task\adhoc_task {
-
     public function execute() {
         global $DB;
 
@@ -72,7 +71,9 @@ class resubmit_all_reports extends \core\task\adhoc_task {
         mtrace("Found " . count($files) . " candidate files.");
 
         foreach ($files as $file) {
-            if ($file->get_filename() === '.') continue;
+            if ($file->get_filename() === '.') {
+                continue;
+            }
 
             $storedfileid = $file->get_id();
             $itemid = $file->get_itemid(); // The Submission ID (shared by group members)

@@ -33,11 +33,10 @@ defined('MOODLE_INTERNAL') || die();
  * Table to display list of submissions.
  */
 class debug_table extends \table_sql {
-
     /**
      * @var array stores cached activity name.
      */
-    public $activitynames = array();
+    public $activitynames = [];
 
     /**
      * Constructor
@@ -54,8 +53,8 @@ class debug_table extends \table_sql {
         $this->is_downloading(optional_param('download', '', PARAM_ALPHA), 'OriginalityDebugOutput');
 
         // Define the list of columns to show.
-        $columns = array();
-        $headers = array();
+        $columns = [];
+        $headers = [];
 
         // Add selector column if not downloading report.
         if (!$this->is_downloading()) {
@@ -70,9 +69,9 @@ class debug_table extends \table_sql {
         }
 
         // Standard columns
-        $columns = array_merge($columns, array('id', 'fullname', 'course', 'activity', 'externalid', 'status', 'description', 'timecreated'));
+        $columns = array_merge($columns, ['id', 'fullname', 'course', 'activity', 'externalid', 'status', 'description', 'timecreated']);
 
-        $headers = array_merge($headers, array(
+        $headers = array_merge($headers, [
             get_string('id', 'plagiarism_inspera'),
             get_string('user'),
             get_string('course'),
@@ -80,8 +79,8 @@ class debug_table extends \table_sql {
             get_string('identifier', 'plagiarism_inspera'), // Maps to externalid
             get_string('status', 'plagiarism_inspera'),
             get_string('description', 'plagiarism_inspera'),
-            get_string('timecreated', 'plagiarism_inspera')
-        ));
+            get_string('timecreated', 'plagiarism_inspera'),
+        ]);
 
         // Add actions column if not downloading.
         if (!$this->is_downloading()) {
@@ -112,8 +111,8 @@ class debug_table extends \table_sql {
             return '';
         }
         $options = [
-            'id' => 'item'.$row->id,
-            'name' => 'item'.$row->id,
+            'id' => 'item' . $row->id,
+            'name' => 'item' . $row->id,
             'value' => $row->id,
         ];
         $itemcheckbox = new \core\output\checkbox_toggleall('items', false, $options);
@@ -130,16 +129,20 @@ class debug_table extends \table_sql {
         // 1. Reset / Resubmit Button
         // If status is Error, or Finished, or stuck in Pending/Request for too long
         if ($row->status == 'error' || $row->status == 'external_error') {
-            $url = new moodle_url('/plagiarism/inspera/originality_debug.php',
-                array('id' => $row->id, 'action' => 'resubmit', 'sesskey' => sesskey()));
+            $url = new moodle_url(
+                '/plagiarism/inspera/originality_debug.php',
+                ['id' => $row->id, 'action' => 'resubmit', 'sesskey' => sesskey()]
+            );
             $tooltip = get_string('resubmit_tooltip', 'plagiarism_inspera');
             $output .= html_writer::link($url, get_string('resubmit', 'plagiarism_inspera'), ['title' => $tooltip]);
             $output .= ' | ';
         }
 
         // 2. Delete Button
-        $url = new moodle_url('/plagiarism/inspera/originality_debug.php',
-            array('id' => $row->id, 'action' => 'delete', 'sesskey' => sesskey()));
+        $url = new moodle_url(
+            '/plagiarism/inspera/originality_debug.php',
+            ['id' => $row->id, 'action' => 'delete', 'sesskey' => sesskey()]
+        );
         $output .= html_writer::link($url, get_string('delete'));
 
         return $output;
@@ -180,8 +183,8 @@ class debug_table extends \table_sql {
             return html_writer::tag('span', 'Deleted Activity', ['class' => 'badge badge-warning']);
         }
 
-        $cmurl = new moodle_url('/mod/'.$row->moduletype.'/view.php', array('id' => $row->cm));
-        return html_writer::link($cmurl, shorten_text($coursemodulename, 40, true), array('title' => $coursemodulename));
+        $cmurl = new moodle_url('/mod/' . $row->moduletype . '/view.php', ['id' => $row->cm]);
+        return html_writer::link($cmurl, shorten_text($coursemodulename, 40, true), ['title' => $coursemodulename]);
     }
 
     public function col_timecreated($row) {
@@ -223,7 +226,7 @@ class debug_table extends \table_sql {
         if ($this->is_downloading()) {
             return $row->shortname;
         }
-        return \html_writer::link(new \moodle_url('/course/view.php', array('id' => $row->courseid)), $row->shortname);
+        return \html_writer::link(new \moodle_url('/course/view.php', ['id' => $row->courseid]), $row->shortname);
     }
 
     /**

@@ -23,9 +23,9 @@
  */
 
 require_once(dirname(dirname(__FILE__)) . '/../config.php');
-require_once($CFG->libdir.'/adminlib.php');
-require_once($CFG->libdir.'/plagiarismlib.php');
-require_once($CFG->dirroot.'/plagiarism/inspera/lib.php');
+require_once($CFG->libdir . '/adminlib.php');
+require_once($CFG->libdir . '/plagiarismlib.php');
+require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 require_login();
 admin_externalpage_setup('plagiarisminspera');
@@ -37,7 +37,7 @@ $mform = new plagiarism_inspera_setup_form();
 $plagiarismplugin = new plagiarism_plugin_inspera();
 
 if ($mform->is_cancelled()) {
-    //Redirects to current page
+    // Redirects to current page
     redirect(new moodle_url('/plagiarism/inspera/settings.php'));
 }
 

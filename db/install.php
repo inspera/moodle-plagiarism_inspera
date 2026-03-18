@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * Install and upgrade code for the Plagiarism Inspera plugin.
+ *
+ * @package     plagiarism_inspera
+ * @copyright   2026 Inspera
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 defined('MOODLE_INTERNAL') || die();
 
 /**
@@ -31,7 +39,6 @@ function xmldb_plagiarism_inspera_install() {
     $old_configs = $DB->get_records('config_plugins', ['plugin' => 'plagiarism_originality']);
 
     if (!empty($old_configs)) {
-
         // 2. Check if the NEW plugin already has a Client ID configured.
         // We check this specific key to avoid overwriting if you manually set it up already.
         $existing_client = get_config('plagiarism_inspera', 'clientid');
@@ -79,7 +86,6 @@ function xmldb_plagiarism_inspera_install() {
     // --- 2. MIGRATE SUBMISSIONS (With Path Fix and Sequence Reset) ---
     if ($DB->get_manager()->table_exists('plagiarism_originality_subs')) {
         if ($DB->count_records('plagiarism_inspera_subs') == 0) {
-
             $old_columns = $DB->get_columns('plagiarism_originality_subs');
             $new_columns = $DB->get_columns('plagiarism_inspera_subs');
             $common_keys = array_intersect(array_keys($old_columns), array_keys($new_columns));
@@ -115,7 +121,6 @@ function xmldb_plagiarism_inspera_install() {
 
                 // 3. Disable the old plugin to prevent double-processing
                 set_config('enabled', 0, 'plagiarism_originality');
-
             } catch (Exception $e) {
                 mtrace("Warning: Submission migration failed: " . $e->getMessage());
             }
@@ -138,7 +143,6 @@ function xmldb_plagiarism_inspera_install() {
         set_config('enabled', 0, 'plagiarism_originality');
 
         mtrace("Disabled old plugin configuration scheduled tasks and observers.");
-
     } catch (Exception $e) {
         mtrace("Warning: Cleanup failed: " . $e->getMessage());
     }

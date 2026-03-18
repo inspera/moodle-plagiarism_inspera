@@ -32,15 +32,11 @@ use core_privacy\local\request\writer;
 /**
  * Privacy subsystem for plagiarism_inspera.
  */
-class provider implements
-    \core_privacy\local\metadata\provider,
-    \core_plagiarism\privacy\plagiarism_provider,
-    \core_plagiarism\privacy\plagiarism_user_provider {
-
+class provider implements \core_plagiarism\privacy\plagiarism_provider, \core_plagiarism\privacy\plagiarism_user_provider, \core_privacy\local\metadata\provider {
     /**
      * Describe the data stored by this plugin.
      */
-    public static function get_metadata(collection $collection) : collection {
+    public static function get_metadata(collection $collection): collection {
         // Link to Moodle's core files.
         $collection->link_subsystem('core_files', 'privacy:metadata:core_files');
 
@@ -118,7 +114,7 @@ class provider implements
         global $DB;
         $DB->delete_records('plagiarism_inspera_subs', [
             'userid' => $userid,
-            'cm'     => $context->instanceid
+            'cm'     => $context->instanceid,
         ]);
     }
 
@@ -132,7 +128,7 @@ class provider implements
             return;
         }
 
-        list($insql, $inparams) = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+        [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
         $inparams['cm'] = $context->instanceid;
 
         $DB->delete_records_select(

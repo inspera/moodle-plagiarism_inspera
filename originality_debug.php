@@ -13,6 +13,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
 global $OUTPUT, $CFG, $PAGE, $DB;
 
 /**
@@ -24,9 +25,9 @@ global $OUTPUT, $CFG, $PAGE, $DB;
  */
 
 require_once(dirname(dirname(__DIR__)) . '/config.php');
-require_once($CFG->libdir.'/adminlib.php');
-require_once($CFG->libdir.'/tablelib.php');
-require_once($CFG->dirroot.'/plagiarism/inspera/lib.php');
+require_once($CFG->libdir . '/adminlib.php');
+require_once($CFG->libdir . '/tablelib.php');
+require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 $id = optional_param('id', 0, PARAM_INT);
 $action = optional_param('action', '', PARAM_ALPHA); // Unified action param
@@ -52,9 +53,9 @@ require_capability('moodle/site:config', $context);
 $exportfilename = 'OriginalityDebugOutput.csv';
 
 $limit = 50;
-$filters = array('realname' => 0, 'timesubmitted' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0);
+$filters = ['realname' => 0, 'timesubmitted' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0];
 $ufiltering = new \plagiarism_inspera\output\filtering($filters, $PAGE->url);
-list($ufextrasql, $ufparams) = $ufiltering->get_sql_filter();
+[$ufextrasql, $ufparams] = $ufiltering->get_sql_filter();
 
 $defaultstatusapplied = false;
 if (empty($ufextrasql)) {
@@ -71,7 +72,7 @@ $plagiarismsettings = plagiarism_plugin_inspera::get_settings();
 // -------------------------------------------------------------------------
 if (!empty($deleteselected)) {
     if (empty($fileids)) {
-        $fileids = array();
+        $fileids = [];
         // Check for checkbox data
         $post = data_submitted();
         foreach ($post as $k => $v) {
@@ -85,12 +86,15 @@ if (!empty($deleteselected)) {
         }
 
         // Display confirmation box.
-        $params = array('deleteselectedfiles' => 1, 'confirm' => 1, 'fileids' => implode(',', $fileids));
+        $params = ['deleteselectedfiles' => 1, 'confirm' => 1, 'fileids' => implode(',', $fileids)];
         $deleteurl = new moodle_url($PAGE->url, $params);
         $numfiles = count($fileids);
         echo $OUTPUT->header();
-        echo $OUTPUT->confirm(get_string('areyousurebulk', 'plagiarism_inspera', $numfiles),
-            $deleteurl, $CFG->wwwroot . '/plagiarism/inspera/originality_debug.php');
+        echo $OUTPUT->confirm(
+            get_string('areyousurebulk', 'plagiarism_inspera', $numfiles),
+            $deleteurl,
+            $CFG->wwwroot . '/plagiarism/inspera/originality_debug.php'
+        );
 
         echo $OUTPUT->footer();
         exit;
@@ -98,7 +102,7 @@ if (!empty($deleteselected)) {
         $count = 0;
         $fileids = explode(',', $fileids);
         foreach ($fileids as $fid) {
-            $DB->delete_records('plagiarism_inspera_subs', array('id' => $fid));
+            $DB->delete_records('plagiarism_inspera_subs', ['id' => $fid]);
             $count++;
         }
         \core\notification::success(get_string('recordsdeleted', 'plagiarism_inspera', $count));
@@ -109,7 +113,7 @@ if (!empty($deleteselected)) {
 // -------------------------------------------------------------------------
 else if (!empty($resubmitselected)) {
     if (empty($fileids)) {
-        $fileids = array();
+        $fileids = [];
         // Check for checkbox data
         $post = data_submitted();
         foreach ($post as $k => $v) {
@@ -123,22 +127,25 @@ else if (!empty($resubmitselected)) {
         }
 
         // Display confirmation box for resubmit selected
-        $params = array('resubmitselectedfiles' => 1, 'confirm' => 1, 'fileids' => implode(',', $fileids));
+        $params = ['resubmitselectedfiles' => 1, 'confirm' => 1, 'fileids' => implode(',', $fileids)];
         $resubmiturl = new moodle_url($PAGE->url, $params);
         $numfiles = count($fileids);
         echo $OUTPUT->header();
-        echo $OUTPUT->confirm(get_string('areyousurebulkresubmit', 'plagiarism_inspera', $numfiles),
-            $resubmiturl, $CFG->wwwroot . '/plagiarism/inspera/originality_debug.php');
+        echo $OUTPUT->confirm(
+            get_string('areyousurebulkresubmit', 'plagiarism_inspera', $numfiles),
+            $resubmiturl,
+            $CFG->wwwroot . '/plagiarism/inspera/originality_debug.php'
+        );
 
         echo $OUTPUT->footer();
         exit;
     } else if ($confirm && confirm_sesskey()) {
         $fileids = explode(',', $fileids);
         // Update selected records for resubmission
-        list($insql, $inparams) = $DB->get_in_or_equal($fileids, SQL_PARAMS_NAMED);
+        [$insql, $inparams] = $DB->get_in_or_equal($fileids, SQL_PARAMS_NAMED);
         $params = array_merge([
             'status' => 'report_requested',
-            'modtime' => time()
+            'modtime' => time(),
         ], $inparams);
 
         $sql = "UPDATE {plagiarism_inspera_subs}
@@ -184,9 +191,8 @@ if ($id && confirm_sesskey()) {
 
         $DB->update_record('plagiarism_inspera_subs', $record);
         \core\notification::success(get_string('fileresubmitted', 'plagiarism_inspera'));
-
     } else if ($action === 'delete' || !empty($delete)) { // Support both legacy $delete param and new action
-        $DB->delete_records('plagiarism_inspera_subs', array('id' => $id));
+        $DB->delete_records('plagiarism_inspera_subs', ['id' => $id]);
         \core\notification::success(get_string('filedeleted', 'plagiarism_inspera'));
     }
 }
@@ -246,21 +252,21 @@ if (!$table->is_downloading()) {
 
     echo '<form action="originality_debug.php" method="post" id="debugform">';
     echo html_writer::start_div();
-    echo html_writer::tag('input', '', array('type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()));
-    echo html_writer::tag('input', '', array('type' => 'hidden', 'name' => 'returnto', 'value' => s($PAGE->url->out(false))));
+    echo html_writer::tag('input', '', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+    echo html_writer::tag('input', '', ['type' => 'hidden', 'name' => 'returnto', 'value' => s($PAGE->url->out(false))]);
 }
 
 $table->out($limit, false);
 
 if (!$table->is_downloading()) {
-    echo html_writer::tag('input', "", array('name' => 'deleteselectedfiles', 'type' => 'submit',
+    echo html_writer::tag('input', "", ['name' => 'deleteselectedfiles', 'type' => 'submit',
         'id' => 'deleteallselected', 'class' => 'btn btn-secondary',
-        'value' => get_string('deleteselectedfiles', 'plagiarism_inspera')));
+        'value' => get_string('deleteselectedfiles', 'plagiarism_inspera')]);
 
     echo html_writer::span(' ');
-    echo html_writer::tag('input', "", array('name' => 'resubmitselectedfiles', 'type' => 'submit',
+    echo html_writer::tag('input', "", ['name' => 'resubmitselectedfiles', 'type' => 'submit',
         'id' => 'resubmitselected', 'class' => 'btn btn-secondary',
-        'value' => get_string('resubmitselectedfiles', 'plagiarism_inspera')));
+        'value' => get_string('resubmitselectedfiles', 'plagiarism_inspera')]);
     echo html_writer::end_tag('form');
     echo html_writer::end_div();
     echo html_writer::empty_tag('hr');

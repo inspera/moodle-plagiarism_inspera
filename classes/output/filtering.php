@@ -27,11 +27,10 @@ namespace plagiarism_inspera\output;
 defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
-require_once($CFG->dirroot.'/user/filters/lib.php');
-require_once($CFG->dirroot.'/plagiarism/inspera/lib.php'); // Ensure lib is loaded for statuscodes
+require_once($CFG->dirroot . '/user/filters/lib.php');
+require_once($CFG->dirroot . '/plagiarism/inspera/lib.php'); // Ensure lib is loaded for statuscodes
 
 class filtering extends \user_filtering {
-
     /**
      * Adds handling for custom fieldnames.
      * @param string $fieldname
@@ -50,12 +49,21 @@ class filtering extends \user_filtering {
         if ($fieldname == 'status') {
             // Ensure this function exists in lib.php
             $statuses = plagiarism_inspera_statuscodes();
-            return new \user_filter_simpleselect('status', get_string('status', 'plagiarism_inspera'),
-                $advanced, 't.status', $statuses);
+            return new \user_filter_simpleselect(
+                'status',
+                get_string('status', 'plagiarism_inspera'),
+                $advanced,
+                't.status',
+                $statuses
+            );
         }
         if ($fieldname == 'course') {
-            return new \user_filter_text('course', get_string('courseshortname', 'plagiarism_inspera'),
-                $advanced, 'c.shortname');
+            return new \user_filter_text(
+                'course',
+                get_string('courseshortname', 'plagiarism_inspera'),
+                $advanced,
+                'c.shortname'
+            );
         }
         if ($fieldname == 'description') {
             return new \user_filter_text('description', get_string('description', 'plagiarism_inspera'), $advanced, 't.description');

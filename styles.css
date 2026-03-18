@@ -1,3 +1,11 @@
+/**
+ * Styles for the Plagiarism Inspera plugin.
+ *
+ * @package     plagiarism_inspera
+ * @copyright   2026 Inspera
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 /* Puts the link/status on a new line with a small icon */
 .plagiarism-originality-reportlink,
 .plagiarism-originality-status {

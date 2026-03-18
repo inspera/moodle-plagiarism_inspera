@@ -33,7 +33,6 @@ use core_privacy\tests\provider_testcase;
  * Privacy Provider testcase for plagiarism_inspera.
  */
 class provider_test extends provider_testcase {
-
     /**
      * Test getting the metadata.
      * Ensures the plugin correctly declares what data it stores and where.

@@ -83,12 +83,12 @@ class api_client {
      * This method is intended to be mocked during unit testing.
      *
      * @param string $url The full URL endpoint.
-     * @param string $payloadJson The JSON payload string.
+     * @param string $payload_json The JSON payload string.
      * @param array $headers Optional array of additional HTTP headers.
      * @return string The raw response body from the server.
      * @throws \moodle_exception If the curl request fails or returns an error.
      */
-    protected function _do_post_request(string $url, string $payloadJson, array $headers = []): string {
+    protected function _do_post_request(string $url, string $payload_json, array $headers = []): string {
         // --- DEBUG START ---
         if (!defined('PHPUNIT_TEST')) {
             mtrace("------------------------------------------------");
@@ -101,7 +101,7 @@ class api_client {
                 }
             }
             mtrace("DEBUG: Auth Header: {$auth_status}");
-            mtrace("DEBUG: Payload: " . substr($payloadJson, 0, 500) . (strlen($payloadJson) > 500 ? '...' : ''));
+            mtrace("DEBUG: Payload: " . substr($payload_json, 0, 500) . (strlen($payload_json) > 500 ? '...' : ''));
         }
         // -------------------
 
@@ -113,7 +113,7 @@ class api_client {
             $curl->setHeader($header);
         }
 
-        $response = $curl->post($url, $payloadJson);
+        $response = $curl->post($url, $payload_json);
         $info = $curl->get_info();          // 1. Get the transfer info
         $http_code = $info['http_code'] ?? 0; // 2. Extract the code
         $errno = $curl->get_errno();
@@ -131,14 +131,24 @@ class api_client {
         // 1. Connection Errors (DNS, Timeout)
         if ($errno !== 0) {
             $error = $curl->error;
-            throw new \moodle_exception('curlerror', 'plagiarism_inspera', '', null,
-                "Curl connection error ({$errno}) accessing {$url}: {$error}");
+            throw new \moodle_exception(
+                'curlerror',
+                'plagiarism_inspera',
+                '',
+                null,
+                "Curl connection error ({$errno}) accessing {$url}: {$error}"
+            );
         }
 
         // 2. API Logic Errors (401 Unauthorized, 403 Forbidden, 500 Server Error)
         if ($http_code >= 400) {
-            throw new \moodle_exception('apierror', 'plagiarism_inspera', '', null,
-                "API returned HTTP {$http_code}: " . $response);
+            throw new \moodle_exception(
+                'apierror',
+                'plagiarism_inspera',
+                '',
+                null,
+                "API returned HTTP {$http_code}: " . $response
+            );
         }
 
         return $response;
@@ -168,13 +178,23 @@ class api_client {
 
         if ($errno !== 0) {
             $error = $curl->error;
-            throw new \moodle_exception('curlerror', 'plagiarism_inspera', '', null,
-                "Curl error ({$errno}) accessing {$url}: {$error}");
+            throw new \moodle_exception(
+                'curlerror',
+                'plagiarism_inspera',
+                '',
+                null,
+                "Curl error ({$errno}) accessing {$url}: {$error}"
+            );
         }
 
         if ($http_code >= 400) {
-            throw new \moodle_exception('apierror', 'plagiarism_inspera', '', null,
-                "API returned HTTP {$http_code} on GET: " . $response);
+            throw new \moodle_exception(
+                'apierror',
+                'plagiarism_inspera',
+                '',
+                null,
+                "API returned HTTP {$http_code} on GET: " . $response
+            );
         }
 
         return $response;
@@ -194,7 +214,9 @@ class api_client {
         $curl = new \curl(['ignoresecurity' => true, 'timeout' => 300]);
         $curl->setHeader('Content-Type: ' . $mimetype);
 
-        if (!defined('PHPUNIT_TEST')) { mtrace("Uploading file to Originality S3 URL"); }
+        if (!defined('PHPUNIT_TEST')) {
+            mtrace("Uploading file to Originality S3 URL");
+        }
 
         $curl->put($url, $content);
         $info = $curl->get_info();
@@ -203,13 +225,17 @@ class api_client {
 
         if ($errno !== 0) {
             $error = $curl->error;
-            if (!defined('PHPUNIT_TEST')) { mtrace("Upload failed (Curl {$errno}): " . $error); }
+            if (!defined('PHPUNIT_TEST')) {
+                mtrace("Upload failed (Curl {$errno}): " . $error);
+            }
             return false;
         }
 
         // S3 returns 200 or 201 on success. 400+ is a failure.
         if ($http_code >= 400) {
-            if (!defined('PHPUNIT_TEST')) { mtrace("Upload failed (HTTP {$http_code})"); }
+            if (!defined('PHPUNIT_TEST')) {
+                mtrace("Upload failed (HTTP {$http_code})");
+            }
             return false;
         }
 
@@ -237,10 +263,11 @@ class api_client {
             $cached_hash = get_config('plagiarism_inspera', 'apitoken_hash');
 
             // Logic: Token must be valid, not expiring soon, AND belong to these credentials
-            if (!empty($token) &&
+            if (
+                !empty($token) &&
                 $expires > (time() + 60) &&
-                $cached_hash === $current_cred_hash) {
-
+                $cached_hash === $current_cred_hash
+            ) {
                 return $token;
             }
         }
@@ -248,7 +275,7 @@ class api_client {
         // 2. FETCH NEW TOKEN
         $payload = json_encode([
             'clientId'      => $this->clientid,
-            'institutionId' => $this->institutionid
+            'institutionId' => $this->institutionid,
         ]);
 
         try {
@@ -315,7 +342,9 @@ class api_client {
         if (!empty($educators) && is_array($educators)) {
             $normalized_educators = [];
             foreach ($educators as $ed) {
-                if (!is_array($ed)) { continue; }
+                if (!is_array($ed)) {
+                    continue;
+                }
                 $id = isset($ed['id']) ? (string)$ed['id'] : null;
                 $name = $ed['name'] ?? null;
                 $mail = $ed['email'] ?? null;
@@ -332,7 +361,9 @@ class api_client {
         if (!empty($students) && is_array($students)) {
             $normalized_students = [];
             foreach ($students as $st) {
-                if (!is_array($st)) { continue; }
+                if (!is_array($st)) {
+                    continue;
+                }
 
                 // Extract fields (handling potential integer IDs by casting to string)
                 $id = isset($st['id']) ? (string)$st['id'] : null;
@@ -359,9 +390,15 @@ class api_client {
         if (!empty($this->institutionid)) {
             $payload['institutionName'] = $this->institutionid;
         }
-        if (!empty($settings['originality_metadata_analysis'])) { $payload['metadataAnalysis'] = (bool)$settings['originality_metadata_analysis']; }
-        if (!empty($settings['originality_archive'])) { $payload['archive'] = (bool)$settings['originality_archive']; }
-        if (!empty($settings['originality_enable_ai'])) { $payload['enableAIDetection'] = (bool)$settings['originality_enable_ai']; }
+        if (!empty($settings['originality_metadata_analysis'])) {
+            $payload['metadataAnalysis'] = (bool)$settings['originality_metadata_analysis'];
+        }
+        if (!empty($settings['originality_archive'])) {
+            $payload['archive'] = (bool)$settings['originality_archive'];
+        }
+        if (!empty($settings['originality_enable_ai'])) {
+            $payload['enableAIDetection'] = (bool)$settings['originality_enable_ai'];
+        }
         if (!empty($settings['originality_enable_translations'])) {
             $payload['translationsEnabled'] = true;
             // Fix: Clean up array structure for API
@@ -374,7 +411,8 @@ class api_client {
         }
 
         // 4. Sources (Include/Exclude)
-        $includesources = []; $excludesources = [];
+        $includesources = [];
+        $excludesources = [];
         if (!empty($settings['originality_enable_include_urls']) && !empty(trim($settings['originality_include_urls']))) {
             $includesources = array_values(array_filter(array_map('trim', explode(',', $settings['originality_include_urls']))));
         }
@@ -383,8 +421,12 @@ class api_client {
         }
         if (!empty($includesources) || !empty($excludesources)) {
             $payload['sources'] = [];
-            if (!empty($excludesources)) $payload['sources']['excludeSources'] = $excludesources;
-            if (!empty($includesources)) $payload['sources']['includeSources'] = $includesources;
+            if (!empty($excludesources)) {
+                $payload['sources']['excludeSources'] = $excludesources;
+            }
+            if (!empty($includesources)) {
+                $payload['sources']['includeSources'] = $includesources;
+            }
         }
 
         try {
@@ -399,7 +441,9 @@ class api_client {
             throw new \moodle_exception('invalidjson', 'plagiarism_inspera', '', null, 'Create submission response not valid JSON: ' . $response);
         }
         if (empty($data->documentId) || empty($data->presignedS3Url)) {
-            if (!defined('PHPUNIT_TEST')) { mtrace("API create_submission failed: " . $response); }
+            if (!defined('PHPUNIT_TEST')) {
+                mtrace("API create_submission failed: " . $response);
+            }
             // Extract readable message if possible
             $apimessage = $data->message ?? 'API response missing documentId or presignedS3Url';
             throw new \moodle_exception('apierror', 'plagiarism_inspera', '', null, $apimessage);
@@ -444,7 +488,9 @@ class api_client {
             throw new \moodle_exception('invalidjson', 'plagiarism_inspera', '', null, 'Check status response not valid JSON: ' . $response);
         }
 
-        if (!defined('PHPUNIT_TEST')) { mtrace("Polled status for doc {$documentid}: " . $response); }
+        if (!defined('PHPUNIT_TEST')) {
+            mtrace("Polled status for doc {$documentid}: " . $response);
+        }
 
         return $data;
     }

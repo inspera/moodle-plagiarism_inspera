@@ -24,8 +24,7 @@ use plagiarism_inspera\apiclient\api_client;
  * Unit tests for the api_client class using partial mocks.
  * Covers token management, payload construction (including groups), and file handling.
  */
-class plagiarism_inspera_api_client_test extends advanced_testcase {
-
+class api_client_test extends advanced_testcase {
     /** @var \PHPUnit\Framework\MockObject\MockObject|api_client */
     protected $clientmock;
 
@@ -62,8 +61,8 @@ class plagiarism_inspera_api_client_test extends advanced_testcase {
         unset_config('apitoken_hash', 'plagiarism_inspera');
 
         $mocktoken = 'new_token_partial_mock';
-        $mockexpires_ms = (time() + 3600) * 1000;
-        $tokenresponse = json_encode(['token' => $mocktoken, 'expirationTime' => $mockexpires_ms]);
+        $mock_expires_ms = (time() + 3600) * 1000;
+        $tokenresponse = json_encode(['token' => $mocktoken, 'expirationTime' => $mock_expires_ms]);
 
         // Expect _do_post_request (Fetch Token)
         $this->clientmock->expects($this->once())
@@ -147,7 +146,7 @@ class plagiarism_inspera_api_client_test extends advanced_testcase {
         // Define settings
         $settings = [
             'originality_enable_ai' => 1,
-            'anonymous_submissions' => true
+            'anonymous_submissions' => true,
         ];
 
         // Prepare Metadata Object (Standard DTO)
@@ -163,8 +162,8 @@ class plagiarism_inspera_api_client_test extends advanced_testcase {
             ->method('_do_post_request')
             ->with(
                 $this->stringContains('/create/submission'),
-                $this->callback(function($payloadJson) {
-                    $payload = json_decode($payloadJson, true);
+                $this->callback(function ($payload_json) {
+                    $payload = json_decode($payload_json, true);
                     $this->assertIsArray($payload);
 
                     // Standard checks
@@ -178,7 +177,7 @@ class plagiarism_inspera_api_client_test extends advanced_testcase {
 
                     return true;
                 }),
-                $this->callback(function($headers) {
+                $this->callback(function ($headers) {
                     $this->assertContains('Authorization: Bearer payload_test_token', $headers);
                     return true;
                 })
@@ -217,8 +216,8 @@ class plagiarism_inspera_api_client_test extends advanced_testcase {
             ->method('_do_post_request')
             ->with(
                 $this->stringContains('/create/submission'),
-                $this->callback(function($payloadJson) {
-                    $payload = json_decode($payloadJson, true);
+                $this->callback(function ($payload_json) {
+                    $payload = json_decode($payload_json, true);
 
                     // Student email must be at top-level
                     $this->assertEquals('student@example.com', $payload['email']);
@@ -271,8 +270,8 @@ class plagiarism_inspera_api_client_test extends advanced_testcase {
             ->method('_do_post_request')
             ->with(
                 $this->stringContains('/create/submission'),
-                $this->callback(function($payloadJson) {
-                    $payload = json_decode($payloadJson, true);
+                $this->callback(function ($payload_json) {
+                    $payload = json_decode($payload_json, true);
 
                     // 1. Verify Team Submission Flag
                     $this->assertTrue($payload['teamSubmission'], 'teamSubmission flag should be true');
