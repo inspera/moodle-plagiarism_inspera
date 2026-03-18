@@ -276,7 +276,7 @@ final class quiz_test extends advanced_testcase {
             [
                 'category' => $cat->id,
                 'attachments' => 1,
-                'attachmentsrequired' => 1
+                'attachmentsrequired' => 1,
             ]
         );
         quiz_add_quiz_question($essay->id, $this->quiz, 0, 10.0);
@@ -316,7 +316,7 @@ final class quiz_test extends advanced_testcase {
             'plagiarism_inspera_subs',
             [
                 'cm' => $this->quiz->cmid,
-                'userid' => $this->student->id
+                'userid' => $this->student->id,
             ]
         );
         $textrecord = null;
