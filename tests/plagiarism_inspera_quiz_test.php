@@ -28,7 +28,7 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class plagiarism_inspera_quiz_test extends advanced_testcase {
+final class plagiarism_inspera_quiz_test extends advanced_testcase {
     /** @var stdClass */
     protected $course;
 
@@ -63,7 +63,7 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
     /**
      * Test: Verify that an essay response in a quiz creates a row in the subs table.
      */
-    public function test_quiz_essay_queuing() {
+    public function test_quiz_essay_queuing(): void {
         global $DB;
 
         // --- 1. Enable Inspera for this specific course module ---
@@ -103,8 +103,8 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         $attemptobj = \mod_quiz\quiz_attempt::create((int) $attemptrecord->id);
 
         // --- 4. Submission Logic ---
-        // We do NOT call start_attempt() here because the Data Generator
-        // already created the attempt in the 'inprogress' state.
+        // We do NOT call start_attempt() here because the Data Generator.
+        // Already created the attempt in the 'inprogress' state.
 
         // Simulate the essay response (Slot 1).
         $tosubmit = [
@@ -123,7 +123,7 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         $attemptrecord = $DB->get_record('quiz_attempts', ['id' => $attemptrecord->id], '*', MUST_EXIST);
 
         // --- 5. Trigger Observer Logic ---
-        // Call your excellent helper function to simulate the event trigger
+        // Call your excellent helper function to simulate the event trigger.
         plagiarism_inspera_quiz_attempt_submitted($attemptrecord);
 
         // --- 6. Assertions ---
@@ -142,7 +142,7 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
     /**
      * Test: Verify that an essay response with a file attachment queues the file.
      */
-    public function test_quiz_attachment_queuing() {
+    public function test_quiz_attachment_queuing(): void {
         global $DB;
 
         // --- 1. Enable Inspera for this module ---
@@ -226,10 +226,11 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         // Loop through to assert that the FILE specifically was queued.
         $foundfile = false;
         foreach ($records as $record) {
-            $has_filename = is_string($record->identifier) && strpos($record->identifier, 'plagiarized_document.pdf') !== false;
-            $has_fileid   = !empty($record->storedfileid);
+            $hasfilename = is_string($record->identifier) &&
+                strpos($record->identifier, 'plagiarized_document.pdf') !== false;
+            $hasfileid   = !empty($record->storedfileid);
 
-            if ($has_filename || $has_fileid) {
+            if ($hasfilename || $hasfileid) {
                 $foundfile = true;
                 $this->assertEquals('report_requested', $record->status);
             }
@@ -242,7 +243,7 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
      * Test: Verify report visibility logic for Quiz attempts.
      * Covers: Graded state, Close dates, User overrides, and file vs text identifiers.
      */
-    public function test_should_show_report_quiz_logic() {
+    public function test_should_show_report_quiz_logic(): void {
         global $DB;
 
         $this->setUser($this->student);
@@ -252,11 +253,13 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         $DB->set_field('quiz', 'timeclose', 0, ['id' => $this->quiz->id]);
 
         // --- 1. Setup Quiz with an Essay that requires attachments ---
-        $DB->insert_record('plagiarism_inspera_config', (object) ['cm' => $this->quiz->cmid, 'name' => 'use_originality', 'value' => '1']);
+        $DB->insert_record('plagiarism_inspera_config',
+            (object) ['cm' => $this->quiz->cmid, 'name' => 'use_originality', 'value' => '1']);
 
         $questiongenerator = $this->getDataGenerator()->get_plugin_generator('core_question');
         $cat = $questiongenerator->create_question_category();
-        $essay = $questiongenerator->create_question('essay', null, ['category' => $cat->id, 'attachments' => 1, 'attachmentsrequired' => 1]);
+        $essay = $questiongenerator->create_question('essay',
+            null, ['category' => $cat->id, 'attachments' => 1, 'attachmentsrequired' => 1]);
         quiz_add_quiz_question($essay->id, $this->quiz, 0, 10.0);
 
         $quizobj = \mod_quiz\quiz_settings::create($this->quiz->id);
@@ -290,7 +293,8 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         plagiarism_inspera_quiz_attempt_submitted($attemptrecord);
 
         // --- 4. Fetch the REAL Text and File Records ---
-        $records = $DB->get_records('plagiarism_inspera_subs', ['cm' => $this->quiz->cmid, 'userid' => $this->student->id]);
+        $records = $DB->get_records('plagiarism_inspera_subs',
+            ['cm' => $this->quiz->cmid, 'userid' => $this->student->id]);
         $textrecord = null;
         $filerecord = null;
 
@@ -314,8 +318,10 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         ];
 
         // A. Ungraded -> Should be False
-        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $textrecord));
-        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $filerecord));
+        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
+            (int)$this->student->id, $settings, $textrecord));
+        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
+            (int)$this->student->id, $settings, $filerecord));
 
         // B. Grade the attempt (Set sumgrades AND insert overall quiz grade)
         $DB->set_field('quiz_attempts', 'sumgrades', 10.0, ['id' => $attemptrecord->id]);
@@ -327,8 +333,10 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         quiz_grade_item_update($quizobj->get_quiz(), $grade);
 
         // C. Graded -> Should be True
-        $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $textrecord));
-        $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $filerecord));
+        $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
+            (int)$this->student->id, $settings, $textrecord));
+        $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
+            (int)$this->student->id, $settings, $filerecord));
 
         // --- 6. TEST SCENARIO 2: After Close Date (Mode 3) ---
         $settings = [
@@ -338,29 +346,33 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
 
         // A. Quiz closes in the FUTURE -> Should be False
         $DB->set_field('quiz', 'timeclose', $timenow + 3600, ['id' => $this->quiz->id]);
-        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $textrecord));
+        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
+            (int)$this->student->id, $settings, $textrecord));
 
         // B. Quiz closed in the PAST -> Should be True
         $DB->set_field('quiz', 'timeclose', $timenow - 3600, ['id' => $this->quiz->id]);
-        $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $textrecord));
+        $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
+            (int)$this->student->id, $settings, $textrecord));
 
         // --- 7. TEST SCENARIO 3: User Override ---
         $DB->insert_record('quiz_overrides', [
             'quiz' => $this->quiz->id,
             'userid' => $this->student->id,
-            'timeclose' => $timenow + 7200, // Extended 2 hours into the future
+            'timeclose' => $timenow + 7200, // Extended 2 hours into the future.
         ]);
 
-        // Global quiz is closed, but override is active in the future -> Should be False
-        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $textrecord));
-        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid, (int)$this->student->id, $settings, $filerecord));
+        // Global quiz is closed, but override is active in the future -> Should be False.
+        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
+            (int)$this->student->id, $settings, $textrecord));
+        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
+            (int)$this->student->id, $settings, $filerecord));
     }
 
     /**
      * Test: Verify the file rehydration fallback logic.
      * Covers: Assignment text extraction, Quiz text extraction, and Path Traversal security.
      */
-    public function test_rehydrate_file_logic() {
+    public function test_rehydrate_file_logic(): void {
         global $DB, $CFG;
 
         $generator = $this->getDataGenerator();
@@ -368,44 +380,44 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         // --- SCENARIO 1: Security Guard (Path Traversal) ---
         $dummyrecord = (object)['storedfileid' => null, 'submissionid' => 999];
         // Attempt to write outside the plugin's temp directory
-        $unsafe_path = $CFG->tempdir . '/plagiarism_inspera/../malicious_override.php';
+        $unsafepath = $CFG->tempdir . '/plagiarism_inspera/../malicious_override.php';
 
-        // Capture the mtrace() output to prevent PHPUnit from flagging it as "Risky"
+        // Capture the mtrace() output to prevent PHPUnit from flagging it as "Risky".
         ob_start();
-        $result = plagiarism_inspera_rehydrate_file($dummyrecord, $unsafe_path);
+        $result = plagiarism_inspera_rehydrate_file($dummyrecord, $unsafepath);
         $output = ob_get_clean();
 
-        // Assert the function rejects the path and returns false
+        // Assert the function rejects the path and returns false.
         $this->assertFalse($result);
 
         // Bonus: Assert our security log actually successfully printed!
         $this->assertStringContainsString('Security block: Path traversal attempt', $output);
 
         // --- SCENARIO 2: Assignment Rehydration ---
-        // Mock an assignment text submission directly in the database for speed
-        $assign_sub_id = $DB->insert_record('assign_submission', (object)['assignment' => 1, 'userid' => 2]);
+        // Mock an assignment text submission directly in the database for speed.
+        $assignsubid = $DB->insert_record('assign_submission', (object)['assignment' => 1, 'userid' => 2]);
         $DB->insert_record('assignsubmission_onlinetext', (object)[
             'assignment' => 1,
-            'submission' => $assign_sub_id,
+            'submission' => $assignsubid,
             'onlinetext' => 'Hello Assignment Rehydration',
         ]);
 
-        $assign_record = (object)['storedfileid' => null, 'submissionid' => $assign_sub_id];
-        $assign_filepath = $CFG->tempdir . '/plagiarism_inspera/assign_test_1_2.html';
+        $assignrecord = (object)['storedfileid' => null, 'submissionid' => $assignsubid];
+        $assignfilepath = $CFG->tempdir . '/plagiarism_inspera/assign_test_1_2.html';
 
-        // Clean up the file if it somehow already exists
-        if (file_exists($assign_filepath)) {
-            unlink($assign_filepath);
+        // Clean up the file if it somehow already exists.
+        if (file_exists($assignfilepath)) {
+            unlink($assignfilepath);
         }
 
-        // Assert the file was successfully written
-        $this->assertTrue(plagiarism_inspera_rehydrate_file($assign_record, $assign_filepath));
-        $this->assertFileExists($assign_filepath);
+        // Assert the file was successfully written.
+        $this->assertTrue(plagiarism_inspera_rehydrate_file($assignrecord, $assignfilepath));
+        $this->assertFileExists($assignfilepath);
 
-        // Assert it contains the wrapped HTML and the expected text
-        $assign_content = file_get_contents($assign_filepath);
-        $this->assertStringContainsString('<!DOCTYPE html>', $assign_content);
-        $this->assertStringContainsString('Hello Assignment Rehydration', $assign_content);
+        // Assert it contains the wrapped HTML and the expected text.
+        $assigncontent = file_get_contents($assignfilepath);
+        $this->assertStringContainsString('<!DOCTYPE html>', $assigncontent);
+        $this->assertStringContainsString('Hello Assignment Rehydration', $assigncontent);
 
         // --- SCENARIO 3: Quiz Rehydration ---
         // Reuse the globally prepared student and quiz!
@@ -415,16 +427,16 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         $cat = $questiongenerator->create_question_category();
         $essay = $questiongenerator->create_question('essay', null, ['category' => $cat->id]);
 
-        // Add the question to our global quiz
+        // Add the question to our global quiz.
         quiz_add_quiz_question($essay->id, $this->quiz, 0, 10.0);
 
-        // Sync the grades using the exact same logic from the other tests
+        // Sync the grades using the exact same logic from the other tests.
         $quizobj = \mod_quiz\quiz_settings::create($this->quiz->id);
         $gradecalculator = \mod_quiz\grade_calculator::create($quizobj);
         $gradecalculator->recompute_quiz_sumgrades();
         $gradecalculator->update_quiz_maximum_grade(10.0);
 
-        // Create the attempt for our global student
+        // Create the attempt for our global student.
         $quizgenerator = $generator->get_plugin_generator('mod_quiz');
         $attemptrecord = $quizgenerator->create_attempt($this->quiz->id, $this->student->id);
 
@@ -434,28 +446,28 @@ class plagiarism_inspera_quiz_test extends advanced_testcase {
         ]);
         $attemptobj->process_finish(time(), false);
 
-        // We need the specific Question Attempt ID ($qa_id) to build the filename
+        // We need the specific Question Attempt ID ($qaid) to build the filename.
         $quba = \question_engine::load_questions_usage_by_activity($attemptrecord->uniqueid);
-        $qa_iterator = $quba->get_attempt_iterator();
-        $qa_iterator->rewind();
-        $qa_id = $qa_iterator->current()->get_database_id();
+        $qaiterator = $quba->get_attempt_iterator();
+        $qaiterator->rewind();
+        $qaid = $qaiterator->current()->get_database_id();
 
-        $quiz_record = (object)['storedfileid' => null];
+        $quizrecord = (object)['storedfileid' => null];
 
-        // The function relies on this specific filename pattern: quiz_{cmid}_{userid}_{qaid}.html
-        $quiz_filename = "quiz_{$this->quiz->cmid}_{$this->student->id}_{$qa_id}.html";
-        $quiz_filepath = $CFG->tempdir . '/plagiarism_inspera/' . $quiz_filename;
+        // The function relies on this specific filename pattern: quiz_{cmid}_{userid}_{qaid}.html.
+        $quizfilename = "quiz_{$this->quiz->cmid}_{$this->student->id}_{$qaid}.html";
+        $quizfilepath = $CFG->tempdir . '/plagiarism_inspera/' . $quizfilename;
 
-        if (file_exists($quiz_filepath)) {
-            unlink($quiz_filepath);
+        if (file_exists($quizfilepath)) {
+            unlink($quizfilepath);
         }
 
-        // Assert the file was successfully written
-        $this->assertTrue(plagiarism_inspera_rehydrate_file($quiz_record, $quiz_filepath));
-        $this->assertFileExists($quiz_filepath);
+        // Assert the file was successfully written.
+        $this->assertTrue(plagiarism_inspera_rehydrate_file($quizrecord, $quizfilepath));
+        $this->assertFileExists($quizfilepath);
 
-        // Assert it contains the expected text
-        $quiz_content = file_get_contents($quiz_filepath);
-        $this->assertStringContainsString('Hello Quiz Rehydration', $quiz_content);
+        // Assert it contains the expected text.
+        $quizcontent = file_get_contents($quizfilepath);
+        $this->assertStringContainsString('Hello Quiz Rehydration', $quizcontent);
     }
 }

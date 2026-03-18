@@ -1,21 +1,6 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
-
 /**
- * Debug table
+ * Debug table for Plagiarism Inspera.
  *
  * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
@@ -27,10 +12,12 @@ namespace plagiarism_inspera\output;
 use moodle_url;
 use html_writer;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Table to display list of submissions.
+ *
+ * @package    plagiarism_inspera
+ * @copyright  2025 Inspera AS
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class debug_table extends \table_sql {
     /**
@@ -39,8 +26,9 @@ class debug_table extends \table_sql {
     public $activitynames = [];
 
     /**
-     * Constructor
-     * @param int $uniqueid all tables have to have a unique id.
+     * Constructor.
+     *
+     * @param int $uniqueid All tables have to have a unique id.
      */
     public function __construct($uniqueid) {
         global $OUTPUT, $PAGE;
@@ -68,15 +56,17 @@ class debug_table extends \table_sql {
             $headers[] = $OUTPUT->render($mastercheckbox);
         }
 
-        // Standard columns
-        $columns = array_merge($columns, ['id', 'fullname', 'course', 'activity', 'externalid', 'status', 'description', 'timecreated']);
+        // Standard columns.
+        $columns = array_merge($columns, [
+            'id', 'fullname', 'course', 'activity', 'externalid', 'status', 'description', 'timecreated',
+        ]);
 
         $headers = array_merge($headers, [
             get_string('id', 'plagiarism_inspera'),
             get_string('user'),
             get_string('course'),
             get_string('activity'),
-            get_string('identifier', 'plagiarism_inspera'), // Maps to externalid
+            get_string('identifier', 'plagiarism_inspera'), // Maps to externalid.
             get_string('status', 'plagiarism_inspera'),
             get_string('description', 'plagiarism_inspera'),
             get_string('timecreated', 'plagiarism_inspera'),
@@ -104,6 +94,9 @@ class debug_table extends \table_sql {
 
     /**
      * Function to display the checkbox for bulk actions.
+     *
+     * @param \stdClass $row The row data.
+     * @return string
      */
     public function col_selector($row) {
         global $OUTPUT;
@@ -121,13 +114,15 @@ class debug_table extends \table_sql {
 
     /**
      * Action buttons. Adapted for Originality status flow.
+     *
+     * @param \stdClass $row The row data.
+     * @return string
      */
     public function col_action($row) {
-        global $OUTPUT;
         $output = '';
 
-        // 1. Reset / Resubmit Button
-        // If status is Error, or Finished, or stuck in Pending/Request for too long
+        // 1. Reset / Resubmit Button.
+        // If status is Error, or Finished, or stuck in Pending/Request for too long.
         if ($row->status == 'error' || $row->status == 'external_error') {
             $url = new moodle_url(
                 '/plagiarism/inspera/originality_debug.php',
@@ -138,7 +133,7 @@ class debug_table extends \table_sql {
             $output .= ' | ';
         }
 
-        // 2. Delete Button
+        // 2. Delete Button.
         $url = new moodle_url(
             '/plagiarism/inspera/originality_debug.php',
             ['id' => $row->id, 'action' => 'delete', 'sesskey' => sesskey()]
@@ -150,36 +145,37 @@ class debug_table extends \table_sql {
 
     /**
      * Display Activity Name.
+     *
+     * @param \stdClass $row The row data.
+     * @return string
      */
     public function col_activity($row) {
-        // 1. Check local cache (Avoids re-querying the same assignment)
+        // 1. Check local cache (Avoids re-querying the same assignment).
         if (isset($this->activitynames[$row->cm])) {
             $coursemodulename = $this->activitynames[$row->cm];
         } else {
-            // 2. Fetch from DB
+            // 2. Fetch from DB.
             $coursemodule = false;
 
-            // Check if we even have valid IDs (SQL Join might have returned NULL for deleted items)
+            // Check if we even have valid IDs.
             if (!empty($row->cm) && !empty($row->moduletype)) {
-                // We use get_coursemodule_from_id which is relatively efficient
-                // It returns FALSE if the module is missing (Deleted)
+                // We use get_coursemodule_from_id which is relatively efficient.
                 $coursemodule = get_coursemodule_from_id($row->moduletype, $row->cm);
             }
 
             if ($coursemodule) {
                 $coursemodulename = $coursemodule->name;
             } else {
-                // Fallback for deleted activities
+                // Fallback for deleted activities.
                 $coursemodulename = '-';
             }
 
-            // Save to cache
+            // Save to cache.
             $this->activitynames[$row->cm] = $coursemodulename;
         }
 
-        // 3. Render
+        // 3. Render.
         if ($coursemodulename === '-') {
-            // Optional: You could display "Deleted (ID: $row->cm)" if you fix the SQL
             return html_writer::tag('span', 'Deleted Activity', ['class' => 'badge badge-warning']);
         }
 
@@ -187,14 +183,25 @@ class debug_table extends \table_sql {
         return html_writer::link($cmurl, shorten_text($coursemodulename, 40, true), ['title' => $coursemodulename]);
     }
 
+    /**
+     * Format the timecreated column.
+     *
+     * @param \stdClass $row The row data.
+     * @return string
+     */
     public function col_timecreated($row) {
         // Always display as dd/mm/yyyy hh:mm ss in the viewer's timezone.
-        // Note: userdate expects an strftime-style format string.
         return userdate($row->timecreated, '%d/%m/%Y %H:%M', 99);
     }
 
+    /**
+     * Format the status column.
+     *
+     * @param \stdClass $row The row data.
+     * @return string
+     */
     public function col_status($row) {
-        // Display nice status string if it exists
+        // Display nice status string if it exists.
         $statuskey = 'status_' . $row->status;
         if (get_string_manager()->string_exists($statuskey, 'plagiarism_inspera')) {
             return get_string($statuskey, 'plagiarism_inspera');
@@ -205,6 +212,9 @@ class debug_table extends \table_sql {
     /**
      * Show error description parsed from IO or Moodle messages.
      * Displays a shortened preview with full text as title tooltip.
+     *
+     * @param \stdClass $row The row data.
+     * @return string
      */
     public function col_description($row) {
         $desc = isset($row->description) ? trim((string)$row->description) : '';
@@ -219,6 +229,12 @@ class debug_table extends \table_sql {
         return html_writer::tag('span', s($short), ['title' => $desc]);
     }
 
+    /**
+     * Format the course column.
+     *
+     * @param \stdClass $row The row data.
+     * @return string
+     */
     public function col_course($row) {
         if (empty($row->courseid)) {
             return '';
@@ -227,13 +243,5 @@ class debug_table extends \table_sql {
             return $row->shortname;
         }
         return \html_writer::link(new \moodle_url('/course/view.php', ['id' => $row->courseid]), $row->shortname);
-    }
-
-    /**
-     * Finish output - add extra debug info to export.
-     */
-    public function finish_output($closeexportclassdoc = true) {
-        // Just close the file normally, no extra config dump.
-        parent::finish_output($closeexportclassdoc);
     }
 }

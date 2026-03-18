@@ -21,7 +21,6 @@
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Upgrade the plugin.
@@ -33,8 +32,8 @@ function xmldb_plagiarism_inspera_upgrade($oldversion) {
     global $DB;
     $dbman = $DB->get_manager();
 
-    // ---  CLEANUP LEGACY TRANSLATION DEFAULTS ---
-    // This removes global defaults (cm=0) for translations that were
+    // CLEANUP LEGACY TRANSLATION DEFAULTS.
+    // This removes global defaults (cm=0) for translations that were.
     // removed from the admin UI, preventing them from affecting new activities.
     if ($oldversion < 2026031301) {
         $likeenable = $DB->sql_like('name', ':nameenable', false);

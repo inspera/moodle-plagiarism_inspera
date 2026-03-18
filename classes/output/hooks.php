@@ -24,8 +24,6 @@
 
 namespace plagiarism_inspera\output;
 
-defined('MOODLE_INTERNAL') || die();
-
 use html_writer;
 use moodle_url;
 use core\hook\output\before_standard_top_of_body_html_generation;
@@ -68,7 +66,7 @@ class hooks {
         }
 
         // 3. Config Check.
-        $use_originality = $DB->get_field('plagiarism_inspera_config', 'value', [
+        $useoriginality = $DB->get_field('plagiarism_inspera_config', 'value', [
             'cm' => $cm->id,
             'name' => 'use_originality_assign',
         ], IGNORE_MISSING) ?: $DB->get_field('plagiarism_inspera_config', 'value', [
@@ -76,7 +74,7 @@ class hooks {
             'name' => 'use_originality',
         ], IGNORE_MISSING);
 
-        if (empty($use_originality)) {
+        if (empty($useoriginality)) {
             return;
         }
 
@@ -160,21 +158,21 @@ class hooks {
         }
 
         // 2. CHECK: Is Plagiarism Check actually enabled for this assignment? (RESTORED)
-        $use_originality = $DB->get_field('plagiarism_inspera_config', 'value', [
+        $useoriginality = $DB->get_field('plagiarism_inspera_config', 'value', [
             'cm' => $cm->id,
             'name' => 'use_originality_assign',
         ], IGNORE_MISSING);
 
         // Fallback to generic name if the assign-specific one isn't found.
-        if ($use_originality === false) {
-            $use_originality = $DB->get_field('plagiarism_inspera_config', 'value', [
+        if ($useoriginality === false) {
+            $useoriginality = $DB->get_field('plagiarism_inspera_config', 'value', [
                 'cm' => $cm->id,
                 'name' => 'use_originality',
             ], IGNORE_MISSING);
         }
 
         // If explicitly set to 0 or not configured, stop here.
-        if (empty($use_originality)) {
+        if (empty($useoriginality)) {
             return;
         }
 

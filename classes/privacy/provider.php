@@ -24,15 +24,16 @@
 
 namespace plagiarism_inspera\privacy;
 
-defined('MOODLE_INTERNAL') || die();
-
 use core_privacy\local\metadata\collection;
 use core_privacy\local\request\writer;
 
 /**
  * Privacy subsystem for plagiarism_inspera.
  */
-class provider implements \core_plagiarism\privacy\plagiarism_provider, \core_plagiarism\privacy\plagiarism_user_provider, \core_privacy\local\metadata\provider {
+class provider implements \core_plagiarism\privacy\plagiarism_provider,
+    \core_plagiarism\privacy\plagiarism_user_provider,
+    \core_privacy\local\metadata\provider {
+
     /**
      * Describe the data stored by this plugin.
      */

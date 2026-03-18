@@ -6,7 +6,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// Moodle is distributed in the hope that it will be useful,
+// Moodle is distributed in the hope that it will be simplified,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -27,55 +27,55 @@
 require_once('../../config.php');
 require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
-$id = required_param('id', PARAM_INT); // ID of the record in plagiarism_inspera_subs
+$id = required_param('id', PARAM_INT); // ID of the record in plagiarism_inspera_subs.
 global $DB, $USER;
 
 $record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], '*', MUST_EXIST);
 
-// Load course module and course
+// Load course module and course.
 $cm = get_coursemodule_from_id('assign', $record->cm, 0, false, MUST_EXIST);
 $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
 
-// Context of the module
+// Context of the module.
 $context = context_module::instance($cm->id);
 require_login($course, true, $cm);
 
-// Permission check:
-// Teachers (grade capability) can view all, students only their own
+// Permission check.
+// Teachers (grade capability) can view all, students only their own.
 if (!has_capability('mod/assign:grade', $context) && $record->userid != $USER->id) {
-    print_error('nopermission', 'plagiarism_inspera');
+    throw new moodle_exception('nopermission', 'plagiarism_inspera');
 }
 
-// Page setup
+// Page setup.
 $PAGE->set_url('/plagiarism/inspera/view.php', ['id' => $id]);
 $PAGE->set_context($context);
 $PAGE->set_title(get_string('viewreport', 'plagiarism_inspera'));
 $PAGE->set_heading(format_string($course->fullname));
 
 echo $OUTPUT->header();
-// echo $OUTPUT->heading(get_string('originality:viewreport', 'plagiarism_inspera'));
 
-// Display submission info
+// Display submission info.
 echo html_writer::tag('p', 'Submitted file ID: ' . $record->id);
 echo html_writer::tag('p', 'Status: ' . $record->status);
 
-// Optionally show report data
+// Optionally show report data.
 if ($record->status === 'finished') {
-    echo html_writer::tag(
-        'ul',
-        html_writer::tag('li', get_string('similarity', 'plagiarism_inspera') . ': ' . $record->similarity) .
-        html_writer::tag('li', get_string('translation_similarity', 'plagiarism_inspera') . ': ' . $record->translation_similarity) .
-        html_writer::tag('li', get_string('ai_index', 'plagiarism_inspera') . ': ' . $record->ai_index) .
-        html_writer::tag('li', get_string('originality', 'plagiarism_inspera') . ': ' . $record->originality) .
-        html_writer::tag('li', get_string('character_replacement', 'plagiarism_inspera') . ': ' . $record->character_replacement) .
-        html_writer::tag('li', get_string('hidden_text', 'plagiarism_inspera') . ': ' . $record->hidden_text) .
-        html_writer::tag('li', get_string('image_as_text', 'plagiarism_inspera') . ': ' . $record->image_as_text)
-    );
+    $listitems = html_writer::tag('li', get_string('similarity', 'plagiarism_inspera') . ': ' . $record->similarity);
+    $listitems .= html_writer::tag('li', get_string('translation_similarity', 'plagiarism_inspera') . ': ' .
+        $record->translation_similarity);
+    $listitems .= html_writer::tag('li', get_string('ai_index', 'plagiarism_inspera') . ': ' . $record->ai_index);
+    $listitems .= html_writer::tag('li', get_string('originality', 'plagiarism_inspera') . ': ' . $record->originality);
+    $listitems .= html_writer::tag('li', get_string('character_replacement', 'plagiarism_inspera') . ': ' .
+        $record->character_replacement);
+    $listitems .= html_writer::tag('li', get_string('hidden_text', 'plagiarism_inspera') . ': ' . $record->hidden_text);
+    $listitems .= html_writer::tag('li', get_string('image_as_text', 'plagiarism_inspera') . ': ' . $record->image_as_text);
+
+    echo html_writer::tag('ul', $listitems);
 }
 
-// Only show report link if finished
+// Only show report link if finished.
 if ($record->status === 'finished' && !empty($record->externalid)) {
-    // Instead of hardcoding external URL, call our redirect handler
+    // Instead of hardcoding external URL, call our redirect handler.
     $redirecturl = new moodle_url('/plagiarism/inspera/redirect.php', [
         'id' => $record->id,
     ]);

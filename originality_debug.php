@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-global $OUTPUT, $CFG, $PAGE, $DB;
-
 /**
  * Debug tool for Inspera Originality.
  *
@@ -24,10 +22,18 @@ global $OUTPUT, $CFG, $PAGE, $DB;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require_once(dirname(dirname(__DIR__)) . '/config.php');
+// Initialize Moodle.
+require_once(__DIR__ . '/../../config.php');
+
+// Security Check (The Shield).
+defined('MOODLE_INTERNAL') || die();
+
+// Include necessary libraries.
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->libdir . '/tablelib.php');
 require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+
+global $OUTPUT, $CFG, $PAGE, $DB, $SITE;
 
 $id = optional_param('id', 0, PARAM_INT);
 $action = optional_param('action', '', PARAM_ALPHA); // Unified action param
@@ -44,7 +50,7 @@ $context = context_system::instance();
 $PAGE->set_context($context);
 $PAGE->set_pagelayout('admin');
 $PAGE->set_title(get_string('originalitydebug', 'plagiarism_inspera'));
-global $SITE;
+
 if (!empty($SITE)) {
     $PAGE->set_heading(format_string($SITE->fullname));
 }
@@ -67,13 +73,11 @@ if (empty($ufextrasql)) {
 
 $plagiarismsettings = plagiarism_plugin_inspera::get_settings();
 
-// -------------------------------------------------------------------------
-// 1. HANDLE BULK DELETE (Selected via Checkboxes)
-// -------------------------------------------------------------------------
+// 1. HANDLE BULK DELETE (Selected via Checkboxes).
 if (!empty($deleteselected)) {
     if (empty($fileids)) {
         $fileids = [];
-        // Check for checkbox data
+        // Check for checkbox data.
         $post = data_submitted();
         foreach ($post as $k => $v) {
             if (preg_match('/^item(\d+)$/', $k, $m)) {
@@ -107,14 +111,11 @@ if (!empty($deleteselected)) {
         }
         \core\notification::success(get_string('recordsdeleted', 'plagiarism_inspera', $count));
     }
-}
-// -------------------------------------------------------------------------
-// 2. HANDLE BULK RESUBMIT (Selected via Checkboxes)
-// -------------------------------------------------------------------------
-else if (!empty($resubmitselected)) {
+} else if (!empty($resubmitselected)) {
+    // 2. HANDLE BULK RESUBMIT (Selected via Checkboxes).
     if (empty($fileids)) {
         $fileids = [];
-        // Check for checkbox data
+        // Check for checkbox data.
         $post = data_submitted();
         foreach ($post as $k => $v) {
             if (preg_match('/^item(\d+)$/', $k, $m)) {
@@ -126,7 +127,7 @@ else if (!empty($resubmitselected)) {
             redirect($url, get_string('nofilesselected', 'plagiarism_inspera'));
         }
 
-        // Display confirmation box for resubmit selected
+        // Display confirmation box for resubmit selected.
         $params = ['resubmitselectedfiles' => 1, 'confirm' => 1, 'fileids' => implode(',', $fileids)];
         $resubmiturl = new moodle_url($PAGE->url, $params);
         $numfiles = count($fileids);
@@ -141,7 +142,7 @@ else if (!empty($resubmitselected)) {
         exit;
     } else if ($confirm && confirm_sesskey()) {
         $fileids = explode(',', $fileids);
-        // Update selected records for resubmission
+        // Update selected records for resubmission.
         [$insql, $inparams] = $DB->get_in_or_equal($fileids, SQL_PARAMS_NAMED);
         $params = array_merge([
             'status' => 'report_requested',
@@ -166,11 +167,7 @@ else if (!empty($resubmitselected)) {
     }
 }
 
-// -------------------------------------------------------------------------
-// 3. HANDLE SINGLE ACTIONS (Row Links)
-// -------------------------------------------------------------------------
-// We use the unified 'action' parameter now: 'resubmit' or 'delete'
-
+// 3. HANDLE SINGLE ACTIONS (Row Links).
 if ($id && confirm_sesskey()) {
     if ($action === 'resubmit') {
         // Reset single file
@@ -197,15 +194,10 @@ if ($id && confirm_sesskey()) {
     }
 }
 
-// -------------------------------------------------------------------------
 // 4. DISPLAY TABLE
-// -------------------------------------------------------------------------
-
-// We removed 'checkcronhealth' unless you implemented it in lib.php
-
 $table = new \plagiarism_inspera\output\debug_table('debugtable');
 
-// Fix: Use new core_user fields API
+// Use new core_user fields API
 $userfieldsapi = \core_user\fields::for_name();
 $userfields = $userfieldsapi->get_sql('u', false, '', '', false)->selects;
 
@@ -220,13 +212,13 @@ $sqlfrom = "{plagiarism_inspera_subs} t
             JOIN {modules} m ON cm.module = m.id
             JOIN {course} c ON cm.course = c.id";
 
-$sqlwhere = "1=1"; // Base where clause; default filter is applied via $ufextrasql when no user filter is set
+$sqlwhere = "1=1";
 
 if (!empty($ufextrasql)) {
     $sqlwhere .= " AND " . $ufextrasql;
 }
 
-// Only load submissions that are 6 months old (from now)
+// Only load submissions that are 6 months old (from now).
 $sixmonthscutoff = strtotime('-6 months');
 if ($sixmonthscutoff === false) {
     // Fallback in the unlikely event strtotime fails; approx 6 months as 182 days.
@@ -244,8 +236,6 @@ if (!$table->is_downloading()) {
     require_once('originality_tabs.php');
 
     echo $OUTPUT->heading(get_string('originalityfiles', 'plagiarism_inspera'));
-    // Ensure this string exists or remove the box
-    // echo $OUTPUT->box(get_string('explainerrors', 'plagiarism_inspera'));
 
     $ufiltering->display_add();
     $ufiltering->display_active();
@@ -259,13 +249,19 @@ if (!$table->is_downloading()) {
 $table->out($limit, false);
 
 if (!$table->is_downloading()) {
-    echo html_writer::tag('input', "", ['name' => 'deleteselectedfiles', 'type' => 'submit',
-        'id' => 'deleteallselected', 'class' => 'btn btn-secondary',
+    echo html_writer::tag('input', "", [
+        'name' => 'deleteselectedfiles',
+        'type' => 'submit',
+        'id' => 'deleteallselected',
+        'class' => 'btn btn-secondary',
         'value' => get_string('deleteselectedfiles', 'plagiarism_inspera')]);
 
     echo html_writer::span(' ');
-    echo html_writer::tag('input', "", ['name' => 'resubmitselectedfiles', 'type' => 'submit',
-        'id' => 'resubmitselected', 'class' => 'btn btn-secondary',
+    echo html_writer::tag('input', "", [
+        'name' => 'resubmitselectedfiles',
+        'type' => 'submit',
+        'id' => 'resubmitselected',
+        'class' => 'btn btn-secondary',
         'value' => get_string('resubmitselectedfiles', 'plagiarism_inspera')]);
     echo html_writer::end_tag('form');
     echo html_writer::end_div();

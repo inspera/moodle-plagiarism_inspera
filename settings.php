@@ -37,7 +37,7 @@ $mform = new plagiarism_inspera_setup_form();
 $plagiarismplugin = new plagiarism_plugin_inspera();
 
 if ($mform->is_cancelled()) {
-    // Redirects to current page
+    // Redirects to current page.
     redirect(new moodle_url('/plagiarism/inspera/settings.php'));
 }
 
@@ -61,7 +61,7 @@ if (($data = $mform->get_data()) && confirm_sesskey()) {
 
     foreach ($data as $field => $value) {
         if ($field != 'submitbutton') { // Ignore the button.
-            $value = trim($value); // Strip trailing spaces
+            $value = trim($value); // Strip trailing spaces.
             if ($field == 'baseurl') { // Strip trailing slash from api.
                 $value = rtrim($value, '/');
             }

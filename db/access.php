@@ -61,7 +61,7 @@ $capabilities = [
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
         'legacy' => [
-            // EMPTY
+            // EMPTY.
         ],
     ],
     'plagiarism/inspera:resubmitonclose' => [
