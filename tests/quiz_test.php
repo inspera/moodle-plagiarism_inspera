@@ -36,7 +36,7 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-final class _quiz_test extends advanced_testcase {
+final class quiz_test extends advanced_testcase {
     /** @var stdClass */
     protected $course;
 
@@ -263,13 +263,22 @@ final class _quiz_test extends advanced_testcase {
         $DB->set_field('quiz', 'timeclose', 0, ['id' => $this->quiz->id]);
 
         // 1. Setup Quiz with an Essay that requires attachments.
-        $DB->insert_record('plagiarism_inspera_config',
-            (object) ['cm' => $this->quiz->cmid, 'name' => 'use_originality', 'value' => '1']);
+        $DB->insert_record(
+            'plagiarism_inspera_config',
+            (object) ['cm' => $this->quiz->cmid, 'name' => 'use_originality', 'value' => '1']
+        );
 
         $questiongenerator = $this->getDataGenerator()->get_plugin_generator('core_question');
         $cat = $questiongenerator->create_question_category();
-        $essay = $questiongenerator->create_question('essay',
-            null, ['category' => $cat->id, 'attachments' => 1, 'attachmentsrequired' => 1]);
+        $essay = $questiongenerator->create_question(
+            'essay',
+            null,
+            [
+                'category' => $cat->id,
+                'attachments' => 1,
+                'attachmentsrequired' => 1
+            ]
+        );
         quiz_add_quiz_question($essay->id, $this->quiz, 0, 10.0);
 
         $quizobj = \mod_quiz\quiz_settings::create($this->quiz->id);
@@ -303,8 +312,13 @@ final class _quiz_test extends advanced_testcase {
         plagiarism_inspera_quiz_attempt_submitted($attemptrecord);
 
         // 4. Fetch the REAL Text and File Records.
-        $records = $DB->get_records('plagiarism_inspera_subs',
-            ['cm' => $this->quiz->cmid, 'userid' => $this->student->id]);
+        $records = $DB->get_records(
+            'plagiarism_inspera_subs',
+            [
+                'cm' => $this->quiz->cmid,
+                'userid' => $this->student->id
+            ]
+        );
         $textrecord = null;
         $filerecord = null;
 
@@ -355,10 +369,22 @@ final class _quiz_test extends advanced_testcase {
         quiz_grade_item_update($quizobj->get_quiz(), $grade);
 
         // C. Graded -> Should be True.
-        $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
-            (int)$this->student->id, $settings, $textrecord));
-        $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
-            (int)$this->student->id, $settings, $filerecord));
+        $this->assertTrue(
+            plagiarism_inspera_should_show_report(
+                (int)$this->quiz->cmid,
+                (int)$this->student->id,
+                $settings,
+                $textrecord
+            )
+        );
+        $this->assertTrue(
+            plagiarism_inspera_should_show_report(
+                (int)$this->quiz->cmid,
+                (int)$this->student->id,
+                $settings,
+                $filerecord
+            )
+        );
 
         // 6. TEST SCENARIO 2: After Close Date (Mode 3).
         $settings = [
@@ -368,13 +394,25 @@ final class _quiz_test extends advanced_testcase {
 
         // A. Quiz closes in the FUTURE -> Should be False.
         $DB->set_field('quiz', 'timeclose', $timenow + 3600, ['id' => $this->quiz->id]);
-        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
-            (int)$this->student->id, $settings, $textrecord));
+        $this->assertFalse(
+            plagiarism_inspera_should_show_report(
+                (int)$this->quiz->cmid,
+                (int)$this->student->id,
+                $settings,
+                $textrecord
+            )
+        );
 
         // B. Quiz closed in the PAST -> Should be True.
         $DB->set_field('quiz', 'timeclose', $timenow - 3600, ['id' => $this->quiz->id]);
-        $this->assertTrue(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
-            (int)$this->student->id, $settings, $textrecord));
+        $this->assertTrue(
+            plagiarism_inspera_should_show_report(
+                (int)$this->quiz->cmid,
+                (int)$this->student->id,
+                $settings,
+                $textrecord
+            )
+        );
 
         // 7. TEST SCENARIO 3: User Override.
         $DB->insert_record('quiz_overrides', [
@@ -384,10 +422,22 @@ final class _quiz_test extends advanced_testcase {
         ]);
 
         // Global quiz is closed, but override is active in the future -> Should be False.
-        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
-            (int)$this->student->id, $settings, $textrecord));
-        $this->assertFalse(plagiarism_inspera_should_show_report((int)$this->quiz->cmid,
-            (int)$this->student->id, $settings, $filerecord));
+        $this->assertFalse(
+            plagiarism_inspera_should_show_report(
+                (int)$this->quiz->cmid,
+                (int)$this->student->id,
+                $settings,
+                $textrecord
+            )
+        );
+        $this->assertFalse(
+            plagiarism_inspera_should_show_report(
+                (int)$this->quiz->cmid,
+                (int)$this->student->id,
+                $settings,
+                $filerecord
+            )
+        );
     }
 
     /**
@@ -401,7 +451,7 @@ final class _quiz_test extends advanced_testcase {
 
         // SCENARIO 1: Security Guard (Path Traversal).
         $dummyrecord = (object)['storedfileid' => null, 'submissionid' => 999];
-        // Attempt to write outside the plugin's temp directory-
+        // Attempt to write outside the plugin's temp directory.
         $unsafepath = $CFG->tempdir . '/plagiarism_inspera/../malicious_override.php';
 
         // Capture the mtrace() output to prevent PHPUnit from flagging it as "Risky".

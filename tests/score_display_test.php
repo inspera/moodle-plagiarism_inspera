@@ -47,7 +47,7 @@ final class score_display_test extends advanced_testcase {
         $this->plugin = new \plagiarism_plugin_inspera();
 
         $this->getoriginalitystatus = new ReflectionMethod(
-            \plagiarism_plugin_inspera::class, // ADD THE BACKSLASH HERE
+            \plagiarism_plugin_inspera::class,
             'get_originality_status'
         );
         $this->getoriginalitystatus->setAccessible(true);
@@ -76,7 +76,7 @@ final class score_display_test extends advanced_testcase {
 
     /**
      * Test: when displaytype = similarity the similarity score is rendered.
-     * * @covers \plagiarism_plugin_inspera::get_originality_status
+     * @covers \plagiarism_plugin_inspera::get_originality_status
      */
     public function test_score_display_similarity_type(): void {
         $cmid = 6001; // Unique cmid avoids static-cache collision with other tests.
@@ -98,7 +98,7 @@ final class score_display_test extends advanced_testcase {
 
     /**
      * Test: when displaytype = originality and originality_score is present.
-     * * @covers \plagiarism_plugin_inspera::get_originality_status
+     * @covers \plagiarism_plugin_inspera::get_originality_status
      */
     public function test_score_display_originality_type_with_score(): void {
         $cmid = 6002;
@@ -120,7 +120,7 @@ final class score_display_test extends advanced_testcase {
 
     /**
      * Test: fallback to similarity when originality_score is NULL.
-     * * @covers \plagiarism_plugin_inspera::get_originality_status
+     * @covers \plagiarism_plugin_inspera::get_originality_status
      */
     public function test_score_display_originality_type_null_fallback(): void {
         $cmid = 6003;
