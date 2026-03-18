@@ -48,7 +48,7 @@ class api_client {
     private $institutionid;
 
     /** @var bool Whether the client was instantiated with temporary/unsaved settings. */
-    private $isvalidating = false;
+    protected $isvalidating = false;
 
     /**
      * Constructor for the API client.
@@ -61,7 +61,7 @@ class api_client {
             $this->baseurl       = rtrim($config->baseurl ?? '', '/');
             $this->clientid      = $config->clientid ?? '';
             $this->institutionid = $config->institutionid ?? '';
-            $this->is_validating = true;
+            $this->isvalidating = true;
         } else {
             // STANDARD MODE.
             $this->baseurl       = rtrim(get_config('plagiarism_inspera', 'baseurl'), '/');
@@ -166,7 +166,7 @@ class api_client {
      * @throws \moodle_exception If the curl request fails or returns an error.
      */
     protected function do_get_request(string $url, array $headers = []): string {
-        // Pass 'ignoresecurity' to the CONSTRUCTOR
+        // Pass 'ignoresecurity' to the CONSTRUCTOR.
         $curl = new \curl(['ignoresecurity' => true, 'timeout' => 60]);
         foreach ($headers as $header) {
             $curl->setHeader($header);
@@ -259,7 +259,7 @@ class api_client {
         $currentcredhash = md5($this->clientid . '|' . $this->institutionid);
 
         // 1. CACHE CHECK
-        if (!$this->is_validating) {
+        if (!$this->isvalidating) {
             $token = get_config('plagiarism_inspera', 'apitoken');
             $expires = (int) get_config('plagiarism_inspera', 'apitoken_exp');
             $cachedhash = get_config('plagiarism_inspera', 'apitoken_hash');
@@ -283,21 +283,25 @@ class api_client {
         try {
             $response = $this->do_post_request($this->baseurl . '/token', $payload);
         } catch (\moodle_exception $e) {
-            throw new \moodle_exception('apitokenerror',
+            throw new \moodle_exception(
+                'apitokenerror',
                 'plagiarism_inspera',
                 '',
                 null,
-                'Failed to connect to token endpoint: ' . $e->getMessage());
+                'Failed to connect to token endpoint: ' . $e->getMessage()
+            );
         }
 
         $data = json_decode($response);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \moodle_exception('invalidjson',
+            throw new \moodle_exception(
+                'invalidjson',
                 'plagiarism_inspera',
                 '',
                 null,
-                'Token response not valid JSON: ' . $response);
+                'Token response not valid JSON: ' . $response
+            );
         }
 
         if (empty($data->token)) {
@@ -307,11 +311,11 @@ class api_client {
         }
 
         // 3. SAVE CACHE (Only if not validating).
-        if (!$this->is_validating && isset($data->expirationTime)) {
+        if (!$this->isvalidating && isset($data->expirationTime)) {
             set_config('apitoken', $data->token, 'plagiarism_inspera');
             set_config('apitoken_exp', floor($data->expirationTime / 1000), 'plagiarism_inspera');
 
-            // Save the hash of the credentials that generated this token
+            // Save the hash of the credentials that generated this token.
             set_config('apitoken_hash', $currentcredhash, 'plagiarism_inspera');
         }
 
@@ -411,27 +415,37 @@ class api_client {
         }
         if (!empty($settings['originality_enable_translations'])) {
             $payload['translationsEnabled'] = true;
-            // Fix: Clean up array structure for API
+            // Clean up array structure for API.
             $payload['translatedLanguage'] = array_values(
-                array_filter(explode(',', $settings['originality_translation_languages'] ?? '')));
+                array_filter(
+                    explode(',', $settings['originality_translation_languages'] ?? '')
+                )
+            );
         }
         $enablecontext = !empty($settings['originality_enable_context_similarity']);
         $payload['enableContextSimilarity'] = $enablecontext;
         if ($enablecontext) {
             $payload['sentenceThresholds'] = [
-                'contextualSimilaritiesThreshold' => (int)($settings['originality_context_threshold'] ?? 50)];
+                'contextualSimilaritiesThreshold' => (int)($settings['originality_context_threshold'] ?? 50),
+            ];
         }
 
-        // 4. Sources (Include/Exclude)
+        // 4. Sources (Include/Exclude).
         $includesources = [];
         $excludesources = [];
         if (!empty($settings['originality_enable_include_urls']) && !empty(trim($settings['originality_include_urls']))) {
             $includesources = array_values(
-                array_filter(array_map('trim', explode(',', $settings['originality_include_urls']))));
+                array_filter(
+                    array_map('trim', explode(',', $settings['originality_include_urls']))
+                )
+            );
         }
         if (!empty($settings['originality_enable_exclude_urls']) && !empty(trim($settings['originality_exclude_urls']))) {
             $excludesources = array_values(
-                array_filter(array_map('trim', explode(',', $settings['originality_exclude_urls']))));
+                array_filter(
+                    array_map('trim', explode(',', $settings['originality_exclude_urls']))
+                )
+            );
         }
         if (!empty($includesources) || !empty($excludesources)) {
             $payload['sources'] = [];
@@ -446,21 +460,25 @@ class api_client {
         try {
             $response = $this->do_post_request($this->baseurl . '/create/submission', json_encode($payload), $headers);
         } catch (\moodle_exception $e) {
-            throw new \moodle_exception('apierror',
+            throw new \moodle_exception(
+                'apierror',
                 'plagiarism_inspera',
                 '',
                 null,
-                'Failed to create submission: ' . $e->getMessage());
+                'Failed to create submission: ' . $e->getMessage()
+            );
         }
 
         $data = json_decode($response);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \moodle_exception('invalidjson',
+            throw new \moodle_exception(
+                'invalidjson',
                 'plagiarism_inspera',
                 '',
                 null,
-                'Create submission response not valid JSON: ' . $response);
+                'Create submission response not valid JSON: ' . $response
+            );
         }
         if (empty($data->documentId) || empty($data->presignedS3Url)) {
             if (!defined('PHPUNIT_TEST')) {
@@ -501,21 +519,25 @@ class api_client {
         try {
             $response = $this->do_get_request($url, $headers);
         } catch (\moodle_exception $e) {
-            throw new \moodle_exception('apierror',
+            throw new \moodle_exception(
+                'apierror',
                 'plagiarism_inspera',
                 '',
                 null,
-                'Failed to check document status: ' . $e->getMessage());
+                'Failed to check document status: ' . $e->getMessage()
+            );
         }
 
         $data = json_decode($response);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \moodle_exception('invalidjson',
+            throw new \moodle_exception(
+                'invalidjson',
                 'plagiarism_inspera',
                 '',
                 null,
-                'Check status response not valid JSON: ' . $response);
+                'Check status response not valid JSON: ' . $response
+            );
         }
 
         if (!defined('PHPUNIT_TEST')) {
@@ -545,21 +567,25 @@ class api_client {
         try {
             $response = $this->do_get_request($url, $headers);
         } catch (\moodle_exception $e) {
-            throw new \moodle_exception('apierror',
+            throw new \moodle_exception(
+                'apierror',
                 'plagiarism_inspera',
                 '',
                 null,
-                'Failed to get report URL: ' . $e->getMessage());
+                'Failed to get report URL: ' . $e->getMessage()
+            );
         }
 
         $data = json_decode($response);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \moodle_exception('invalidjson',
+            throw new \moodle_exception(
+                'invalidjson',
                 'plagiarism_inspera',
                 '',
                 null,
-                'Report URL response not valid JSON: ' . $response);
+                'Report URL response not valid JSON: ' . $response
+            );
         }
         if (empty($data->url)) {
             $apimessage = $data->message ?? 'API response missing report URL';

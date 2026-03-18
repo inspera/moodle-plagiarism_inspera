@@ -36,7 +36,7 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 global $OUTPUT, $CFG, $PAGE, $DB, $SITE;
 
 $id = optional_param('id', 0, PARAM_INT);
-$action = optional_param('action', '', PARAM_ALPHA); // Unified action param
+$action = optional_param('action', '', PARAM_ALPHA); // Unified action param.
 $resubmitselected = optional_param('resubmitselectedfiles', 0, PARAM_TEXT);
 $confirm = optional_param('confirm', 0, PARAM_INT);
 $deleteselected = optional_param('deleteselectedfiles', 0, PARAM_TEXT);
@@ -170,12 +170,12 @@ if (!empty($deleteselected)) {
 // 3. HANDLE SINGLE ACTIONS (Row Links).
 if ($id && confirm_sesskey()) {
     if ($action === 'resubmit') {
-        // Reset single file
+        // Reset single file.
         $record = new stdClass();
         $record->id = $id;
         $record->status = 'report_requested';
         $record->timemodified = time();
-        // Clear scores
+        // Clear scores.
         $record->similarity = null;
         $record->translation_similarity = null;
         $record->ai_index = null;
@@ -188,16 +188,16 @@ if ($id && confirm_sesskey()) {
 
         $DB->update_record('plagiarism_inspera_subs', $record);
         \core\notification::success(get_string('fileresubmitted', 'plagiarism_inspera'));
-    } else if ($action === 'delete' || !empty($delete)) { // Support both legacy $delete param and new action
+    } else if ($action === 'delete' || !empty($delete)) { // Support both legacy $delete param and new action.
         $DB->delete_records('plagiarism_inspera_subs', ['id' => $id]);
         \core\notification::success(get_string('filedeleted', 'plagiarism_inspera'));
     }
 }
 
-// 4. DISPLAY TABLE
+// 4. DISPLAY TABLE.
 $table = new \plagiarism_inspera\output\debug_table('debugtable');
 
-// Use new core_user fields API
+// Use new core_user fields API.
 $userfieldsapi = \core_user\fields::for_name();
 $userfields = $userfieldsapi->get_sql('u', false, '', '', false)->selects;
 

@@ -67,12 +67,14 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
         // PART A: PROCESS FILES (Individual & Group).
         $fs = get_file_storage();
-        $files = $fs->get_area_files($context->id,
+        $files = $fs->get_area_files(
+            $context->id,
             'assignsubmission_file',
             'submission_files',
             false,
             'timemodified',
-            false);
+            false
+        );
 
         mtrace("Found " . count($files) . " candidate files.");
 
@@ -122,7 +124,8 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                         $cm->course,
                         $sub->userid,
                         $sub->onlinetext,
-                        $sub->submissionid);
+                        $sub->submissionid
+                    );
                     $dummyfile = new \stdClass();
                     $dummyfile->filepath = $tempfileobject->filepath;
                     plagiarism_inspera_queue_file($cmid, $sub->userid, $dummyfile, null, $sub->submissionid);

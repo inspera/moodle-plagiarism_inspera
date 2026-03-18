@@ -35,7 +35,7 @@ $context = \context_module::instance($cm->id);
 
 // Check the specific capability we defined.
 require_capability('plagiarism/inspera:requestallreports', $context);
-require_sesskey(); // Protect against CSRF
+require_sesskey(); // Protect against CSRF.
 
 // 2. Queue the Ad-hoc Task.
 $task = new \plagiarism_inspera\task\resubmit_all_reports();

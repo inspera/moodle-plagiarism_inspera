@@ -319,12 +319,18 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             }
 
             if ($record) {
-                if ($isgrader ||
-                    plagiarism_inspera_should_show_report($linkarray['cmid'], $linkarray['userid'],
-                        $plagiarismvalues[$linkarray['cmid']], $record)) {
+                if (
+                    $isgrader ||
+                    plagiarism_inspera_should_show_report(
+                        $linkarray['cmid'],
+                        $linkarray['userid'],
+                        $plagiarismvalues[$linkarray['cmid']],
+                        $record
+                    )
+                ) {
                     // Grab the display type from the already-loaded static cache (fallback to 'similarity').
-                    $displaytype = $plagiarismvalues[$linkarray['cmid']]['originality_display_type'] ?? 'similarity';
-                    $output .= $this->get_originality_status($record, $displaytype);
+                    $displaykey = $plagiarismvalues[$linkarray['cmid']]['originality_display_type'] ?? 'similarity';
+                    $output .= $this->get_originality_status($record, $displaykey);
                 }
             }
         }
@@ -379,8 +385,13 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
             if ($textrecord) {
                 if ($isgrader ||
-                    plagiarism_inspera_should_show_report($linkarray['cmid'],
-                        $linkarray['userid'], $plagiarismvalues[$linkarray['cmid']], $textrecord)) {
+                    plagiarism_inspera_should_show_report(
+                        $linkarray['cmid'],
+                        $linkarray['userid'],
+                        $plagiarismvalues[$linkarray['cmid']],
+                        $textrecord
+                    )
+                ) {
                     // Grab the display type from the already-loaded static cache (fallback to 'similarity').
                     $displaytype = $plagiarismvalues[$linkarray['cmid']]['originality_display_type'] ?? 'similarity';
                     $output .= $this->get_originality_status($textrecord, $displaytype);
@@ -470,10 +481,16 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 $modulecontext = context_module::instance($cmid);
                 if ($showfiles) {
                     $fs = get_file_storage();
-                    if ($files = $fs->get_area_files($modulecontext->id,
-                        'assignsubmission_file',
-                        ASSIGNSUBMISSION_FILE_FILEAREA,
-                        $eventdata['objectid'], "id", false)) {
+                    if (
+                        $files = $fs->get_area_files(
+                            $modulecontext->id,
+                            'assignsubmission_file',
+                            ASSIGNSUBMISSION_FILE_FILEAREA,
+                            $eventdata['objectid'],
+                            "id",
+                            false
+                        )
+                    ) {
                         foreach ($files as $file) {
                             plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, $submissionid);
                         }
@@ -483,9 +500,18 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 // If showcontent will be FALSE here if groups are enabled, so this block is skipped safely.
                 if ($showcontent) {
                     // If we should be handling in-line text.
-                    $submission = $DB->get_record('assignsubmission_onlinetext', ['submission' => $eventdata['objectid']]);
+                    $submission = $DB->get_record(
+                        'assignsubmission_onlinetext',
+                        ['submission' => $eventdata['objectid']]
+                    );
                     if (!empty($submission) && strlen(utf8_decode(strip_tags($submission->onlinetext))) >= $charcount) {
-                        $file = plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $submission->onlinetext, $submissionid);
+                        $file = plagiarism_inspera_create_temp_file(
+                            $cmid,
+                            $courseid,
+                            $userid,
+                            $submission->onlinetext,
+                            $submissionid
+                        );
                         plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, $submissionid);
                     }
                 }
@@ -493,17 +519,26 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             return true;
         }
 
-        if (isset($plagiarismvalues['originality_draft_submit']) &&
+        if (
+            isset($plagiarismvalues['originality_draft_submit']) &&
             $plagiarismvalues['originality_draft_submit'] == PLAGIARISM_INSPERA_DRAFTSUBMIT_FINAL
         ) {
             return true;
         }
 
         // Draft/Upload.
-        if (!empty($eventdata['other']['content']) && $showcontent &&
-            strlen(utf8_decode(strip_tags($eventdata['other']['content']))) >= $charcount) {
-            $file = plagiarism_inspera_create_temp_file($cmid,
-                $courseid, $userid, $eventdata['other']['content'], $submissionid);
+        if (
+            !empty($eventdata['other']['content']) &&
+            $showcontent &&
+            strlen(utf8_decode(strip_tags($eventdata['other']['content']))) >= $charcount
+        ) {
+            $file = plagiarism_inspera_create_temp_file(
+                $cmid,
+                $courseid,
+                $userid,
+                $eventdata['other']['content'],
+                $submissionid
+            );
             plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, $submissionid);
         }
 
@@ -549,11 +584,9 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             : PLAGIARISM_INSPERA_RESTRICTCONTENTNO;
 
         // Define Logic Flags.
-        // Process Text: If "No Restriction" (0) OR "Restrict to Text" (2).
         $doprocesstext = ($restrictcontent === PLAGIARISM_INSPERA_RESTRICTCONTENTNO ||
             $restrictcontent === PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT);
 
-        // Process Files: If "No Restriction" (0) OR "Restrict to Files" (1).
         $doprocessfiles = ($restrictcontent === PLAGIARISM_INSPERA_RESTRICTCONTENTNO ||
             $restrictcontent === PLAGIARISM_INSPERA_RESTRICTCONTENTFILES);
 
@@ -570,7 +603,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 $qa = $quba->get_question_attempt($slot);
                 $question = $qa->get_question();
 
-                // Only process Essay questions
+                // Only process Essay questions.
                 if ($question->get_type_name() !== 'essay') {
                     continue;
                 }
@@ -587,8 +620,10 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                         if (strlen(utf8_decode($cleantext)) >= $charcount) {
                             $uniquefilename = "quiz_{$cmid}_{$userid}_{$qa->get_database_id()}.html";
                             // Note: Passing 0 for submissionid since quizzes don't use assign_submission IDs.
-                            $file = plagiarism_inspera_create_temp_file($cmid, $courseid, $userid,
-                                $responsetext, 0, $uniquefilename);
+                            $file = plagiarism_inspera_create_temp_file(
+                                $cmid, $courseid, $userid,
+                                $responsetext, 0, $uniquefilename
+                            );
                             plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, 0);
                         }
                     }
@@ -957,7 +992,7 @@ function plagiarism_inspera_coursemodule_edit_post_actions($data, $course) {
     global $DB;
 
     $plugin = new plagiarism_plugin_inspera();
-    // do nothing if plagiarism is not enabled.
+    // Do nothing if plagiarism is not enabled.
     if (!$plugin->get_settings()) {
         return $data;
     }
@@ -1079,7 +1114,7 @@ function plagiarism_inspera_coursemodule_validation($formwrapper = null, $data =
     // two arguments: ($data, $files). If we detect that pattern (first param is the data array.
     // and second is files, third missing), remap them to the new signature.
     if ($data === null && $files === null && is_array($formwrapper)) {
-        $files = $data; // remains null in this legacy call.
+        $files = $data; // Remains null in this legacy call.
         $data = $formwrapper;
         $formwrapper = null;
     }
@@ -1220,7 +1255,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
             if (isset($typesmap[$element])) {
                 $mform->setType($element, $typesmap[$element]);
             } else {
-                $mform->setType($element, PARAM_RAW); // Fallback
+                $mform->setType($element, PARAM_RAW); // Fallback.
             }
         }
     }
@@ -1454,7 +1489,7 @@ function plagiarism_inspera_get_form_elements($mform) {
         'ro' => 'Romanian', 'ru' => 'Russian', 'sr' => 'Serbian', 'sk' => 'Slovak', 'sl' => 'Slovenian',
         'es' => 'Spanish', 'sv' => 'Swedish', 'tr' => 'Turkish', 'bs' => 'Bosnian',
     ];
-    ksort($languages); // Alphabetical
+    ksort($languages); // Alphabetical.
 
     $mform->addElement('header', 'plagiarismdesc', get_string('originality', 'plagiarism_inspera'));
 
@@ -1466,13 +1501,15 @@ function plagiarism_inspera_get_form_elements($mform) {
     $mform->addHelpButton('use_originality', 'use_originality_teachers', 'plagiarism_inspera');
     $mform->setType('use_originality', PARAM_INT);
 
-    // --- Score to Display ---
+    // Score to Display.
     $displayoptions = [
         'similarity' => get_string('similarity_score', 'plagiarism_inspera'),
         'originality' => get_string('originality_score', 'plagiarism_inspera'),
     ];
-    $mform->addElement('select', 'originality_display_type', get_string('originality_display_type',
-        'plagiarism_inspera'), $displayoptions);
+    $mform->addElement(
+        'select', 'originality_display_type', get_string('originality_display_type',
+        'plagiarism_inspera'), $displayoptions
+    );
     $mform->addHelpButton('originality_display_type', 'originality_display_type', 'plagiarism_inspera');
     $mform->setType('originality_display_type', PARAM_ALPHA);
 
@@ -1482,13 +1519,17 @@ function plagiarism_inspera_get_form_elements($mform) {
     foreach ($filetypes as $ext => $mime) {
         $supportedfiles[$ext] = $ext;
     }
-    $mform->addElement('select', 'originality_allowallfile', get_string('originality_allowallfile',
-        'plagiarism_inspera'), $ynoptions);
+    $mform->addElement(
+        'select', 'originality_allowallfile', get_string('originality_allowallfile',
+        'plagiarism_inspera'), $ynoptions
+    );
     $mform->addHelpButton('originality_allowallfile', 'originality_allowallfile', 'plagiarism_inspera');
     $mform->setType('originality_allowallfile', PARAM_INT);
 
-    $mform->addElement('select', 'originality_selectfiletypes', get_string('originality_selectfiletypes',
-        'plagiarism_inspera'), $supportedfiles, ['multiple' => true]);
+    $mform->addElement(
+        'select', 'originality_selectfiletypes', get_string('originality_selectfiletypes',
+        'plagiarism_inspera'), $supportedfiles, ['multiple' => true]
+    );
     $mform->addHelpButton('originality_selectfiletypes', 'originality_selectfiletypes', 'plagiarism_inspera');
     $mform->setType('originality_selectfiletypes', PARAM_TAGLIST);
 
@@ -1545,28 +1586,38 @@ function plagiarism_inspera_get_form_elements($mform) {
     $mform->hideIf('originality_selectfiletypes', 'originality_allowallfile', 'eq', 1);
 
     // AI Authorship.
-    $mform->addElement('select', 'originality_enable_ai', get_string('originality_enable_ai', 'plagiarism_inspera'),
-        $ynoptions);
+    $mform->addElement(
+        'select', 'originality_enable_ai', get_string('originality_enable_ai', 'plagiarism_inspera'),
+        $ynoptions
+    );
     $mform->addHelpButton('originality_enable_ai', 'originality_enable_ai', 'plagiarism_inspera');
     $mform->setType('originality_enable_ai', PARAM_INT);
 
     // Archive Documents.
-    $mform->addElement('select', 'originality_archive', get_string('originality_archive', 'plagiarism_inspera'),
-        $ynoptions);
+    $mform->addElement(
+        'select', 'originality_archive', get_string('originality_archive', 'plagiarism_inspera'),
+        $ynoptions
+    );
     $mform->addHelpButton('originality_archive', 'originality_archive', 'plagiarism_inspera');
     $mform->setType('originality_archive', PARAM_INT);
 
     // Contextual Similarity.
-    $mform->addElement('select', 'originality_enable_context_similarity',
-        get_string('originality_enable_context_similarity', 'plagiarism_inspera'), $ynoptions);
+    $mform->addElement(
+        'select', 'originality_enable_context_similarity',
+        get_string('originality_enable_context_similarity', 'plagiarism_inspera'), $ynoptions
+    );
     $mform->setType('originality_enable_context_similarity', PARAM_INT);
     $mform->setDefault('originality_enable_context_similarity', 0);
-    $mform->addHelpButton('originality_enable_context_similarity', 'originality_enable_context_similarity',
-        'plagiarism_inspera');
+    $mform->addHelpButton(
+        'originality_enable_context_similarity', 'originality_enable_context_similarity',
+        'plagiarism_inspera'
+    );
 
     // Threshold input (always optional in the form).
-    $mform->addElement('text', 'originality_context_threshold', get_string('originality_context_threshold',
-        'plagiarism_inspera'));
+    $mform->addElement(
+        'text', 'originality_context_threshold', get_string('originality_context_threshold',
+        'plagiarism_inspera')
+    );
     $mform->setType('originality_context_threshold', PARAM_INT);
     $mform->setDefault('originality_context_threshold', 50);
     $mform->addHelpButton('originality_context_threshold', 'originality_context_threshold', 'plagiarism_inspera');
@@ -1582,8 +1633,10 @@ function plagiarism_inspera_get_form_elements($mform) {
     $mform->hideIf('originality_context_threshold', 'originality_enable_context_similarity', 'neq', 1);
 
     // Exclude URLs.
-    $mform->addElement('select', 'originality_enable_exclude_urls', get_string('originality_enable_exclude_urls',
-        'plagiarism_inspera'), $ynoptions);
+    $mform->addElement(
+        'select', 'originality_enable_exclude_urls', get_string('originality_enable_exclude_urls',
+        'plagiarism_inspera'), $ynoptions
+    );
     $mform->setType('originality_enable_exclude_urls', PARAM_INT);
     $mform->setDefault('originality_enable_exclude_urls', 0);
     $mform->addHelpButton('originality_enable_exclude_urls', 'originality_enable_exclude_urls', 'plagiarism_inspera');
@@ -1594,8 +1647,10 @@ function plagiarism_inspera_get_form_elements($mform) {
     $mform->hideIf('originality_exclude_urls', 'originality_enable_exclude_urls', 'neq', 1);
 
     // Include URLs.
-    $mform->addElement('select', 'originality_enable_include_urls',
-        get_string('originality_enable_include_urls', 'plagiarism_inspera'), $ynoptions);
+    $mform->addElement(
+        'select', 'originality_enable_include_urls',
+        get_string('originality_enable_include_urls', 'plagiarism_inspera'), $ynoptions
+    );
     $mform->setType('originality_enable_include_urls', PARAM_INT);
     $mform->setDefault('originality_enable_include_urls', 0);
     $mform->addHelpButton('originality_enable_include_urls', 'originality_enable_include_urls', 'plagiarism_inspera');
@@ -1607,8 +1662,10 @@ function plagiarism_inspera_get_form_elements($mform) {
     $mform->hideIf('originality_include_urls', 'originality_enable_include_urls', 'neq', 1);
 
     // Metadata Analysis.
-    $mform->addElement('select', 'originality_metadata_analysis', get_string('originality_metadata_analysis',
-        'plagiarism_inspera'), $ynoptions);
+    $mform->addElement(
+        'select', 'originality_metadata_analysis', get_string('originality_metadata_analysis',
+        'plagiarism_inspera'), $ynoptions
+    );
     $mform->addHelpButton('originality_metadata_analysis', 'originality_metadata_analysis', 'plagiarism_inspera');
     $mform->setType('originality_metadata_analysis', PARAM_INT);
 
@@ -1619,8 +1676,10 @@ function plagiarism_inspera_get_form_elements($mform) {
         2 => get_string("showstudentreport_after_grading", "plagiarism_inspera"),
         3 => get_string("showstudentreport_due_date", "plagiarism_inspera"),
     ];
-    $mform->addElement('select', 'originality_show_student_report', get_string('originality_show_student_report',
-        'plagiarism_inspera'), $sharereportoptions);
+    $mform->addElement(
+        'select', 'originality_show_student_report', get_string('originality_show_student_report',
+        'plagiarism_inspera'), $sharereportoptions
+    );
     $mform->addHelpButton('originality_show_student_report', 'originality_show_student_report', 'plagiarism_inspera');
     $mform->setType('originality_show_student_report', PARAM_INT);
 
@@ -1635,35 +1694,47 @@ function plagiarism_inspera_get_form_elements($mform) {
     if ($mform->elementExists('submissiondrafts')) {
         // We cannot reliably read the runtime value here, so present both, but enforce on save.
         // However, when the module does not support drafts at all, the element won't exist.
-        $mform->addElement('select', 'originality_draft_submit', get_string("originality_draft_submit",
-            "plagiarism_inspera"), $draftoptionsfinal);
+        $mform->addElement(
+            'select', 'originality_draft_submit', get_string("originality_draft_submit",
+            "plagiarism_inspera"), $draftoptionsfinal
+        );
     } else {
-        $mform->addElement('select', 'originality_draft_submit', get_string("originality_draft_submit",
-            "plagiarism_inspera"), $draftoptionsimmediate);
+        $mform->addElement(
+            'select', 'originality_draft_submit', get_string("originality_draft_submit",
+            "plagiarism_inspera"), $draftoptionsimmediate
+        );
         $mform->setDefault('originality_draft_submit', PLAGIARISM_INSPERA_DRAFTSUBMIT_IMMEDIATE);
     }
     $mform->addHelpButton('originality_draft_submit', 'originality_draft_submit', 'plagiarism_inspera');
     $mform->setType('originality_draft_submit', PARAM_INT);
 
     // Translations.
-    $mform->addElement('select', 'originality_enable_translations', get_string('originality_enable_translations',
-        'plagiarism_inspera'), $ynoptions);
+    $mform->addElement(
+        'select', 'originality_enable_translations', get_string('originality_enable_translations',
+        'plagiarism_inspera'), $ynoptions
+    );
     $mform->addHelpButton('originality_enable_translations', 'originality_enable_translations', 'plagiarism_inspera');
     $mform->setType('originality_enable_translations', PARAM_INT);
 
-    $mform->addElement('select', 'originality_translation_languages',
-        get_string('originality_translation_languages', 'plagiarism_inspera'), $languages, ['multiple' => true]);
+    $mform->addElement(
+        'select', 'originality_translation_languages',
+        get_string('originality_translation_languages', 'plagiarism_inspera'), $languages, ['multiple' => true]
+    );
     $mform->setType('originality_translation_languages', PARAM_TAGLIST);
-    $mform->addHelpButton('originality_translation_languages', 'originality_translation_languages',
-        'plagiarism_inspera');
+    $mform->addHelpButton(
+        'originality_translation_languages', 'originality_translation_languages',
+        'plagiarism_inspera'
+    );
     $mform->hideIf('originality_translation_languages', 'originality_enable_translations', 'eq', 0);
 
     $contentoptions = [PLAGIARISM_INSPERA_RESTRICTCONTENTNO => get_string('restrictcontentno', 'plagiarism_inspera'),
         PLAGIARISM_INSPERA_RESTRICTCONTENTFILES => get_string('restrictcontentfiles', 'plagiarism_inspera'),
         PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT => get_string('restrictcontenttext', 'plagiarism_inspera')];
 
-    $mform->addElement('select', 'originality_restrictcontent', get_string('originality_restrictcontent',
-        'plagiarism_inspera'), $contentoptions);
+    $mform->addElement(
+        'select', 'originality_restrictcontent', get_string('originality_restrictcontent',
+        'plagiarism_inspera'), $contentoptions
+    );
     $mform->addHelpButton('originality_restrictcontent', 'originality_restrictcontent_teachers', 'plagiarism_inspera');
     $mform->setType('originality_restrictcontent', PARAM_INT);
 }
@@ -1737,10 +1808,10 @@ function plagiarism_inspera_get_plagiarism_file($cmid, $userid, $file, $relatedu
         'externalid' => $filehash,
     ];
     $sql = "SELECT *
-                  FROM {plagiarism_inspera_subs}
-                 WHERE cm = :cm 
-                   AND userid = :userid 
-                   AND externalid = :externalid";
+                 FROM {plagiarism_inspera_subs}
+                 WHERE cm = :cm
+                 AND userid = :userid
+                 AND externalid = :externalid";
 
     $plagiarismfile = $DB->get_record_sql($sql, $params);
 
@@ -1895,7 +1966,7 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
 
     $currenttime = time();
 
-    // INSERT OR UPDATE LOGIC
+    // INSERT OR UPDATE LOGIC.
     if ($existingrecord) {
         $status = $existingrecord->status ?? '';
 
@@ -2033,8 +2104,14 @@ function plagiarism_inspera_cleanup_orphaned_records() {
  * @param string|null $specificname An optional strict filename (used by Quizzes to prevent overwrite).
  * @return stdClass An object with ->filepath and ->filename properties.
  */
-function plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $content, $submissionid = 0,
-                                             $specificname = null) {
+function plagiarism_inspera_create_temp_file(
+    $cmid,
+    $courseid,
+    $userid,
+    $content,
+    $submissionid = 0,
+    $specificname = null
+) {
     global $CFG;
 
     // Use the specific name if provided (Quizzes), otherwise use default (Assignments).
@@ -2057,11 +2134,15 @@ function plagiarism_inspera_create_temp_file($cmid, $courseid, $userid, $content
     }
 
     // Sanitize content before wrapping in HTML.
-    $cleanedcontent = format_text($content, FORMAT_HTML, [
-        'context' => context_system::instance(),
-        'filter' => false, // Don't apply filters, just clean
-        'noclean' => false, // DO apply cleaning
-    ]);
+    $cleanedcontent = format_text(
+        $content,
+        FORMAT_HTML,
+        [
+            'context' => \context_system::instance(),
+            'filter' => false, // Don't apply filters, just clean.
+            'noclean' => false, // Do apply cleaning.
+        ]
+    );
 
     // Wrap content in basic HTML structure if not already HTML.
     $htmlcontent = $cleanedcontent;
@@ -2145,9 +2226,6 @@ function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
                 $filename = $file->get_filename();
                 $mimetype = $file->get_mimetype();
             }
-        } else if (!empty($plagiarismfile->identifier) && file_exists($plagiarismfile->identifier)) {
-            // If we have a temporary file path (online text), keep default HTML values.
-            // filename and mimetype already set to HTML defaults.
         }
 
         // Get originality settings for the course module.
@@ -2177,7 +2255,7 @@ function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
 
             if (!empty($users)) {
                 foreach ($users as $u) {
-                    // Ensure we have required fields
+                    // Ensure we have required fields.
                     if (empty($u->id) || empty($u->email)) {
                         continue;
                     }
@@ -2211,17 +2289,17 @@ function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
                         }
 
                         if ($isblind) {
-                            $s_name = $gm->id;
-                            $s_email = $gm->id . '@blind.marking';
+                            $sname = $gm->id;
+                            $semail = $gm->id . '@blind.marking';
                         } else {
-                            $s_name = fullname($gm);
-                            $s_email = $gm->email;
+                            $sname = fullname($gm);
+                            $semail = $gm->email;
                         }
 
                         $students[] = [
                             'id' => (string)$gm->id,
-                            'name' => $s_name,
-                            'email' => $s_email,
+                            'name' => $sname,
+                            'email' => $semail,
                         ];
                     }
                 }
@@ -2285,9 +2363,8 @@ function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
 
         $content = $file->get_content();
         $mimetype = $file->get_mimetype();
-    }
-    // Check identifier field for temporary file path (online text).
-    else if (!empty($plagiarismfile->identifier)) {
+    } else if (!empty($plagiarismfile->identifier)) {
+        // Check identifier field for temporary file path (online text).
         $tempfilepath = $plagiarismfile->identifier;
 
         // Validate target directory.
@@ -2296,11 +2373,11 @@ function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
         $expectedbase = rtrim($CFG->tempdir, '/') . '/plagiarism_inspera/';
 
         $normalizedfilepath = str_replace('\\', '/', $tempfilepath);
-        $normalized_base     = str_replace('\\', '/', $expectedbase);
+        $normalizedbase     = str_replace('\\', '/', $expectedbase);
 
         // 1. Block any directory traversal attempts ("../").
         // 2. Enforce the base directory prefix.
-        if (strpos($normalizedfilepath, '..') !== false || strpos($normalizedfilepath, $normalized_base) !== 0) {
+        if (strpos($normalizedfilepath, '..') !== false || strpos($normalizedfilepath, $normalizedbase) !== 0) {
             mtrace("SECURITY FATAL: Unauthorized directory or traversal attempt detected in identifier path: {$tempfilepath}");
 
             // Mark the record as an error so cron stops trying to process it.
@@ -2523,7 +2600,7 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
 
     // Normalize paths to prevent slash-direction bypasses (e.g., on Windows servers).
     $normalizedfilepath = str_replace('\\', '/', $filepath);
-    $normalized_base     = str_replace('\\', '/', $expectedbase);
+    $normalizedbase     = str_replace('\\', '/', $expectedbase);
 
     // 1. Block any directory traversal attempts ("../").
     if (strpos($normalizedfilepath, '..') !== false) {
@@ -2532,7 +2609,7 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
     }
 
     // 2. Enforce the base directory prefix.
-    if (strpos($normalizedfilepath, $normalized_base) !== 0) {
+    if (strpos($normalizedfilepath, $normalizedbase) !== 0) {
         mtrace("Security block: Attempted to write rehydrated file outside of plugin temp directory.");
         return false;
     }
@@ -2543,7 +2620,7 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
     }
 
     $content = '';
-    $filename = basename($filepath); // e.g. quiz_17_4_29.html
+    $filename = basename($filepath);
     $submissionid = !empty($record->submissionid) ? (int)$record->submissionid : 0;
 
     // CASE A: QUIZ SUBMISSION.
@@ -2584,8 +2661,12 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
         // CASE B: ASSIGNMENT SUBMISSION.
         // We detect Assignments if there is a valid submissionid.
         // Get the online text from the assignment tables.
-        $onlinetext = $DB->get_record('assignsubmission_onlinetext', ['submission' => $record->submissionid],
-            'onlinetext', IGNORE_MISSING);
+        $onlinetext = $DB->get_record(
+            'assignsubmission_onlinetext',
+            ['submission' => $record->submissionid],
+            'onlinetext',
+            IGNORE_MISSING
+        );
         if ($onlinetext) {
             $content = $onlinetext->onlinetext;
         }

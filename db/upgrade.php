@@ -53,7 +53,7 @@ function xmldb_plagiarism_inspera_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026031301, 'plagiarism', 'inspera');
     }
 
-    // --- ADD ORIGINALITY_SCORE COLUMN ---
+    // ADD ORIGINALITY_SCORE COLUMN.
     if ($oldversion < 2026031601) {
         $table = new xmldb_table('plagiarism_inspera_subs');
 

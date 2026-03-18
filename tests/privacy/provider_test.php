@@ -26,6 +26,8 @@
 namespace plagiarism_inspera\privacy;
 
 use core_privacy\tests\provider_testcase;
+use context_module;
+use context_user;
 
 /**
  * Privacy Provider testcase for plagiarism_inspera.
@@ -47,6 +49,7 @@ final class provider_test extends provider_testcase {
 
     /**
      * Test that all plagiarism data for a specific user in a context is deleted.
+     * @covers \plagiarism_inspera\privacy\provider::delete_plagiarism_for_user
      */
     public function test_delete_plagiarism_for_user(): void {
         global $DB;
@@ -77,7 +80,8 @@ final class provider_test extends provider_testcase {
     }
 
     /**
-     * Test that all data in a specific context is deleted (e.g., when an activity is deleted).
+     * Test that all data in a specific context is deleted.
+     * @covers \plagiarism_inspera\privacy\provider::delete_plagiarism_for_context
      */
     public function test_delete_plagiarism_for_context(): void {
         global $DB;

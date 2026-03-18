@@ -76,7 +76,7 @@ class plagiarism_inspera_setup_form extends moodleform {
                 $modstring = 'enable_mod_' . $mod;
                 $modhuman = get_string('pluginname', 'mod_' . $mod);
                 $mform->addElement('checkbox', $modstring, get_string('enableplugin', 'plagiarism_inspera', $modhuman));
-                // Default to checked for 'assign'
+                // Default to checked for 'assign'.
                 if ($mod == 'assign') {
                     $mform->setDefault($modstring, 1);
                 }

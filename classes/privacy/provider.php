@@ -30,10 +30,10 @@ use core_privacy\local\request\writer;
 /**
  * Privacy subsystem for plagiarism_inspera.
  */
-class provider implements \core_plagiarism\privacy\plagiarism_provider,
+class provider implements
+    \core_plagiarism\privacy\plagiarism_provider,
     \core_plagiarism\privacy\plagiarism_user_provider,
     \core_privacy\local\metadata\provider {
-
     /**
      * Describe the data stored by this plugin.
      */

@@ -30,7 +30,7 @@
 function xmldb_plagiarism_inspera_install() {
     global $DB;
 
-    //  MIGRATE GLOBAL ADMIN SETTINGS.
+    // MIGRATE GLOBAL ADMIN SETTINGS.
     // These live in {config_plugins}.
 
     // 1. Fetch all settings from the OLD plugin.
@@ -65,7 +65,7 @@ function xmldb_plagiarism_inspera_install() {
 
     // 1. MIGRATE MODULE DEFAULTS (Custom Table).
     if ($DB->get_manager()->table_exists('plagiarism_originality_conf')) {
-        // Only if new table is empty
+        // Only if new table is empty.
         if ($DB->count_records('plagiarism_inspera_config') == 0) {
             try {
                 // Direct copy of module defaults.

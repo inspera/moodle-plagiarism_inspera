@@ -69,7 +69,7 @@ if (($data = $mform->get_data()) && confirm_sesskey()) {
         }
     }
 
-    // here there could be a check that the api is valid.
+    // Here there could be a check that the api is valid.
     echo $OUTPUT->notification(get_string('savedconfigsuccess', 'plagiarism_inspera'), 'notifysuccess');
 }
 
