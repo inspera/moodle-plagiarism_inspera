@@ -64,7 +64,7 @@ jobs:
 
       - name: Install moodle-plugin-ci
         run: |
-          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ../ci ^4.0
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ../ci ^4.3
           # This line ensures the bin folder is added to the global PATH for all future steps
           echo "$GITHUB_WORKSPACE/../ci/bin" >> $GITHUB_PATH
           echo "$GITHUB_WORKSPACE/../ci/vendor/bin" >> $GITHUB_PATH
@@ -91,7 +91,7 @@ jobs:
         run: moodle-plugin-ci codechecker
 
       - name: Moodle Plugin Validate
-        run: moodle-plugin-ci validate --plugin plagiarism_inspera
+        run: moodle-plugin-ci validate .
 
       - name: Savepoints
         run: moodle-plugin-ci savepoints
