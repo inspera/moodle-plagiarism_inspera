@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - main
+      - 'task/**'
   pull_request:
     branches:
       - master
