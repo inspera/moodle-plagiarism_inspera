@@ -164,11 +164,11 @@ final class score_display_test extends advanced_testcase {
     public static function similarity_range_provider(): array {
         return [
             'Boundary Low (20.0)'          => [20.0, 'low'],
-            'Coherence check (20.49)'      => [20.49, 'low'],    // Rounds to 20 -> Green.
-            'Coherence check (20.5)'       => [20.5, 'medium'], // Rounds to 21 -> Yellow.
+            'Coherence check (20.49)'      => [20.49, 'low'],
+            'Coherence check (20.5)'       => [20.5, 'medium'],
             'Boundary Medium (80.0)'       => [80.0, 'medium'],
-            'Coherence check (80.49)'      => [80.49, 'medium'], // Rounds to 80 -> Yellow.
-            'Coherence check (80.5)'       => [80.5, 'high'],   // Rounds to 81 -> Red.
+            'Coherence check (80.49)'      => [80.49, 'medium'],
+            'Coherence check (80.5)'       => [80.5, 'high'],
             'Boundary High (100)'          => [100.0, 'high'],
         ];
     }

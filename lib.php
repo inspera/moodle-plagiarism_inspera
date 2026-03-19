@@ -700,7 +700,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                     // 2. Classification logic: Use the ROUNDED score to ensure UI coherence.
                     if ($score <= 20) {
                         $riskclass = 'low';      // 0 - 20 (Green).
-                    } elseif ($score <= 80) {
+                    } else if ($score <= 80) {
                         $riskclass = 'medium';   // 21 - 80 (Yellow).
                     } else {
                         $riskclass = 'high';     // 81 - 100 (Red).
