@@ -55,17 +55,12 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
     /**
      * Gets the global sitewide settings for this plugin.
      *
-     * Statically caches the settings for performance. Returns false if the plugin
-     * is disabled or not configured.
-     *
      * @return array|false The array of config settings, or false if disabled/misconfigured.
      */
     public static function get_settings() {
-        static $plagiarismsettings;
-        if (!empty($plagiarismsettings) || $plagiarismsettings === false) {
-            return $plagiarismsettings;
-        }
+        // Moodle's get_config is already memory-cached, so we safely pull it fresh every time.
         $plagiarismsettings = (array)get_config('plagiarism_inspera');
+
         // Check if enabled.
         if (isset($plagiarismsettings['enabled']) && $plagiarismsettings['enabled']) {
             // Check to make sure required settings are set!
@@ -73,9 +68,9 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 return false;
             }
             return $plagiarismsettings;
-        } else {
-            return false;
         }
+
+        return false;
     }
 
     /**

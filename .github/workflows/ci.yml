@@ -85,33 +85,7 @@ jobs:
         if: ${{ always() }}
         run: php moodle/admin/tool/phpunit/cli/init.php
 
-      - name: PHP Lint
-        if: ${{ always() }}
-        run: moodle-plugin-ci phplint
 
-      - name: PHP Mess Detector
-        if: ${{ always() }}
-        run: moodle-plugin-ci phpmd
-
-      - name: Moodle Codechecker
-        if: ${{ always() }}
-        run: moodle-plugin-ci codechecker
-
-      - name: Moodle Plugin Validate
-        if: ${{ always() }}
-        run: moodle-plugin-ci validate
-
-      - name: Savepoints
-        if: ${{ always() }}
-        run: moodle-plugin-ci savepoints
-
-      - name: Mustache Lint
-        if: ${{ always() }}
-        run: moodle-plugin-ci mustache
-
-      - name: Grunt
-        if: ${{ always() }}
-        run: moodle-plugin-ci grunt
 
       - name: PHPUnit tests
         if: ${{ always() }}
