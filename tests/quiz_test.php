@@ -49,12 +49,12 @@ final class quiz_test extends advanced_testcase {
     protected function setUp(): void {
         parent::setUp();
         $this->resetAfterTest();
+        global $DB;
 
         // Configure the Inspera plagiarism plugin globally so event_handler() proceeds.
         set_config('enabled', 1, 'plagiarism_inspera');
         set_config('baseurl', 'https://api.example.com', 'plagiarism_inspera');
         set_config('enable_mod_quiz', 1, 'plagiarism_inspera');
-        // Lower the char-count threshold so the short essay text in the test is processed.
         set_config('charcount', 1, 'plagiarism_inspera');
 
         $this->course  = $this->getDataGenerator()->create_course();
@@ -66,6 +66,14 @@ final class quiz_test extends advanced_testcase {
             'course'    => $this->course->id,
             'gradepass' => 50,
         ]);
+
+        // Explicitly enable Inspera for this quiz in the plugin config table.
+        // This ensures every test starts with the module correctly "hooked."
+        $DB->insert_record('plagiarism_inspera_config', (object) [
+            'cm'    => $this->quiz->cmid,
+            'name'  => 'use_originality',
+            'value' => '1',
+        ]);
     }
 
     /**
@@ -75,14 +83,7 @@ final class quiz_test extends advanced_testcase {
     public function test_quiz_essay_queuing(): void {
         global $DB;
 
-        // 1. Enable Inspera for this specific course module.
-        $DB->insert_record('plagiarism_inspera_config', (object) [
-            'cm'    => $this->quiz->cmid,
-            'name'  => 'use_originality',
-            'value' => '1',
-        ]);
-
-        // 2. Quiz & Question Setup.
+        // Quiz & Question Setup.
         $questiongenerator = $this->getDataGenerator()->get_plugin_generator('core_question');
         $cat   = $questiongenerator->create_question_category();
         $essay = $questiongenerator->create_question('essay', null, ['category' => $cat->id]);
@@ -96,7 +97,7 @@ final class quiz_test extends advanced_testcase {
         $gradecalculator->recompute_quiz_sumgrades();
         $gradecalculator->update_quiz_maximum_grade(10.0);
 
-        // 3. Attempt Creation.
+        // Attempt Creation.
         $this->setUser($this->student);
         $timenow = time();
 
@@ -111,7 +112,7 @@ final class quiz_test extends advanced_testcase {
 
         $attemptobj = \mod_quiz\quiz_attempt::create((int) $attemptrecord->id);
 
-        // 4. Submission Logic.
+        // Submission Logic.
         // We do NOT call start_attempt() here because the Data Generator.
         // Already created the attempt in the 'inprogress' state.
 
@@ -131,11 +132,11 @@ final class quiz_test extends advanced_testcase {
         // Reload the attempt record to get the fully populated fields (like 'state' = 'finished').
         $attemptrecord = $DB->get_record('quiz_attempts', ['id' => $attemptrecord->id], '*', MUST_EXIST);
 
-        // 5. Trigger Observer Logic.
+        // Trigger Observer Logic.
         // Call your excellent helper function to simulate the event trigger.
         plagiarism_inspera_quiz_attempt_submitted($attemptrecord);
 
-        // 6. Assertions.
+        // Assertions.
         $record = $DB->get_record('plagiarism_inspera_subs', [
             'cm'     => $this->quiz->cmid,
             'userid' => $this->student->id,
@@ -155,14 +156,7 @@ final class quiz_test extends advanced_testcase {
     public function test_quiz_attachment_queuing(): void {
         global $DB;
 
-        // 1. Enable Inspera for this module.
-        $DB->insert_record('plagiarism_inspera_config', (object) [
-            'cm'    => $this->quiz->cmid,
-            'name'  => 'use_originality',
-            'value' => '1',
-        ]);
-
-        // 2. Quiz & Question Setup (Requiring Attachments).
+        // Quiz & Question Setup (Requiring Attachments).
         $questiongenerator = $this->getDataGenerator()->get_plugin_generator('core_question');
         $cat   = $questiongenerator->create_question_category();
 
@@ -180,7 +174,7 @@ final class quiz_test extends advanced_testcase {
         $gradecalculator->recompute_quiz_sumgrades();
         $gradecalculator->update_quiz_maximum_grade(10.0);
 
-        // 3. Attempt Creation.
+        // Attempt Creation.
         $this->setUser($this->student);
         $timenow = time();
 
@@ -190,7 +184,7 @@ final class quiz_test extends advanced_testcase {
 
         $attemptobj = \mod_quiz\quiz_attempt::create((int) $attemptrecord->id);
 
-        // 4. Mocking the File Upload (Draft Area).
+        // Mocking the File Upload (Draft Area).
         $fs = get_file_storage();
         $draftitemid = file_get_unused_draft_itemid();
         $usercontext = context_user::instance($this->student->id);
@@ -206,7 +200,7 @@ final class quiz_test extends advanced_testcase {
         ];
         $fs->create_file_from_string($filerecord, 'Dummy PDF content for testing');
 
-        // 5. Submission Logic.
+        // Submission Logic.
         // Pass the draftitemid to the 'attachments' key so the Question Engine grabs it.
         $tosubmit = [
             1 => [
@@ -221,10 +215,10 @@ final class quiz_test extends advanced_testcase {
 
         $attemptrecord = $DB->get_record('quiz_attempts', ['id' => $attemptrecord->id], '*', MUST_EXIST);
 
-        // 6. Trigger Observer Logic.
+        // Trigger Observer Logic.
         plagiarism_inspera_quiz_attempt_submitted($attemptrecord);
 
-        // 7. Assertions.
+        // Assertions.
         // Since both text and files might be queued, we get all records for this attempt.
         $records = $DB->get_records('plagiarism_inspera_subs', [
             'cm'     => $this->quiz->cmid,
@@ -262,12 +256,6 @@ final class quiz_test extends advanced_testcase {
         // Ensure quiz has no close date initially.
         $DB->set_field('quiz', 'timeclose', 0, ['id' => $this->quiz->id]);
 
-        // 1. Setup Quiz with an Essay that requires attachments.
-        $DB->insert_record(
-            'plagiarism_inspera_config',
-            (object) ['cm' => $this->quiz->cmid, 'name' => 'use_originality', 'value' => '1']
-        );
-
         $questiongenerator = $this->getDataGenerator()->get_plugin_generator('core_question');
         $cat = $questiongenerator->create_question_category();
         $essay = $questiongenerator->create_question(
@@ -286,7 +274,7 @@ final class quiz_test extends advanced_testcase {
         $gradecalculator->recompute_quiz_sumgrades();
         $gradecalculator->update_quiz_maximum_grade(10.0);
 
-        // 2. Create Attempt and Submit Text + File.
+        // Create Attempt and Submit Text + File.
         /** @var mod_quiz_generator $quizgenerator */
         $quizgenerator = $this->getDataGenerator()->get_plugin_generator('mod_quiz');
         $attemptrecord = $quizgenerator->create_attempt($this->quiz->id, $this->student->id);
@@ -308,10 +296,10 @@ final class quiz_test extends advanced_testcase {
 
         $attemptrecord = $DB->get_record('quiz_attempts', ['id' => $attemptrecord->id], '*', MUST_EXIST);
 
-        // 3. Trigger Observer to generate REAL records.
+        // Trigger Observer to generate REAL records.
         plagiarism_inspera_quiz_attempt_submitted($attemptrecord);
 
-        // 4. Fetch the REAL Text and File Records.
+        // Fetch the REAL Text and File Records.
         $records = $DB->get_records(
             'plagiarism_inspera_subs',
             [
@@ -335,7 +323,7 @@ final class quiz_test extends advanced_testcase {
         $this->assertNotNull($textrecord, 'Text record was not generated.');
         $this->assertNotNull($filerecord, 'File record was not generated.');
 
-        // 5. TEST SCENARIO 1: After Grading (Mode 2).
+        // TEST SCENARIO 1: After Grading (Mode 2).
         $settings = [
             'use_originality' => 1,
             'originality_show_student_report' => 2,
@@ -414,7 +402,7 @@ final class quiz_test extends advanced_testcase {
             )
         );
 
-        // 7. TEST SCENARIO 3: User Override.
+        // TEST SCENARIO 3: User Override.
         $DB->insert_record('quiz_overrides', [
             'quiz' => $this->quiz->id,
             'userid' => $this->student->id,

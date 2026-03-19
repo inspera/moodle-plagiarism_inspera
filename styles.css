@@ -6,7 +6,7 @@
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-/* Puts the link/status on a new line with a small icon */
+/* Puts the link/status on a new line with a small icon. */
 .plagiarism-originality-reportlink,
 .plagiarism-originality-status {
     display: block;
@@ -17,71 +17,71 @@
     background-size: 16px;
 }
 
-/* Finished report link */
+/* Finished report link. */
 .plagiarism-originality-reportlink {
     font-weight: bold;
 }
 
-/* Pending status */
+/* Pending status. */
 .plagiarism-originality-status {
-    /* You could add a "pending" or "spinner" icon */
     color: #777;
 }
 
-/* Error status */
+/* Error status. */
 .plagiarism-originality-status.error {
-    /* You could add a "warning" icon */
-    color: #E00;
+    color: #e00;
     font-weight: bold;
 }
 
 .originality-score {
     display: inline-block;
-    padding: 2px 8px; /* Vertical and horizontal padding */
+    padding: 2px 8px;
     border-radius: 4px;
     font-weight: bold;
-    color: #FFFFFF;     /* White text for good contrast */
+    color: #fff;
     line-height: 1.2;
     font-size: 0.95em;
-    vertical-align: middle; /* Aligns badge nicely with the link text */
+    vertical-align: middle;
 }
 
-/* Score is LOW or EQUAL (<= threshold) */
+/* Score is LOW or EQUAL (<= threshold). */
 .originality-score.low {
-    background-color: #39734A; /* Green */
-    color: #ffffff;
+    background-color: #39734a;
+    color: #fff;
 }
 
-/* Score is HIGH (> threshold) */
+/* Score is HIGH (> threshold). */
 .originality-score.high {
-    background-color: #9F2D27; /* Red */
-    color: #ffffff;
+    background-color: #9f2d27;
+    color: #fff;
 }
 
 .originality-score.medium {
-    background-color: #E0A800; /* Amber/Dark Yellow */
-    color: #ffffff;
+    background-color: #e0a800;
+    color: #fff;
 }
 
 .originality-logo-icon {
     width: 16px;
     height: 16px;
-    margin-right: 4px; /* Space between icon and "View Report" */
-    vertical-align: text-bottom; /* Aligns the icon nicely with the text */
+    margin-right: 4px;
+    vertical-align: text-bottom;
 }
 
-/* Hiding Exclamation mark inside select box.*/
+/* Hiding Exclamation mark inside select box. */
+/* Using more specific selectors to override core styles without !important. */
 #fitem_id_originality_selectfiletypes .form-control.is-invalid,
 #fitem_id_originality_selectfiletypes .form-control[aria-invalid="true"],
 #id_originality_selectfiletypes[aria-invalid="true"],
 #fitem_id_originality_selectfiletypes select.is-invalid,
-#fitem_id_originality_selectfiletypes .error select {
-    background-image: none !important;
+#fitem_id_originality_selectfiletypes .error select,
+div#fitem_id_originality_selectfiletypes.form-group select {
+    background-image: none;
 }
 
 .originality-error-desc {
     max-width: 200px;
     line-height: 1.2;
-    display: block; /* Replaces d-block if you want to be even cleaner */
-    word-wrap: break-word; /* Good safety for long unbroken strings */
+    display: block;
+    word-wrap: break-word;
 }

@@ -780,6 +780,10 @@ function plagiarism_inspera_quiz_attempt_submitted(\stdClass $attempt) {
         'userid'            => (int) $attempt->userid,
         'relateduserid'     => null,
         'courseid'          => (int) $quiz->course,
+        'other'             => [
+            'quizid'    => (int) $attempt->quiz,
+            'attemptid' => (int) $attempt->id,
+        ],
     ];
 
     $plugin = new \plagiarism_plugin_inspera();
