@@ -18,7 +18,7 @@ concurrency:
 # Silence the Node.js deprecation warning
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  IGNORE_PATHS: 'moodle,../ci,ci'
+  IGNORE_PATHS: 'moodle/*/tests/behat, moodle,../ci,ci'
   IGNORE_NAMES: '.git,.github'
 
 jobs:
