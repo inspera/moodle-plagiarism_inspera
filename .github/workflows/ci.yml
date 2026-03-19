@@ -91,7 +91,8 @@ jobs:
         run: moodle-plugin-ci codechecker
 
       - name: Moodle Plugin Validate
-        run: moodle-plugin-ci validate moodle/plagiarism/inspera
+        run: moodle-plugin-ci validate
+        working-directory: moodle/plagiarism/inspera
 
       - name: Savepoints
         run: moodle-plugin-ci savepoints
