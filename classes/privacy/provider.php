@@ -26,6 +26,7 @@ namespace plagiarism_inspera\privacy;
 
 use core_privacy\local\metadata\collection;
 use core_privacy\local\request\writer;
+use core_privacy\local\request\userlist;
 
 /**
  * Privacy subsystem for plagiarism_inspera.
@@ -35,7 +36,7 @@ class provider implements
     \core_plagiarism\privacy\plagiarism_user_provider,
     \core_privacy\local\metadata\provider {
     /**
-     * Describe the data stored by this plugin.
+     * Describe the data stored and transmitted by this plugin.
      */
     public static function get_metadata(collection $collection): collection {
         // Link to Moodle's core files.
@@ -60,7 +61,7 @@ class provider implements
             'privacy:metadata:plagiarism_inspera_subs'
         );
 
-        // Describe data sent to Inspera.
+        // Describe data sent to Inspera API
         $collection->link_external_location('inspera', [
             'filename' => 'privacy:metadata:inspera:filename',
             'fullname' => 'privacy:metadata:inspera:fullname',
@@ -89,7 +90,6 @@ class provider implements
             if (!empty($record->storedfileid)) {
                 $currentsubcontext[] = get_string('file') . '_' . $record->storedfileid;
             } else {
-                // Append the record ID to ensure uniqueness if multiple online text reports exist.
                 $currentsubcontext[] = get_string('onlinetext', 'assignsubmission_onlinetext') . '_' . $record->id;
             }
 
@@ -121,10 +121,14 @@ class provider implements
 
     /**
      * Delete multiple users within a single context.
-     * Required by \core_plagiarism\privacy\plagiarism_user_provider.
+     * Uses the required \core_privacy\local\request\userlist object.
      */
-    public static function delete_plagiarism_for_users(array $userids, \context $context) {
+    public static function delete_plagiarism_for_users(userlist $userlist) {
         global $DB;
+
+        $context = $userlist->get_context();
+        $userids = $userlist->get_userids();
+
         if (empty($userids) || !($context instanceof \context_module)) {
             return;
         }
