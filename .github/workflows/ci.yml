@@ -65,9 +65,9 @@ jobs:
           ini-values: max_input_vars=5000
           coverage: none
 
-      - name: Install moodle-plugin-ci
+      - name: Deploy moodle-plugin-ci
         run: |
-          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ../ci ^4.3
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4.3
           # This line ensures the bin folder is added to the global PATH for all future steps
           # Add dirs to $PATH
           echo $(cd ci/bin; pwd) >> $GITHUB_PATH
@@ -81,35 +81,40 @@ jobs:
           DB: ${{ matrix.database }}
           MOODLE_BRANCH: ${{ matrix.moodle-branch }}
 
-      - name: Generate OS Locales
-        run: sudo locale-gen en_AU.UTF-8
-
       - name: Initialize PHPUnit
+        if: ${{ always() }}
         run: php moodle/admin/tool/phpunit/cli/init.php
 
       - name: PHP Lint
+        if: ${{ always() }}
         run: moodle-plugin-ci phplint
 
       - name: PHP Mess Detector
+        if: ${{ always() }}
         run: moodle-plugin-ci phpmd
 
       - name: Moodle Codechecker
+        if: ${{ always() }}
         run: moodle-plugin-ci codechecker
 
       - name: Moodle Plugin Validate
+        if: ${{ always() }}
         run: moodle-plugin-ci validate
-        working-directory: moodle/plagiarism/inspera
 
       - name: Savepoints
+        if: ${{ always() }}
         run: moodle-plugin-ci savepoints
 
       - name: Mustache Lint
+        if: ${{ always() }}
         run: moodle-plugin-ci mustache
 
       - name: Grunt
+        if: ${{ always() }}
         run: moodle-plugin-ci grunt
 
       - name: PHPUnit tests
+        if: ${{ always() }}
         run: moodle-plugin-ci phpunit
 
       # You can comment this out if you haven't written Behat tests yet,
