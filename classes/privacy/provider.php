@@ -34,7 +34,6 @@ use core_privacy\local\metadata\provider as metadata_provider;
  * Privacy subsystem for plagiarism_inspera.
  */
 class provider implements metadata_provider, plagiarism_provider, plagiarism_user_provider {
-
     /**
      * Describe the data stored and transmitted by this plugin.
      */
