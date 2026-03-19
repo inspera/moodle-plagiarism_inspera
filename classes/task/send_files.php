@@ -24,8 +24,6 @@
 
 namespace plagiarism_inspera\task;
 
-defined('MOODLE_INTERNAL') || die();
-
 use core\task\scheduled_task;
 use plagiarism_inspera\apiclient\api_client;
 
@@ -41,7 +39,6 @@ use plagiarism_inspera\apiclient\api_client;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class send_files extends scheduled_task {
-
     /**
      * Returns the name of this task (shown in admin screens)
      */
@@ -59,18 +56,18 @@ class send_files extends scheduled_task {
 
         $client = new api_client();
 
-        // Step 1: Process new files (report_requested)
+        // Step 1: Process new files (report_requested).
         $newfiles = $DB->get_recordset('plagiarism_inspera_subs', ['status' => 'report_requested']);
         foreach ($newfiles as $file) {
             mtrace("Processing fileid: {$file->id} (create submission + upload)");
             plagiarism_inspera_send_file($file, $client);
 
-            // allow memory cleanup
+            // Allow memory cleanup.
             unset($file);
         }
         $newfiles->close();
 
-        // Step 2: Poll pending files
+        // Step 2: Poll pending files.
         $pendingfiles = $DB->get_recordset('plagiarism_inspera_subs', ['status' => 'pending']);
         foreach ($pendingfiles as $file) {
             mtrace("Polling fileid: {$file->id} (check status)");

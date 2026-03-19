@@ -14,7 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-defined('MOODLE_INTERNAL') || die();
+/**
+ * Install and upgrade code for the Plagiarism Inspera plugin.
+ *
+ * @package     plagiarism_inspera
+ * @copyright   2026 Inspera
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
 /**
  * Post-installation migration script for Inspera Originality.
@@ -24,49 +30,47 @@ defined('MOODLE_INTERNAL') || die();
 function xmldb_plagiarism_inspera_install() {
     global $DB;
 
-    // --- 0. MIGRATE GLOBAL ADMIN SETTINGS (Fixed) ---
+    // MIGRATE GLOBAL ADMIN SETTINGS.
     // These live in {config_plugins}.
 
-    // 1. Fetch all settings from the OLD plugin
-    $old_configs = $DB->get_records('config_plugins', ['plugin' => 'plagiarism_originality']);
+    // 1. Fetch all settings from the OLD plugin.
+    $oldconfigs = $DB->get_records('config_plugins', ['plugin' => 'plagiarism_originality']);
 
-    if (!empty($old_configs)) {
-
+    if (!empty($oldconfigs)) {
         // 2. Check if the NEW plugin already has a Client ID configured.
         // We check this specific key to avoid overwriting if you manually set it up already.
-        $existing_client = get_config('plagiarism_inspera', 'clientid');
+        $existingclient = get_config('plagiarism_inspera', 'clientid');
 
-        if (!$existing_client) {
+        if (!$existingclient) {
             mtrace("Migrating global settings from plagiarism_originality...");
 
-            foreach ($old_configs as $config) {
-                // SKIP 'version' (Moodle manages this automatically)
+            foreach ($oldconfigs as $config) {
+                // SKIP 'version' (Moodle manages this automatically).
                 if ($config->name === 'version') {
                     continue;
                 }
 
-                // SKIP 'enabled' (Let the admin manually enable the new plugin when ready)
+                // SKIP 'enabled' (Let the admin manually enable the new plugin when ready).
                 if ($config->name === 'enabled') {
                     continue;
                 }
 
-                // Copy everything else (baseurl, clientid, apitoken, enable_mod_quiz, etc.)
-                // We assume the keys are the same (e.g. 'clientid' -> 'clientid')
+                // Copy everything else (baseurl, clientid, apitoken, enable_mod_quiz, etc.).
+                // We assume the keys are the same (e.g. 'clientid' -> 'clientid').
                 set_config($config->name, $config->value, 'plagiarism_inspera');
             }
             mtrace("Global settings migration complete.");
         }
     }
 
-    // --- 1. MIGRATE MODULE DEFAULTS (Custom Table) ---
+    // 1. MIGRATE MODULE DEFAULTS (Custom Table).
     if ($DB->get_manager()->table_exists('plagiarism_originality_conf')) {
-        // Only if new table is empty
+        // Only if new table is empty.
         if ($DB->count_records('plagiarism_inspera_config') == 0) {
             try {
-                // Direct copy of module defaults
-                $sql = "INSERT INTO {plagiarism_inspera_config} (cm, name, value)
-                        SELECT cm, name, value 
-                        FROM {plagiarism_originality_conf}";
+                // Direct copy of module defaults.
+                $sql = "INSERT INTO {plagiarism_inspera_config}
+                            (cm, name, value) SELECT cm, name, value FROM {plagiarism_originality_conf}";
 
                 $DB->execute($sql);
                 mtrace("Migrated module defaults successfully.");
@@ -76,69 +80,66 @@ function xmldb_plagiarism_inspera_install() {
         }
     }
 
-    // --- 2. MIGRATE SUBMISSIONS (With Path Fix and Sequence Reset) ---
+    // 2. MIGRATE SUBMISSIONS (With Path Fix and Sequence Reset).
     if ($DB->get_manager()->table_exists('plagiarism_originality_subs')) {
         if ($DB->count_records('plagiarism_inspera_subs') == 0) {
+            $oldcolumns = $DB->get_columns('plagiarism_originality_subs');
+            $newcolumns = $DB->get_columns('plagiarism_inspera_subs');
+            $commonkeys = array_intersect(array_keys($oldcolumns), array_keys($newcolumns));
 
-            $old_columns = $DB->get_columns('plagiarism_originality_subs');
-            $new_columns = $DB->get_columns('plagiarism_inspera_subs');
-            $common_keys = array_intersect(array_keys($old_columns), array_keys($new_columns));
+            $selectparts = [];
+            $insertparts = [];
 
-            $select_parts = [];
-            $insert_parts = [];
-
-            foreach ($common_keys as $col) {
-                $insert_parts[] = $col;
+            foreach ($commonkeys as $col) {
+                $insertparts[] = $col;
                 if ($col === 'identifier') {
-                    // Rename folder path in DB
-                    $select_parts[] = "REPLACE(identifier, 'plagiarism_originality', 'plagiarism_inspera')";
+                    // Rename folder path in DB.
+                    $selectparts[] = "REPLACE(identifier, 'plagiarism_originality', 'plagiarism_inspera')";
                 } else {
-                    $select_parts[] = $col;
+                    $selectparts[] = $col;
                 }
             }
 
-            $insert_str = implode(', ', $insert_parts);
-            $select_str = implode(', ', $select_parts);
+            $insertstr = implode(', ', $insertparts);
+            $selectstr = implode(', ', $selectparts);
 
-            $sql = "INSERT INTO {plagiarism_inspera_subs} ($insert_str)
-                        SELECT $select_str FROM {plagiarism_originality_subs}";
+            $sql = "INSERT INTO {plagiarism_inspera_subs} ($insertstr)
+                        SELECT $selectstr FROM {plagiarism_originality_subs}";
 
             try {
-                // 1. Perform the bulk copy
+                // 1. Perform the bulk copy.
                 $DB->execute($sql);
 
-                // 2. CRITICAL: Reset the auto-increment sequence
-                // This tells the DB: "The highest ID is now X, so the next insert should be X+1"
+                // 2. CRITICAL: Reset the auto-increment sequence.
+                // This tells the DB: "The highest ID is now X, so the next insert should be X+1".
                 $DB->get_manager()->reset_sequence('plagiarism_inspera_subs');
 
                 mtrace("Migrated submissions successfully and reset ID sequence.");
 
-                // 3. Disable the old plugin to prevent double-processing
+                // 3. Disable the old plugin to prevent double-processing.
                 set_config('enabled', 0, 'plagiarism_originality');
-
             } catch (Exception $e) {
                 mtrace("Warning: Submission migration failed: " . $e->getMessage());
             }
         }
     }
 
-    // --- 3. CLEANUP OLD TASKS & SETTINGS ---
+    // 3. CLEANUP OLD TASKS & SETTINGS.
     try {
-        // 1. Delete tasks
+        // 1. Delete tasks.
         $DB->delete_records('task_scheduled', ['component' => 'plagiarism_originality']);
         $DB->delete_records('task_adhoc', ['component' => 'plagiarism_originality']);
 
-        // 2. CRITICAL: Forcefully disable the OLD event triggers
+        // 2. CRITICAL: Forcefully disable the OLD event triggers.
         // This ensures the old observer's "if" check fails, so it skips processing.
         set_config('enable_mod_assign', 0, 'plagiarism_originality');
         set_config('enable_mod_forum', 0, 'plagiarism_originality');
         set_config('enable_mod_workshop', 0, 'plagiarism_originality');
 
-        // Disable the plugin globally for good measure
+        // Disable the plugin globally for good measure.
         set_config('enabled', 0, 'plagiarism_originality');
 
         mtrace("Disabled old plugin configuration scheduled tasks and observers.");
-
     } catch (Exception $e) {
         mtrace("Warning: Cleanup failed: " . $e->getMessage());
     }

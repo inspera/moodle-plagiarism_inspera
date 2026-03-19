@@ -65,6 +65,16 @@ class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
         }
 
         $data->cm = $this->task->get_moduleid();
+
+        // Force Translations to OFF (0) and clear languages when an activity is restored or duplicated
+        if ($data->name === 'originality_enable_translations') {
+            $data->value = '0'; // Force to No
+        }
+        if ($data->name === 'originality_translation_languages') {
+            $data->value = ''; // Clear out the previously selected languages
+        }
+
+        unset($data->id);
         $DB->insert_record('plagiarism_inspera_config', $data);
     }
 
@@ -81,6 +91,7 @@ class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
         // 2. Map User
         $data->userid = $this->get_mappingid('user', $data->userid);
 
+        unset($data->id);
         $DB->insert_record('plagiarism_inspera_subs', $data);
     }
 }

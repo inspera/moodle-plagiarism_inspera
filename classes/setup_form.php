@@ -28,17 +28,13 @@ require_once($CFG->libdir . '/formslib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class plagiarism_inspera_setup_form extends moodleform {
-
     /**
      * Defines the form elements for the plugin settings.
      *
      * @return void
      */
-    public function definition () {
+    public function definition() {
         $mform = $this->_form;
-
-        // Explanation at the top.
-        //$mform->addElement('html', get_string('originalityexplain', 'plagiarism_inspera'));
 
         // Enable checkbox.
         $mform->addElement('checkbox', 'enabled', get_string('use_originality', 'plagiarism_inspera'));
@@ -65,22 +61,22 @@ class plagiarism_inspera_setup_form extends moodleform {
         $mform->setType('institutionid', PARAM_ALPHANUMEXT);
         $mform->setDefault('institutionid', '');
 
-        // Get the list from our single source of truth in lib.php
+        // Get the list from our single source of truth in lib.php.
         $modules = plagiarism_inspera_supported_modules();
 
         foreach ($modules as $mod) {
-            // Double check that the module is actually installed on this site
+            // Double check that the module is actually installed on this site.
             if (!core_component::get_component_directory("mod_$mod")) {
                 continue;
             }
 
-            // Check if Moodle considers this module to support plagiarism
-            // (Assignments usually do by default)
+            // Check if Moodle considers this module to support plagiarism.
+            // (Assignments usually do by default).
             if (plugin_supports('mod', $mod, FEATURE_PLAGIARISM)) {
                 $modstring = 'enable_mod_' . $mod;
                 $modhuman = get_string('pluginname', 'mod_' . $mod);
                 $mform->addElement('checkbox', $modstring, get_string('enableplugin', 'plagiarism_inspera', $modhuman));
-                // Default to checked for 'assign'
+                // Default to checked for 'assign'.
                 if ($mod == 'assign') {
                     $mform->setDefault($modstring, 1);
                 }
@@ -103,20 +99,18 @@ class plagiarism_inspera_setup_form extends moodleform {
 
         // Only validate if we have the minimum required fields filled in.
         if (!empty($data['baseurl']) && !empty($data['clientid'])) {
-
-            // Prepare the config object for the client
+            // Prepare the config object for the client.
             $config = new stdClass();
             $config->baseurl = $data['baseurl'];
             $config->clientid = $data['clientid'];
             $config->institutionid = $data['institutionid'] ?? '';
 
             try {
-                // Instantiate client with UNSAVED data
+                // Instantiate client with UNSAVED data.
                 $client = new \plagiarism_inspera\apiclient\api_client($config);
 
-                // Attempt to fetch a token
+                // Attempt to fetch a token.
                 $client->test_connection();
-
             } catch (\Exception $e) {
                 // If it fails, mark the 'baseurl' field with the error.
                 // You could also map specific errors to clientid if you parsed the message.

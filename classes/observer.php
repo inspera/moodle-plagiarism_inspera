@@ -36,13 +36,13 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class observer {
-
     /**
      * Observer function to handle the assessable_uploaded event in mod_assign.
      * @param \assignsubmission_file\event\assessable_uploaded $event
      */
     public static function assignsubmission_file_uploaded(
-        \assignsubmission_file\event\assessable_uploaded $event) {
+        \assignsubmission_file\event\assessable_uploaded $event
+    ) {
         global $CFG;
         if (!empty(get_config('plagiarism_inspera', 'enable_mod_assign'))) {
             $eventdata = $event->get_data();
@@ -57,7 +57,8 @@ class observer {
      * @param \mod_forum\event\assessable_uploaded $event
      */
     public static function forum_file_uploaded(
-        \mod_forum\event\assessable_uploaded $event) {
+        \mod_forum\event\assessable_uploaded $event
+    ) {
         global $CFG;
         if (!empty(get_config('plagiarism_inspera', 'enable_mod_forum'))) {
             $eventdata = $event->get_data();
@@ -72,7 +73,8 @@ class observer {
      * @param \mod_workshop\event\assessable_uploaded $event
      */
     public static function workshop_file_uploaded(
-        \mod_workshop\event\assessable_uploaded $event) {
+        \mod_workshop\event\assessable_uploaded $event
+    ) {
         global $CFG;
         if (!empty(get_config('plagiarism_inspera', 'enable_mod_workshop'))) {
             $eventdata = $event->get_data();
@@ -87,7 +89,8 @@ class observer {
      * @param \assignsubmission_onlinetext\event\assessable_uploaded $event
      */
     public static function assignsubmission_onlinetext_uploaded(
-        \assignsubmission_onlinetext\event\assessable_uploaded $event) {
+        \assignsubmission_onlinetext\event\assessable_uploaded $event
+    ) {
         if (!empty(get_config('plagiarism_inspera', 'enable_mod_assign'))) {
             global $CFG;
             $eventdata = $event->get_data();
@@ -102,7 +105,8 @@ class observer {
      * @param \mod_assign\event\assessable_submitted $event
      */
     public static function assignsubmission_submitted(
-        \mod_assign\event\assessable_submitted $event) {
+        \mod_assign\event\assessable_submitted $event
+    ) {
         global $CFG;
         if (!empty(get_config('plagiarism_inspera', 'enable_mod_assign'))) {
             $eventdata = $event->get_data();
@@ -131,7 +135,8 @@ class observer {
      * @param \mod_hsuforum\event\assessable_uploaded $event
      */
     public static function hsuforum_file_uploaded(
-        \mod_hsuforum\event\assessable_uploaded $event) {
+        \mod_hsuforum\event\assessable_uploaded $event
+    ) {
         global $CFG;
         if (!empty(get_config('plagiarism_inspera', 'enable_mod_hsuforum'))) {
             $eventdata = $event->get_data();
