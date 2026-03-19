@@ -14,7 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace plagiarism_inspera;
+
 defined('MOODLE_INTERNAL') || die();
+
+use advanced_testcase;
+use ReflectionMethod; // THIS FIXES THE ERROR.
+use stdClass;
 
 global $CFG;
 require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
@@ -22,17 +28,12 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 /**
  * PHPUnit tests for the originality_display_type score selection logic.
  *
- * Covers the three branches inside get_originality_status():
- *   1. displaytype = similarity  →  always uses $record->similarity
- *   2. displaytype = originality, originality_score present  →  uses originality_score
- *   3. displaytype = originality, originality_score NULL  →  falls back to similarity
- *
  * @package    plagiarism_inspera
+ * @category   test
  * @copyright  2025 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class plagiarism_inspera_score_display_test extends advanced_testcase {
-
+final class score_display_test extends advanced_testcase {
     /** @var plagiarism_plugin_inspera */
     private $plugin;
 
@@ -43,10 +44,10 @@ class plagiarism_inspera_score_display_test extends advanced_testcase {
         parent::setUp();
         $this->resetAfterTest();
 
-        $this->plugin = new plagiarism_plugin_inspera();
+        $this->plugin = new \plagiarism_plugin_inspera();
 
         $this->getoriginalitystatus = new ReflectionMethod(
-            plagiarism_plugin_inspera::class,
+            \plagiarism_plugin_inspera::class,
             'get_originality_status'
         );
         $this->getoriginalitystatus->setAccessible(true);
@@ -57,32 +58,28 @@ class plagiarism_inspera_score_display_test extends advanced_testcase {
      *
      * @param int        $cmid             Course-module ID stored in the config table.
      * @param float      $similarity       Similarity percentage.
-     * @param float|null $originalityScore Originality percentage, or NULL for legacy rows.
+     * @param float|null $originalityscore Originality percentage, or NULL for legacy rows.
      * @return stdClass
      */
-    private function make_sub_record(int $cmid, float $similarity, ?float $originalityScore): stdClass {
+    private function make_sub_record(int $cmid, float $similarity, ?float $originalityscore): stdClass {
         $record = new stdClass();
-        // Use a high integer for the record ID so the redirect URL is deterministic;
-        // this value is never inserted into the DB and cannot conflict with real records.
+        // Use a high integer for the record ID so the redirect URL is deterministic.
+        // This value is never inserted into the DB and cannot conflict with real records.
         $record->id               = 99999;
         $record->cm               = $cmid;
         $record->status           = 'finished';
         $record->similarity       = $similarity;
-        $record->originality_score = $originalityScore;
-        $record->originality      = 'Low'; // determines risk CSS class
+        $record->originality_score = $originalityscore;
+        $record->originality      = 'Low'; // Determines risk CSS class.
         return $record;
     }
 
-    // -------------------------------------------------------------------------
-    // Tests
-    // -------------------------------------------------------------------------
-
     /**
-     * Test: when displaytype = similarity the similarity score is rendered,
-     * and the originality_score is NOT shown even when it is present.
+     * Test: when displaytype = similarity the similarity score is rendered.
+     * @covers \plagiarism_plugin_inspera::get_originality_status
      */
     public function test_score_display_similarity_type(): void {
-        $cmid = 6001; // unique cmid avoids static-cache collision with other tests
+        $cmid = 6001; // Unique cmid avoids static-cache collision with other tests.
 
         $record = $this->make_sub_record($cmid, 45.0, 78.0);
         $html = $this->getoriginalitystatus->invoke($this->plugin, $record, 'similarity');
@@ -100,8 +97,8 @@ class plagiarism_inspera_score_display_test extends advanced_testcase {
     }
 
     /**
-     * Test: when displaytype = originality and originality_score is present,
-     * the originality score is rendered and the similarity score is NOT shown.
+     * Test: when displaytype = originality and originality_score is present.
+     * @covers \plagiarism_plugin_inspera::get_originality_status
      */
     public function test_score_display_originality_type_with_score(): void {
         $cmid = 6002;
@@ -122,8 +119,8 @@ class plagiarism_inspera_score_display_test extends advanced_testcase {
     }
 
     /**
-     * Test: when displaytype = originality but originality_score is NULL (legacy row),
-     * the code falls back to the similarity score.
+     * Test: fallback to similarity when originality_score is NULL.
+     * @covers \plagiarism_plugin_inspera::get_originality_status
      */
     public function test_score_display_originality_type_null_fallback(): void {
         $cmid = 6003;

@@ -35,7 +35,9 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
  * - Online Text: Supported for Individual assignments only.
  */
 class resubmit_all_reports extends \core\task\adhoc_task {
-
+    /**
+     * Execute the task to resubmit all reports.
+     */
     public function execute() {
         global $DB;
 
@@ -61,25 +63,32 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
         $cm = get_coursemodule_from_id('assign', $cmid, 0, false, MUST_EXIST);
         $context = \context_module::instance($cmid);
-        $assign_instance = $DB->get_record('assign', ['id' => $cm->instance], '*', MUST_EXIST);
+        $assigninstance = $DB->get_record('assign', ['id' => $cm->instance], '*', MUST_EXIST);
 
-        // ---------------------------------------------------------
-        // PART A: PROCESS FILES (Individual & Group)
-        // ---------------------------------------------------------
+        // PART A: PROCESS FILES (Individual & Group).
         $fs = get_file_storage();
-        $files = $fs->get_area_files($context->id, 'assignsubmission_file', 'submission_files', false, 'timemodified', false);
+        $files = $fs->get_area_files(
+            $context->id,
+            'assignsubmission_file',
+            'submission_files',
+            false,
+            'timemodified',
+            false
+        );
 
         mtrace("Found " . count($files) . " candidate files.");
 
         foreach ($files as $file) {
-            if ($file->get_filename() === '.') continue;
+            if ($file->get_filename() === '.') {
+                continue;
+            }
 
             $storedfileid = $file->get_id();
-            $itemid = $file->get_itemid(); // The Submission ID (shared by group members)
+            $itemid = $file->get_itemid(); // The Submission ID (shared by group members).
 
             // Fetch latest record for this file.
-            $sql = "SELECT * FROM {plagiarism_inspera_subs} 
-                    WHERE storedfileid = ? 
+            $sql = "SELECT * FROM {plagiarism_inspera_subs}
+                    WHERE storedfileid = ?
                     ORDER BY timecreated DESC, id DESC";
             $record = $DB->get_record_sql($sql, [$storedfileid], IGNORE_MULTIPLE);
 
@@ -89,22 +98,20 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             }
         }
 
-        // ---------------------------------------------------------
-        // PART B: PROCESS ONLINE TEXT (Individual Only)
-        // ---------------------------------------------------------
+        // PART B: PROCESS ONLINE TEXT (Individual Only).
         // Only process if team submission is NOT enabled.
-        if (empty($assign_instance->teamsubmission)) {
+        if (empty($assigninstance->teamsubmission)) {
             $sql = "SELECT s.id as submissionid, s.userid, ot.onlinetext
                     FROM {assign_submission} s
                     JOIN {assignsubmission_onlinetext} ot ON ot.submission = s.id
                     WHERE s.assignment = ? AND s.status = 'submitted'";
 
-            $text_submissions = $DB->get_records_sql($sql, [$assign_instance->id]);
+            $textsubmissions = $DB->get_records_sql($sql, [$assigninstance->id]);
 
-            mtrace("Found " . count($text_submissions) . " online text submissions.");
+            mtrace("Found " . count($textsubmissions) . " online text submissions.");
 
-            foreach ($text_submissions as $sub) {
-                $sql = "SELECT * FROM {plagiarism_inspera_subs} 
+            foreach ($textsubmissions as $sub) {
+                $sql = "SELECT * FROM {plagiarism_inspera_subs}
                         WHERE submissionid = ? AND storedfileid IS NULL
                         ORDER BY timecreated DESC, id DESC";
 
@@ -112,10 +119,16 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
                 if ($this->should_process($record)) {
                     mtrace("Queuing Online Text for Submission ID: " . $sub->submissionid);
-                    $temp_file_object = plagiarism_inspera_create_temp_file($cmid, $cm->course, $sub->userid, $sub->onlinetext, $sub->submissionid);
-                    $dummy_file = new \stdClass();
-                    $dummy_file->filepath = $temp_file_object->filepath;
-                    plagiarism_inspera_queue_file($cmid, $sub->userid, $dummy_file, null, $sub->submissionid);
+                    $tempfileobject = plagiarism_inspera_create_temp_file(
+                        $cmid,
+                        $cm->course,
+                        $sub->userid,
+                        $sub->onlinetext,
+                        $sub->submissionid
+                    );
+                    $dummyfile = new \stdClass();
+                    $dummyfile->filepath = $tempfileobject->filepath;
+                    plagiarism_inspera_queue_file($cmid, $sub->userid, $dummyfile, null, $sub->submissionid);
                 }
             }
         } else {
@@ -139,8 +152,8 @@ class resubmit_all_reports extends \core\task\adhoc_task {
         }
 
         if ($status === 'report_requested') {
-            $ten_mins_ago = time() - (10 * 60);
-            if ($record->timemodified < $ten_mins_ago) {
+            $tenminsago = time() - (10 * 60);
+            if ($record->timemodified < $tenminsago) {
                 return true;
             }
         }

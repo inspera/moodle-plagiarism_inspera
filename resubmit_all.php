@@ -24,26 +24,28 @@
 
 require_once('../../config.php');
 
+defined('MOODLE_INTERNAL') || die();
+
 $cmid = required_param('cmid', PARAM_INT); // Course Module ID.
 
-// 1. Basic Setup & Security
+// 1. Basic Setup & Security.
 require_login();
 $cm = get_coursemodule_from_id('', $cmid, 0, false, MUST_EXIST);
 $context = \context_module::instance($cm->id);
 
-// Check the specific capability we defined
+// Check the specific capability we defined.
 require_capability('plagiarism/inspera:requestallreports', $context);
-require_sesskey(); // Protect against CSRF
+require_sesskey(); // Protect against CSRF.
 
-// 2. Queue the Ad-hoc Task
+// 2. Queue the Ad-hoc Task.
 $task = new \plagiarism_inspera\task\resubmit_all_reports();
 $task->set_custom_data(['cmid' => $cmid, 'userid' => $USER->id]);
 // Use true to ensure we don't queue multiple identical tasks for the same assignment.
 \core\task\manager::queue_adhoc_task($task, true);
 
-// 3. Log the event
-// (Optional: You can trigger a standard Moodle event here if you want audit logs)
+// 3. Log the event.
+// (Optional: You can trigger a standard Moodle event here if you want audit logs).
 
-// 4. Redirect back to Grading Table with a message
-$redirect_url = new moodle_url('/mod/assign/view.php', ['id' => $cmid, 'action' => 'grading']);
-redirect($redirect_url, get_string('resubmit_scheduled', 'plagiarism_inspera'));
+// 4. Redirect back to Grading Table with a message.
+$redirecturl = new moodle_url('/mod/assign/view.php', ['id' => $cmid, 'action' => 'grading']);
+redirect($redirecturl, get_string('resubmit_scheduled', 'plagiarism_inspera'));

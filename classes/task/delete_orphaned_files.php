@@ -24,8 +24,6 @@
 
 namespace plagiarism_inspera\task;
 
-defined('MOODLE_INTERNAL') || die();
-
 use core\task\scheduled_task;
 
 /**
@@ -40,7 +38,6 @@ use core\task\scheduled_task;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class delete_orphaned_files extends scheduled_task {
-
     /**
      * Returns the name of this task (shown in admin screens)
      *

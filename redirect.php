@@ -25,7 +25,7 @@
 
 require_once('../../config.php');
 global $CFG, $PAGE, $OUTPUT;
-require_once($CFG->dirroot.'/plagiarism/inspera/lib.php');
+require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 use plagiarism_inspera\apiclient\api_client;
 
@@ -36,31 +36,31 @@ global $DB, $USER;
 
 $record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], '*', MUST_EXIST);
 
-// 2. Load CM and Determine Module Type
-// We pass false for the module name so Moodle loads it regardless of type (assign or quiz)
+// 2. Load CM and Determine Module Type.
+// We pass false for the module name so Moodle loads it regardless of type (assign or quiz).
 $cm = get_coursemodule_from_id('', $record->cm, 0, false, MUST_EXIST);
 $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
 
-// 3. Security & Context
+// 3. Security & Context.
 $context = context_module::instance($cm->id);
 require_login($course, true, $cm);
 
-// 4. Determine Capability based on Module
-$is_grader = false;
-$modulename = $cm->modname; // 'assign' or 'quiz'
+// 4. Determine Capability based on Module.
+$isgrader = false;
+$modulename = $cm->modname;
 
 if ($modulename === 'quiz') {
-    $is_grader = has_capability('mod/quiz:grade', $context);
-} elseif ($modulename === 'assign') {
-    $is_grader = has_capability('mod/assign:grade', $context);
+    $isgrader = has_capability('mod/quiz:grade', $context);
+} else if ($modulename === 'assign') {
+    $isgrader = has_capability('mod/assign:grade', $context);
 } else {
     // SECURITY GUARD: Reject any unsupported module types immediately.
-    print_error('error', 'error', '', null, 'Unsupported module type: ' . s($modulename));
+    throw new moodle_exception('error', 'error', '', null, 'Unsupported module type: ' . s($modulename));
 }
 
-// Access Control: You must be a grader OR the owner of the submission
-if (!$is_grader && $record->userid != $USER->id) {
-    print_error('nopermission', 'plagiarism_inspera');
+// Access Control: You must be a grader OR the owner of the submission.
+if (!$isgrader && $record->userid != $USER->id) {
+    throw new moodle_exception('nopermission', 'plagiarism_inspera');
 }
 
 // Prepare page (used for graceful error rendering below).
@@ -69,22 +69,22 @@ $PAGE->set_context($context);
 $PAGE->set_title(get_string('pluginname', 'plagiarism_inspera'));
 $PAGE->set_pagelayout('standard');
 
-// 6. Determine Return URL (Fallback if not provided)
+// 6. Determine Return URL (Fallback if not provided).
 if (!empty($returnurlparam)) {
     $returnurl = new moodle_url($returnurlparam);
 } else {
-    // Generate intelligent fallbacks based on module type
+    // Generate intelligent fallbacks based on module type.
     if ($modulename === 'quiz') {
-        if ($is_grader) {
-            // Teacher: Go to Quiz Reports
+        if ($isgrader) {
+            // Teacher: Go to Quiz Reports.
             $returnurl = new moodle_url('/mod/quiz/report.php', ['id' => $cm->id, 'mode' => 'overview']);
         } else {
-            // Student: Go to Quiz Summary
+            // Student: Go to Quiz Summary.
             $returnurl = new moodle_url('/mod/quiz/view.php', ['id' => $cm->id]);
         }
     } else {
-        // Assignment Logic
-        if ($is_grader) {
+        // Assignment Logic.
+        if ($isgrader) {
             $returnurl = new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'grading']);
         } else {
             $returnurl = new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'editsubmission']);
@@ -93,7 +93,7 @@ if (!empty($returnurlparam)) {
 }
 
 // Helper to render a non-redirecting message page and exit.
-$render_error_and_exit = function(string $message, moodle_url $continueurl) use ($OUTPUT) {
+$rendererrorandexit = function (string $message, moodle_url $continueurl) use ($OUTPUT) {
     echo $OUTPUT->header();
     echo $OUTPUT->notification($message, \core\output\notification::NOTIFY_ERROR);
     // Provide a continue button back to the originating page (or fallback).
@@ -104,27 +104,26 @@ $render_error_and_exit = function(string $message, moodle_url $continueurl) use 
 
 // Only works if finished + externalid. Show message page without redirecting.
 if ($record->status !== 'finished' || empty($record->externalid)) {
-    $render_error_and_exit(get_string('notavailableyet'), $returnurl);
+    $rendererrorandexit(get_string('notavailableyet'), $returnurl);
 }
 
 $client = new api_client();
 
-// Determine Mode: Graders get "edit", Students get "view"
-$mode = $is_grader ? 'edit' : 'view';
+// Determine Mode: Graders get "edit", Students get "view".
+$mode = $isgrader ? 'edit' : 'view';
 
 try {
     $response = $client->get_report_url($record->externalid, $mode);
 
     if (!is_object($response) || empty($response->url)) {
         // Show a friendly error on a message page (no redirect loop).
-        $render_error_and_exit(get_string('reportaccessdenied', 'plagiarism_inspera'), $returnurl);
+        $rendererrorandexit(get_string('reportaccessdenied', 'plagiarism_inspera'), $returnurl);
     }
 
-    // Redirect to the report URL
+    // Redirect to the report URL.
     redirect($response->url);
-
 } catch (\Exception $e) {
     // Display a friendly message page and offer a continue button back.
     // Do NOT append raw exception text to the user-facing message.
-    $render_error_and_exit(get_string('reportaccessdenied', 'plagiarism_inspera'), $returnurl);
+    $rendererrorandexit(get_string('reportaccessdenied', 'plagiarism_inspera'), $returnurl);
 }

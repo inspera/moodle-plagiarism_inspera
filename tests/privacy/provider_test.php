@@ -25,20 +25,20 @@
 
 namespace plagiarism_inspera\privacy;
 
-defined('MOODLE_INTERNAL') || die();
-
 use core_privacy\tests\provider_testcase;
+use context_module;
+use context_user;
 
 /**
  * Privacy Provider testcase for plagiarism_inspera.
  */
-class provider_test extends provider_testcase {
-
+final class provider_test extends provider_testcase {
     /**
      * Test getting the metadata.
      * Ensures the plugin correctly declares what data it stores and where.
+     * @covers \plagiarism_inspera\privacy\provider::get_metadata
      */
-    public function test_get_metadata() {
+    public function test_get_metadata(): void {
         $collection = new \core_privacy\local\metadata\collection('plagiarism_inspera');
         $newcollection = provider::get_metadata($collection);
         $itemlist = $newcollection->get_collection();
@@ -49,8 +49,9 @@ class provider_test extends provider_testcase {
 
     /**
      * Test that all plagiarism data for a specific user in a context is deleted.
+     * @covers \plagiarism_inspera\privacy\provider::delete_plagiarism_for_user
      */
-    public function test_delete_plagiarism_for_user() {
+    public function test_delete_plagiarism_for_user(): void {
         global $DB;
         $this->resetAfterTest();
 
@@ -79,9 +80,10 @@ class provider_test extends provider_testcase {
     }
 
     /**
-     * Test that all data in a specific context is deleted (e.g., when an activity is deleted).
+     * Test that all data in a specific context is deleted.
+     * @covers \plagiarism_inspera\privacy\provider::delete_plagiarism_for_context
      */
-    public function test_delete_plagiarism_for_context() {
+    public function test_delete_plagiarism_for_context(): void {
         global $DB;
         $this->resetAfterTest();
 

@@ -24,8 +24,6 @@
 
 namespace plagiarism_inspera\output;
 
-defined('MOODLE_INTERNAL') || die();
-
 use html_writer;
 use moodle_url;
 use core\hook\output\before_standard_top_of_body_html_generation;
@@ -37,7 +35,6 @@ use core\hook\output\before_standard_footer_html_generation;
  * Handles output injections for the Inspera plagiarism plugin using the Moodle Hook API.
  */
 class hooks {
-
     /**
      * Callback for before_standard_top_of_body_html_generation hook.
      *
@@ -69,30 +66,32 @@ class hooks {
         }
 
         // 3. Config Check.
-        $use_originality = $DB->get_field('plagiarism_inspera_config', 'value', [
+        $useoriginality = $DB->get_field('plagiarism_inspera_config', 'value', [
             'cm' => $cm->id,
-            'name' => 'use_originality_assign'
+            'name' => 'use_originality_assign',
         ], IGNORE_MISSING) ?: $DB->get_field('plagiarism_inspera_config', 'value', [
             'cm' => $cm->id,
-            'name' => 'use_originality'
+            'name' => 'use_originality',
         ], IGNORE_MISSING);
 
-        if (empty($use_originality)) {
+        if (empty($useoriginality)) {
             return;
         }
 
         // 4. Determine Info Text.
         $infotext = '';
-        $taskqueued = $DB->record_exists_select('task_adhoc',
+        $taskqueued = $DB->record_exists_select(
+            'task_adhoc',
             "classname = :class AND customdata LIKE :cmid",
             [
                 'class' => '\plagiarism_inspera\task\resubmit_all_reports',
-                'cmid' => '%"cmid":' . $cm->id . '%'
+                'cmid' => '%"cmid":' . $cm->id . '%',
             ]
         );
 
         if ($taskqueued) {
-            $infotext = html_writer::tag('div',
+            $infotext = html_writer::tag(
+                'div',
                 get_string('resubmit_pending', 'plagiarism_inspera'),
                 ['class' => 'badge badge-info', 'style' => 'display: block; margin-top: 5px; text-align: right;']
             );
@@ -100,7 +99,8 @@ class hooks {
             $lastrun = $DB->get_field('plagiarism_inspera_config', 'value', ['cm' => $cm->id, 'name' => 'last_resubmit_run']);
             if ($lastrun) {
                 $lastrundate = userdate($lastrun, get_string('strftimedatetimeshort', 'langconfig'));
-                $infotext = html_writer::tag('div',
+                $infotext = html_writer::tag(
+                    'div',
                     get_string('last_resubmit_run', 'plagiarism_inspera', $lastrundate),
                     ['style' => 'font-size: 0.8em; color: #666; margin-top: 5px; text-align: right;']
                 );
@@ -111,7 +111,7 @@ class hooks {
         $url = new moodle_url('/plagiarism/inspera/resubmit_all.php', ['cmid' => $cm->id, 'sesskey' => sesskey()]);
         $attributes = [
             'title' => get_string('resubmit_all_tool_desc', 'plagiarism_inspera'),
-            'onclick' => "return confirm('" . get_string('resubmit_confirm', 'plagiarism_inspera') . "');"
+            'onclick' => "return confirm('" . get_string('resubmit_confirm', 'plagiarism_inspera') . "');",
         ];
         $button = $OUTPUT->single_button($url, get_string('resubmit_all_tool', 'plagiarism_inspera'), 'post', $attributes);
 
@@ -119,7 +119,7 @@ class hooks {
         // Margin-top is used to clear the fixed Moodle navbar when injected at top of body.
         $combinedhtml = html_writer::start_tag('div', [
             'class' => 'container-fluid d-flex flex-column align-items-end',
-            'style' => 'margin-left: -100px; margin-top: 80px; position: relative; pointer-events: auto;'
+            'style' => 'margin-left: -100px; margin-top: 80px; position: relative; pointer-events: auto;',
         ]);
         $combinedhtml .= $button;
         $combinedhtml .= $infotext;
@@ -158,21 +158,21 @@ class hooks {
         }
 
         // 2. CHECK: Is Plagiarism Check actually enabled for this assignment? (RESTORED)
-        $use_originality = $DB->get_field('plagiarism_inspera_config', 'value', [
+        $useoriginality = $DB->get_field('plagiarism_inspera_config', 'value', [
             'cm' => $cm->id,
-            'name' => 'use_originality_assign'
+            'name' => 'use_originality_assign',
         ], IGNORE_MISSING);
 
         // Fallback to generic name if the assign-specific one isn't found.
-        if ($use_originality === false) {
-            $use_originality = $DB->get_field('plagiarism_inspera_config', 'value', [
+        if ($useoriginality === false) {
+            $useoriginality = $DB->get_field('plagiarism_inspera_config', 'value', [
                 'cm' => $cm->id,
-                'name' => 'use_originality'
+                'name' => 'use_originality',
             ], IGNORE_MISSING);
         }
 
         // If explicitly set to 0 or not configured, stop here.
-        if (empty($use_originality)) {
+        if (empty($useoriginality)) {
             return;
         }
 
@@ -180,11 +180,10 @@ class hooks {
         $mode = '';
         if (strpos($PAGE->url->get_path(), 'modedit.php') !== false) {
             $mode = 'edit';
-        } elseif ($PAGE->pagetype === 'mod-assign-view') {
+        } else if ($PAGE->pagetype === 'mod-assign-view') {
             // Check if it's a team submission with online text enabled.
             $assignment = $DB->get_record('assign', ['id' => $cm->instance], 'teamsubmission', IGNORE_MISSING);
             if ($assignment && !empty($assignment->teamsubmission)) {
-
                 // Fixed SQL for LONGTEXT 'value' column.
                 $select = "assignment = :assignment AND plugin = :plugin AND subtype = :subtype AND name = :name AND " .
                     $DB->sql_compare_text('value') . " = :value";
@@ -194,7 +193,7 @@ class hooks {
                     'plugin'     => 'onlinetext',
                     'subtype'    => 'assignsubmission',
                     'name'       => 'enabled',
-                    'value'      => '1'
+                    'value'      => '1',
                 ];
 
                 if ($DB->record_exists_select('assign_plugin_config', $select, $params)) {
@@ -211,7 +210,7 @@ class hooks {
                 'id' => 'inspera-warning-config',
                 'data-mode' => $mode,
                 'data-message' => get_string('warning_group_onlinetext', 'plagiarism_inspera'),
-                'style' => 'display:none;'
+                'style' => 'display:none;',
             ]);
 
             $hook->add_html($html);

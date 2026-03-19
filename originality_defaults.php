@@ -23,9 +23,9 @@
  */
 
 require_once(dirname(dirname(__FILE__)) . '/../config.php');
-require_once($CFG->libdir.'/adminlib.php');
-require_once($CFG->libdir.'/plagiarismlib.php');
-require_once($CFG->dirroot.'/plagiarism/inspera/lib.php');
+require_once($CFG->libdir . '/adminlib.php');
+require_once($CFG->libdir . '/plagiarismlib.php');
+require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 require_login();
 admin_externalpage_setup('plagiarisminspera');
@@ -33,8 +33,12 @@ admin_externalpage_setup('plagiarisminspera');
 $context = context_system::instance();
 
 $mform = new plagiarism_inspera_defaults_form(null);
-$plagiarismdefaults = $DB->get_records_menu('plagiarism_inspera_config',
-    array('cm' => 0), '', 'name, value'); // The cmid(0) is the default list.
+$plagiarismdefaults = $DB->get_records_menu(
+    'plagiarism_inspera_config',
+    ['cm' => 0],
+    '',
+    'name, value'
+); // The cmid(0) is the default list.
 if (!empty($plagiarismdefaults)) {
     $mform->set_data($plagiarismdefaults);
 }
@@ -48,9 +52,8 @@ if (($data = $mform->get_data()) && confirm_sesskey()) {
     $supportedmodules = plagiarism_inspera_supported_modules();
     foreach ($supportedmodules as $sm) {
         foreach ($plagiarismelements as $element) {
-            $element .= "_".$sm;
+            $element .= "_" . $sm;
             if (isset($data->$element)) {
-
                 $newelement = new Stdclass();
                 $newelement->cm = 0;
                 $newelement->name = $element;
@@ -61,7 +64,7 @@ if (($data = $mform->get_data()) && confirm_sesskey()) {
                 }
 
                 if (isset($plagiarismdefaults[$element])) {
-                    $newelement->id = $DB->get_field('plagiarism_inspera_config', 'id', (array('cm' => 0, 'name' => $element)));
+                    $newelement->id = $DB->get_field('plagiarism_inspera_config', 'id', (['cm' => 0, 'name' => $element]));
                     $DB->update_record('plagiarism_inspera_config', $newelement);
                 } else {
                     $DB->insert_record('plagiarism_inspera_config', $newelement);

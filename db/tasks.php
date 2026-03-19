@@ -24,23 +24,23 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$tasks = array(
-    array(
+$tasks = [
+    [
         'classname' => 'plagiarism_inspera\task\send_files',
         'blocking' => 0,
         'minute' => '*/5',
         'hour' => '*',
         'day' => '*',
         'dayofweek' => '*',
-        'month' => '*'
-    ),
-    array(
+        'month' => '*',
+    ],
+    [
         'classname' => 'plagiarism_inspera\task\delete_orphaned_files',
         'blocking' => 0,
         'minute' => '0',
         'hour' => '*/12',
         'day' => '*',
         'dayofweek' => '*',
-        'month' => '*'
-    )
-);
+        'month' => '*',
+    ],
+];

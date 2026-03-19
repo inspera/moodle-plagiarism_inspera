@@ -1,3 +1,11 @@
+/**
+ * JavaScript for form behaviour in the Plagiarism Inspera plugin.
+ *
+ * @package     plagiarism_inspera
+ * @copyright   2026 Inspera
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 // Note: Keep original behaviour minimal. Sub-settings visibility is handled by Moodle's hideIf rules.
 
 // keep originality_draft_submit options in sync with submissiondrafts.
