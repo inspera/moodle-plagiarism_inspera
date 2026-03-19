@@ -1472,7 +1472,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
     }
 
     global $PAGE;
-    $PAGE->requires->js(new moodle_url('/plagiarism/inspera/originality_form_behaviour.js'));
+    $PAGE->requires->js_call_amd('plagiarism_inspera/originality_form_behaviour', 'init');
 }
 
 /**
@@ -2199,8 +2199,6 @@ function plagiarism_inspera_create_temp_file(
     $submissionid = 0,
     $specificname = null
 ) {
-    global $CFG;
-
     // Use the specific name if provided (Quizzes), otherwise use default (Assignments).
     if ($specificname) {
         // Strip all path separators and illegal characters to prevent Arbitrary File Write.
@@ -2214,11 +2212,10 @@ function plagiarism_inspera_create_temp_file(
         $filename = "onlinetext_{$cmid}_{$userid}_{$submissionid}.html";
     }
 
-    $filepath = $CFG->tempdir . "/plagiarism_inspera/" . $filename;
-
-    if (!is_dir(dirname($filepath))) {
-        mkdir(dirname($filepath), $CFG->directorypermissions, true);
-    }
+    // Use Moodle's core temporary directory helper.
+    // This safely creates the directory if it doesn't exist and applies correct permissions.
+    $tempdir = make_temp_directory('plagiarism_inspera');
+    $filepath = $tempdir . '/' . $filename;
 
     // Sanitize content before wrapping in HTML.
     $cleanedcontent = format_text(
@@ -2251,6 +2248,7 @@ function plagiarism_inspera_create_temp_file(
     $file = new \stdClass();
     $file->filepath = $filepath;
     $file->filename = $filename;
+
     return $file;
 }
 

@@ -70,7 +70,7 @@ final class quiz_test extends advanced_testcase {
         ]);
 
         // Explicitly enable Inspera for this quiz in the plugin config table.
-        // This ensures every test starts with the module correctly "hooked."
+        // This ensures every test starts with the module correctly "hooked".
         $DB->insert_record('plagiarism_inspera_config', (object) [
             'cm'    => $this->quiz->cmid,
             'name'  => 'use_originality',

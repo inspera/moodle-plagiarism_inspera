@@ -8,14 +8,14 @@ Inspera Originality is a plugin that integrates Moodle with the Inspera Original
 > **Note:** This plugin requires a subscription to the Inspera Originality API service. You must have a valid `Client ID` and `Institution ID` to use it.
 
 ## Features
-This initial release (`1.0.0`) currently supports:
-* **Activity Support:** Moodle Assignment (`mod_assign`).
+This release (`2.0.0`) currently supports:
+* **Activity Support:** Moodle Assignment (`mod_assign`) and Moodle Quiz (`mod_quiz`).
 * **Submission Types:** File submissions and Online Text.
 * **Roles:** Distinct report links for Students (View Only) vs Teachers (Edit/Grade mode).
 
 **Known Limitations:**
-* Quiz and Forum activities are **not** yet supported in this version.
-* Group assignments are **not** yet supported.
+* Forum activities are **not** yet supported in this version.
+* Group assignments are supported with limitations (only file uploads are supported).
 * Supported on Moodle 4.5+ (see `version.php` for details).
 
 ## Installation
@@ -49,10 +49,10 @@ git clone [https://github.com/inspera/moodle-plagiarism_inspera.git](https://git
     * **Institution ID:** Your institution identifier.
 3.  Configure global defaults. 
 
-## Usage in Assignments
+## Usage in Assignments/Quizzes
 
 To enable Inspera Originality for a specific assignment:
-1.  Edit the Assignment settings.
+1.  Edit the Assignment/Quiz settings.
 2.  Scroll down to the **Inspera Originality settings** section.
 3.  Set **Enable Originality** to **Yes**.
 4.  Configure optional settings:

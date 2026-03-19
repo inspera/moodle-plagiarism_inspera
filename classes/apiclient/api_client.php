@@ -25,10 +25,6 @@
 
 namespace plagiarism_inspera\apiclient;
 
-defined('MOODLE_INTERNAL') || die();
-
-require_once($GLOBALS['CFG']->libdir . '/filelib.php');
-
 /**
  * API client class for Inspera Originality.
  * Uses internal methods for HTTP requests to facilitate testing via partial mocks.
