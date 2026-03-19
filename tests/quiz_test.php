@@ -51,6 +51,8 @@ final class quiz_test extends advanced_testcase {
         $this->resetAfterTest();
         global $DB;
 
+        set_config('enableplagiarism', 1);
+
         // Configure the Inspera plagiarism plugin globally so event_handler() proceeds.
         set_config('enabled', 1, 'plagiarism_inspera');
         set_config('baseurl', 'https://api.example.com', 'plagiarism_inspera');
