@@ -26,15 +26,15 @@ namespace plagiarism_inspera\privacy;
 
 use core_privacy\local\metadata\collection;
 use core_privacy\local\request\writer;
-use core_privacy\local\request\userlist;
+use core_plagiarism\privacy\plagiarism_provider;
+use core_plagiarism\privacy\plagiarism_user_provider;
+use core_privacy\local\metadata\provider as metadata_provider;
 
 /**
  * Privacy subsystem for plagiarism_inspera.
  */
-class provider implements
-    \core_plagiarism\privacy\plagiarism_provider,
-    \core_plagiarism\privacy\plagiarism_user_provider,
-    \core_privacy\local\metadata\provider {
+class provider implements plagiarism_provider, plagiarism_user_provider, metadata_provider {
+
     /**
      * Describe the data stored and transmitted by this plugin.
      */
@@ -46,22 +46,22 @@ class provider implements
         $collection->add_database_table(
             'plagiarism_inspera_subs',
             [
-                'userid'                 => 'privacy:metadata:plagiarism_inspera_subs:userid',
-                'submissionid'           => 'privacy:metadata:plagiarism_inspera_subs:submissionid',
-                'externalid'             => 'privacy:metadata:plagiarism_inspera_subs:externalid',
-                'similarity'             => 'privacy:metadata:plagiarism_inspera_subs:similarity',
-                'originality_score'      => 'privacy:metadata:plagiarism_inspera_subs:originality_score',
-                'translation_similarity' => 'privacy:metadata:plagiarism_inspera_subs:translation_similarity',
-                'ai_index'               => 'privacy:metadata:plagiarism_inspera_subs:ai_index',
-                'status'                 => 'privacy:metadata:plagiarism_inspera_subs:status',
-                'description'            => 'privacy:metadata:plagiarism_inspera_subs:description',
-                'timecreated'            => 'privacy:metadata:plagiarism_inspera_subs:timecreated',
-                'timemodified'           => 'privacy:metadata:plagiarism_inspera_subs:timemodified',
+                'userid'            => 'privacy:metadata:plagiarism_inspera_subs:userid',
+                'submissionid'      => 'privacy:metadata:plagiarism_inspera_subs:submissionid',
+                'externalid'        => 'privacy:metadata:plagiarism_inspera_subs:externalid',
+                'similarity'        => 'privacy:metadata:plagiarism_inspera_subs:similarity',
+                'originality_score' => 'privacy:metadata:plagiarism_inspera_subs:originality_score',
+                'translation_sim'   => 'privacy:metadata:plagiarism_inspera_subs:translation_similarity',
+                'ai_index'          => 'privacy:metadata:plagiarism_inspera_subs:ai_index',
+                'status'            => 'privacy:metadata:plagiarism_inspera_subs:status',
+                'description'       => 'privacy:metadata:plagiarism_inspera_subs:description',
+                'timecreated'       => 'privacy:metadata:plagiarism_inspera_subs:timecreated',
+                'timemodified'      => 'privacy:metadata:plagiarism_inspera_subs:timemodified',
             ],
             'privacy:metadata:plagiarism_inspera_subs'
         );
 
-        // Describe data sent to Inspera API
+        // Describe data sent to Inspera API (Satisfies Issue #3).
         $collection->link_external_location('inspera', [
             'filename' => 'privacy:metadata:inspera:filename',
             'fullname' => 'privacy:metadata:inspera:fullname',
@@ -74,7 +74,12 @@ class provider implements
     /**
      * Export all plagiarism data for the specified userid and context.
      */
-    public static function export_plagiarism_user_data(int $userid, \context $context, array $subcontext, array $linkarray) {
+    public static function export_plagiarism_user_data(
+        int $userid,
+        \context $context,
+        array $subcontext,
+        array $linkarray
+    ) {
         global $DB;
         if (empty($userid)) {
             return;
@@ -90,11 +95,11 @@ class provider implements
             if (!empty($record->storedfileid)) {
                 $currentsubcontext[] = get_string('file') . '_' . $record->storedfileid;
             } else {
-                $currentsubcontext[] = get_string('onlinetext', 'assignsubmission_onlinetext') . '_' . $record->id;
+                $onlinestr = get_string('onlinetext', 'assignsubmission_onlinetext');
+                $currentsubcontext[] = $onlinestr . '_' . $record->id;
             }
 
-            writer::with_context($context)
-                ->export_data($currentsubcontext, (object)$record);
+            writer::with_context($context)->export_data($currentsubcontext, (object)$record);
         }
     }
 
@@ -121,14 +126,10 @@ class provider implements
 
     /**
      * Delete multiple users within a single context.
-     * Uses the required \core_privacy\local\request\userlist object.
+     * Required by \core_plagiarism\privacy\plagiarism_user_provider.
      */
-    public static function delete_plagiarism_for_users(userlist $userlist) {
+    public static function delete_plagiarism_for_users(array $userids, \context $context) {
         global $DB;
-
-        $context = $userlist->get_context();
-        $userids = $userlist->get_userids();
-
         if (empty($userids) || !($context instanceof \context_module)) {
             return;
         }
