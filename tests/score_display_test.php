@@ -135,4 +135,55 @@ final class score_display_test extends advanced_testcase {
             'Expected similarity score (33%) as fallback when originality_score is NULL.'
         );
     }
+
+    /**
+     * Test the color range logic when displaytype is similarity.
+     * Ranges: 0-20 (low), 20.01-80 (medium), 80.01-100 (high).
+     * @covers \plagiarism_plugin_inspera::get_originality_status
+     * @dataProvider similarity_range_provider
+     */
+    public function test_similarity_color_ranges(float $score, string $expectedclass): void {
+        $cmid = 7000 + (int)$score; // Unique ID.
+        $record = $this->make_sub_record($cmid, $score, null);
+
+        $html = $this->getoriginalitystatus->invoke($this->plugin, $record, 'similarity');
+
+        $this->assertStringContainsString(
+            "originality-score $expectedclass",
+            $html,
+            "Score of $score% should result in the '$expectedclass' CSS class."
+        );
+    }
+
+    /**
+     * Data provider for similarity range testing.
+     * @return array
+     */
+    public function similarity_range_provider(): array {
+        return [
+            'Boundary Low (0)'      => [0.0, 'low'],
+            'Boundary Low (20)'     => [20.0, 'low'],
+            'Boundary Medium (21)'  => [21.0, 'medium'],
+            'Boundary Medium (80)'  => [80.0, 'medium'],
+            'Boundary High (81)'    => [81.0, 'high'],
+            'Boundary High (100)'   => [100.0, 'high'],
+        ];
+    }
+
+    /**
+     * Test the color logic when displaytype is originality.
+     * Should ignore numeric range and use the text-based 'originality' field.
+     * @covers \plagiarism_plugin_inspera::get_originality_status
+     */
+    public function test_originality_color_logic(): void {
+        $cmid = 8000;
+
+        $record = $this->make_sub_record($cmid, 10.0, 99.0);
+        $record->originality = 'Low risk';
+
+        $html = $this->getoriginalitystatus->invoke($this->plugin, $record, 'originality');
+
+        $this->assertStringContainsString('originality-score low', $html);
+        $this->assertStringNotContainsString('originality-score high', $html);
+    }
 }
