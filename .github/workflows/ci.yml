@@ -5,7 +5,6 @@ on:
     branches:
       - master
       - main
-      - 'task/**'
   pull_request:
     branches:
       - master
@@ -80,10 +79,6 @@ jobs:
         env:
           DB: ${{ matrix.database }}
           MOODLE_BRANCH: ${{ matrix.moodle-branch }}
-
-      - name: Initialize PHPUnit
-        if: ${{ always() }}
-        run: php moodle/admin/tool/phpunit/cli/init.php
 
       - name: PHP Lint
         if: ${{ always() }}
