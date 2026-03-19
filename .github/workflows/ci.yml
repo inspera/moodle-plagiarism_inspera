@@ -18,7 +18,7 @@ concurrency:
 # Silence the Node.js deprecation warning
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  IGNORE_PATHS: 'moodle/*/tests/behat, moodle,../ci,ci'
+  IGNORE_PATHS: 'moodle,../ci,ci'
   IGNORE_NAMES: '.git,.github'
 
 jobs:
@@ -70,7 +70,7 @@ jobs:
           echo "$GITHUB_WORKSPACE/../ci/vendor/bin" >> $GITHUB_PATH
 
       - name: Install Moodle
-        run: moodle-plugin-ci install --plugin ./ --no-init
+        run: moodle-plugin-ci install --plugin ./plugin --no-init
         env:
           DB: ${{ matrix.database }}
           MOODLE_BRANCH: ${{ matrix.moodle-branch }}
