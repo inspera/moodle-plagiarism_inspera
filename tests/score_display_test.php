@@ -161,20 +161,16 @@ final class score_display_test extends advanced_testcase {
      * Data provider for similarity range testing.
      * @return array
      */
-    public function similarity_range_provider(): array {
+    public static function similarity_range_provider(): array {
         return [
-            'Boundary Low (0)'          => [0.0, 'low'],
-            'Boundary Low (20)'         => [20.0, 'low'],
-            // 20.4 rounds down to 20 -> Green.
+            'Boundary Low (0)'             => [0.0, 'low'],
+            'Boundary Low (20)'            => [20.0, 'low'],
             'Fractional Round Down (20.4)' => [20.4, 'low'],
-            // 20.5 rounds up to 21 -> Yellow (This is the real boundary now!).
             'Fractional Round Up (20.5)'   => [20.5, 'medium'],
-            'Boundary Medium (80)'      => [80.0, 'medium'],
-            // 80.4 rounds down to 80 -> Yellow.
+            'Boundary Medium (80)'         => [80.0, 'medium'],
             'Fractional Round Down (80.4)' => [80.4, 'medium'],
-            // 80.5 rounds up to 81 -> Red.
             'Fractional Round Up (80.5)'   => [80.5, 'high'],
-            'Boundary High (100)'       => [100.0, 'high'],
+            'Boundary High (100)'          => [100.0, 'high'],
         ];
     }
 

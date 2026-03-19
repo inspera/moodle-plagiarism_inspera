@@ -699,11 +699,11 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
                     // Determine risk class based on numeric ranges for Similarity, matching displayed score.
                     if ($floatscore <= 20.0) {
-                        $riskclass = 'low';      // 0 - 20 (Green)
-                    } elseif ($floatscore <= 80.0) {
-                        $riskclass = 'medium';   // 20.01 - 80 (Yellow)
+                        $riskclass = 'low';
+                    } else if ($floatscore <= 80.0) {
+                        $riskclass = 'medium';
                     } else {
-                        $riskclass = 'high';     // 80.01 - 100 (Red)
+                        $riskclass = 'high';
                     }
                 }
 
