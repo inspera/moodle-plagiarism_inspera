@@ -693,17 +693,17 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 } else {
                     // Fallback: User wants Similarity OR it's an old record with no originality data.
                     $scorevalue = $record->similarity;
-                    // Rounded score for display.
-                    $score = round((float)$scorevalue);
-                    $floatscore = (float)$score;
 
-                    // Determine risk class based on numeric ranges for Similarity, matching displayed score.
-                    if ($floatscore <= 20.0) {
-                        $riskclass = 'low';
-                    } else if ($floatscore <= 80.0) {
-                        $riskclass = 'medium';
+                    // 1. Define the display integer by rounding first.
+                    $score = (int)round((float)$scorevalue);
+
+                    // 2. Classification logic: Use the ROUNDED score to ensure UI coherence.
+                    if ($score <= 20) {
+                        $riskclass = 'low';      // 0 - 20 (Green).
+                    } elseif ($score <= 80) {
+                        $riskclass = 'medium';   // 21 - 80 (Yellow).
                     } else {
-                        $riskclass = 'high';
+                        $riskclass = 'high';     // 81 - 100 (Red).
                     }
                 }
 
