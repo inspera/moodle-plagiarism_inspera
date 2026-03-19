@@ -143,7 +143,9 @@ final class score_display_test extends advanced_testcase {
      * @dataProvider similarity_range_provider
      */
     public function test_similarity_color_ranges(float $score, string $expectedclass): void {
-        $cmid = 7000 + (int)$score; // Unique ID.
+        // Unique ID per score (to 2 decimal places) to avoid context cache collisions.
+        $cmid = 700000 + (int)round($score * 100);
+
         $record = $this->make_sub_record($cmid, $score, null);
 
         $html = $this->getoriginalitystatus->invoke($this->plugin, $record, 'similarity');
@@ -161,12 +163,18 @@ final class score_display_test extends advanced_testcase {
      */
     public function similarity_range_provider(): array {
         return [
-            'Boundary Low (0)'      => [0.0, 'low'],
-            'Boundary Low (20)'     => [20.0, 'low'],
-            'Boundary Medium (21)'  => [21.0, 'medium'],
-            'Boundary Medium (80)'  => [80.0, 'medium'],
-            'Boundary High (81)'    => [81.0, 'high'],
-            'Boundary High (100)'   => [100.0, 'high'],
+            'Boundary Low (0)'          => [0.0, 'low'],
+            'Boundary Low (20)'         => [20.0, 'low'],
+            // 20.4 rounds down to 20 -> Green.
+            'Fractional Round Down (20.4)' => [20.4, 'low'],
+            // 20.5 rounds up to 21 -> Yellow (This is the real boundary now!).
+            'Fractional Round Up (20.5)'   => [20.5, 'medium'],
+            'Boundary Medium (80)'      => [80.0, 'medium'],
+            // 80.4 rounds down to 80 -> Yellow.
+            'Fractional Round Down (80.4)' => [80.4, 'medium'],
+            // 80.5 rounds up to 81 -> Red.
+            'Fractional Round Up (80.5)'   => [80.5, 'high'],
+            'Boundary High (100)'       => [100.0, 'high'],
         ];
     }
 

@@ -688,12 +688,16 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                     $scorevalue = $record->originality_score;
                     // Parse the text-based originality risk level, default to 'low'.
                     $riskclass = strtolower(explode(' ', $record->originality ?? 'Low')[0]);
+                    // Rounded score for display.
+                    $score = round((float)$scorevalue);
                 } else {
                     // Fallback: User wants Similarity OR it's an old record with no originality data.
                     $scorevalue = $record->similarity;
-                    $floatscore = (float)$scorevalue;
+                    // Rounded score for display.
+                    $score = round((float)$scorevalue);
+                    $floatscore = (float)$score;
 
-                    // Determine risk class based on numeric ranges for Similarity.
+                    // Determine risk class based on numeric ranges for Similarity, matching displayed score.
                     if ($floatscore <= 20.0) {
                         $riskclass = 'low';      // 0 - 20 (Green)
                     } elseif ($floatscore <= 80.0) {
@@ -703,7 +707,6 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                     }
                 }
 
-                $score = round((float)$scorevalue);
                 $scoreclass = 'originality-score ' . $riskclass;
 
                 $linkprefix = get_string('reportlinkprefix', 'plagiarism_inspera');
