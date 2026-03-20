@@ -138,7 +138,7 @@ final class score_display_test extends advanced_testcase {
 
     /**
      * Test the color range logic when displaytype is similarity.
-     * Ranges: 0-20 (low), 20.01-80 (medium), 80.01-100 (high).
+     * Ranges are based on the rounded integer percentage: 0–20 (low), 21–80 (medium), 81–100 (high).
      * @covers \plagiarism_plugin_inspera::get_originality_status
      * @dataProvider similarity_range_provider
      */
