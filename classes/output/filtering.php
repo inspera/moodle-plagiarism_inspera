@@ -25,7 +25,7 @@
 namespace plagiarism_inspera\output;
 
 global $CFG;
-// 2. MUST BE HERE: Load the parent class so the "extends" works.
+
 require_once($CFG->dirroot . '/user/filters/lib.php');
 require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
