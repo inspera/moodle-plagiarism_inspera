@@ -23,7 +23,7 @@
  */
 
 namespace plagiarism_inspera\output;
-
+defined('MOODLE_INTERNAL') || die();
 global $CFG;
 
 require_once($CFG->dirroot . '/user/filters/lib.php');
