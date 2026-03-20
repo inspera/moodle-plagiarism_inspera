@@ -204,7 +204,7 @@ class hooks {
 
         // 4. Inject JS/HTML if conditions are met.
         if ($mode) {
-            $PAGE->requires->js(new moodle_url('/plagiarism/inspera/originality_form_behaviour.js'));
+            $PAGE->requires->js_call_amd('plagiarism_inspera/originality_form_behaviour', 'init');
 
             $html = \html_writer::tag('div', '', [
                 'id' => 'inspera-warning-config',
