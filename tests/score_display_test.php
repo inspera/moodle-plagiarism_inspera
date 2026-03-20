@@ -223,13 +223,13 @@ final class score_display_test extends advanced_testcase {
      */
     public static function originality_fallback_range_provider(): array {
         return [
-            'Fallback boundary Low (20.0)'     => [20.0,  'low'],
-            'Fallback coherence check (20.49)' => [20.49, 'low'],
-            'Fallback coherence check (20.5)'  => [20.5,  'medium'],
-            'Fallback boundary Medium (80.0)'  => [80.0,  'medium'],
-            'Fallback coherence check (80.49)' => [80.49, 'medium'],
-            'Fallback coherence check (80.5)'  => [80.5,  'high'],
-            'Fallback boundary High (100)'     => [100.0, 'high'],
+            'Fallback boundary Low (20.0)'     => [20.0, 'low'],
+            'Fallback coherence check (20.49)' => [20.49,'low'],
+            'Fallback coherence check (20.5)'  => [20.5, 'medium'],
+            'Fallback boundary Medium (80.0)'  => [80.0, 'medium'],
+            'Fallback coherence check (80.49)' => [80.49,'medium'],
+            'Fallback coherence check (80.5)'  => [80.5, 'high'],
+            'Fallback boundary High (100)'     => [100.0,'high'],
         ];
     }
 }
