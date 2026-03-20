@@ -74,8 +74,8 @@ class plagiarism_inspera_defaults_form extends moodleform {
 
             // Score Display Type Selection.
             $displayoptions = [
-                'similarity' => get_string('similarity_score', 'plagiarism_inspera'),
                 'originality' => get_string('originality_score', 'plagiarism_inspera'),
+                'similarity' => get_string('similarity_score', 'plagiarism_inspera'),
             ];
             $mform->addElement(
                 'select',
@@ -84,7 +84,7 @@ class plagiarism_inspera_defaults_form extends moodleform {
                 $displayoptions
             );
             $mform->addHelpButton('originality_display_type_' . $sm, 'originality_display_type', 'plagiarism_inspera');
-            $mform->setDefault('originality_display_type_' . $sm, 'similarity');
+            $mform->setDefault('originality_display_type_' . $sm, 'originality');
             $mform->setType('originality_display_type_' . $sm, PARAM_ALPHA);
 
             $mform->addElement(

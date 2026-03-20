@@ -1516,8 +1516,8 @@ function plagiarism_inspera_get_form_elements($mform) {
 
     // Score to Display.
     $displayoptions = [
-        'similarity' => get_string('similarity_score', 'plagiarism_inspera'),
         'originality' => get_string('originality_score', 'plagiarism_inspera'),
+        'similarity' => get_string('similarity_score', 'plagiarism_inspera'),
     ];
     $mform->addElement(
         'select',
