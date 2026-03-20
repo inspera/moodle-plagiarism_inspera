@@ -189,4 +189,47 @@ final class score_display_test extends advanced_testcase {
         $this->assertStringContainsString('originality-score low', $html);
         $this->assertStringNotContainsString('originality-score high', $html);
     }
+
+    /**
+     * Test the color range logic for the originality fallback path.
+     * When displaytype='originality' and originality_score is NULL (legacy rows),
+     * the CSS class must be derived from the rounded similarity score:
+     * 0–20 → low, 21–80 → medium, 81–100 → high.
+     *
+     * @covers \plagiarism_plugin_inspera::get_originality_status
+     * @dataProvider originality_fallback_range_provider
+     */
+    public function test_originality_fallback_color_ranges(float $similarity, string $expectedclass): void {
+        // Unique cmid per score to avoid static-cache collisions.
+        $cmid = 900000 + (int)round($similarity * 100);
+
+        // NULL originality_score triggers the fallback branch.
+        $record = $this->make_sub_record($cmid, $similarity, null);
+
+        $html = $this->getoriginalitystatus->invoke($this->plugin, $record, 'originality');
+
+        $this->assertStringContainsString(
+            "originality-score $expectedclass",
+            $html,
+            "Fallback: similarity $similarity% with displaytype=originality should yield '$expectedclass' CSS class."
+        );
+    }
+
+    /**
+     * Data provider for originality fallback range testing.
+     * Mirrors the similarity_range_provider boundaries to confirm the same
+     * rounding and classification rules apply to the legacy fallback path.
+     * @return array
+     */
+    public static function originality_fallback_range_provider(): array {
+        return [
+            'Fallback boundary Low (20.0)'     => [20.0,  'low'],
+            'Fallback coherence check (20.49)' => [20.49, 'low'],
+            'Fallback coherence check (20.5)'  => [20.5,  'medium'],
+            'Fallback boundary Medium (80.0)'  => [80.0,  'medium'],
+            'Fallback coherence check (80.49)' => [80.49, 'medium'],
+            'Fallback coherence check (80.5)'  => [80.5,  'high'],
+            'Fallback boundary High (100)'     => [100.0, 'high'],
+        ];
+    }
 }
