@@ -24,6 +24,10 @@
 
 namespace plagiarism_inspera\output;
 
+global $CFG;
+// 2. MUST BE HERE: Load the parent class so the "extends" works.
+require_once($CFG->dirroot . '/user/filters/lib.php');
+require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 /**
  * Filtering class for managing plagiarism report filters.
@@ -41,12 +45,6 @@ class filtering extends \user_filtering {
      * @return object filter
      */
     public function get_field($fieldname, $advanced) {
-        global $CFG;
-
-        // Ensure necessary libraries are loaded.
-        require_once($CFG->dirroot . '/user/filters/lib.php');
-        require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
-
         if ($fieldname == 'externalid') {
             return new \user_filter_text(
                 'externalid',
