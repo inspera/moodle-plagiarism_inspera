@@ -682,19 +682,28 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             case 'finished':
                 $url = new moodle_url('/plagiarism/inspera/redirect.php', ['id' => $record->id]);
 
-                // Select the correct score based on passed setting AND data availability.
                 if ($displaytype === 'originality' && $record->originality_score !== null) {
                     // User wants Originality AND we have data for it.
                     $scorevalue = $record->originality_score;
+                    $riskclass = strtolower(explode(' ', $record->originality ?? 'Low')[0]);
+                    // Rounded score for display.
+                    $score = round((float)$scorevalue);
                 } else {
                     // Fallback: User wants Similarity OR it's an old record with no originality data.
                     $scorevalue = $record->similarity;
+
+                    // 1. Define the display integer by rounding first.
+                    $score = (int)round((float)$scorevalue);
+
+                    // 2. Classification logic: Use the ROUNDED score to ensure UI coherence.
+                    if ($score <= 20) {
+                        $riskclass = 'low';      // 0 - 20 (Green).
+                    } else if ($score <= 80) {
+                        $riskclass = 'medium';   // 21 - 80 (Yellow).
+                    } else {
+                        $riskclass = 'high';     // 81 - 100 (Red).
+                    }
                 }
-
-                $score = round((float)$scorevalue);
-
-                // Defaults to 'low' if the value is missing.
-                $riskclass = strtolower(explode(' ', $record->originality ?? 'Low')[0]);
 
                 $scoreclass = 'originality-score ' . $riskclass;
 
