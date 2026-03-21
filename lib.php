@@ -2561,7 +2561,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
  * @param api_client $client An instance of the API client.
  * @return void
  */
-function plagiarism_inspera_poll_file_status($plagiarismfile, api_client $client) {
+function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_inspera\apiclient\api_client $client) {
     global $DB;
 
     if (empty($plagiarismfile->externalid) || $plagiarismfile->status !== 'pending') {
