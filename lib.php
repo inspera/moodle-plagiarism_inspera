@@ -2273,7 +2273,7 @@ function plagiarism_inspera_create_temp_file(
  * @param api_client $client An instance of the API client.
  * @return bool|void False on failure.
  */
-function plagiarism_inspera_send_file($plagiarismfile, api_client $client) {
+function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apiclient\api_client $client) {
     global $DB;
 
     // Step 1: Create submission if not already done.
