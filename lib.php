@@ -500,7 +500,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                         'assignsubmission_onlinetext',
                         ['submission' => $eventdata['objectid']]
                     );
-                    if (!empty($submission) && strlen(utf8_decode(strip_tags($submission->onlinetext))) >= $charcount) {
+                    if (!empty($submission) && \core_text::strlen(strip_tags($submission->onlinetext)) >= $charcount) {
                         $file = plagiarism_inspera_create_temp_file(
                             $cmid,
                             $courseid,
@@ -526,7 +526,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
         if (
             !empty($eventdata['other']['content']) &&
             $showcontent &&
-            strlen(utf8_decode(strip_tags($eventdata['other']['content']))) >= $charcount
+            \core_text::strlen(strip_tags($eventdata['other']['content'])) >= $charcount
         ) {
             $file = plagiarism_inspera_create_temp_file(
                 $cmid,
@@ -613,7 +613,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                     if ($responsetext !== null && $responsetext !== '') {
                         $cleantext = trim(strip_tags($responsetext));
 
-                        if (strlen(utf8_decode($cleantext)) >= $charcount) {
+                        if (\core_text::strlen($cleantext) >= $charcount) {
                             $uniquefilename = "quiz_{$cmid}_{$userid}_{$qa->get_database_id()}.html";
                             // Note: Passing 0 for submissionid since quizzes don't use assign_submission IDs.
                             $file = plagiarism_inspera_create_temp_file(
@@ -1196,13 +1196,11 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
 
     // 1. Guard Clauses (Early Exit).
     $plugin = new plagiarism_plugin_inspera();
-    // Check if plugin is enabled globally.
     $plagiarismsettings = $plugin->get_settings();
     if (!$plagiarismsettings) {
         return;
     }
 
-    // Identify which module it's on (e.g. mod_assign_mod_form).
     $matches = [];
     if (!preg_match('/^mod_([^_]+)_mod_form$/', get_class($formwrapper), $matches)) {
         return;
@@ -1210,7 +1208,6 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
     $modulename = "mod_" . $matches[1];
     $modname = 'enable_' . $modulename;
 
-    // Check if plagiarism is enabled for this module in the admin settings.
     if (empty($plagiarismsettings[$modname])) {
         return;
     }
@@ -1223,83 +1220,63 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
     $context = context_course::instance($formwrapper->get_course()->id);
     $plagiarismelements = $plugin->config_options();
 
-    // Load settings specific to this activity (if editing).
     $plagiarismvalues = [];
     if (!empty($cmid)) {
         $plagiarismvalues = $DB->get_records_menu('plagiarism_inspera_config', ['cm' => $cmid], '', 'name, value');
     }
 
-    // Get Admin Defaults - cmid(0) is the default list.
     $plagiarismdefaults = $DB->get_records_menu('plagiarism_inspera_config', ['cm' => 0], '', 'name, value');
 
-    // 3. Add Form Elements (Based on Capability).
-    // Check user's permissions.
+    // 3. Add Form Elements.
     if (has_capability('plagiarism/inspera:enable', $context)) {
-        // User HAS permission: Build and display all the visible form fields.
-        // This helper function is responsible for both addElement() and setType().
+        // This helper function adds the elements AND their specific parent/child hideIf rules.
         plagiarism_inspera_get_form_elements($mform);
 
-        // Add conditional display logic for the visible form.
-        // Show draft submit selector in all cases; value will be enforced in save if drafts are disabled.
-
         if (
-            !has_capability('plagiarism/inspera:resubmitonclose', $context) &&
-            $mform->elementExists('originality_resubmit_on_close')
+                !has_capability('plagiarism/inspera:resubmitonclose', $context) &&
+                $mform->elementExists('originality_resubmit_on_close')
         ) {
             $mform->removeElement('originality_resubmit_on_close');
         }
 
-        // Disable all sub-elements if the main 'use_originality' is set to 'No'.
+        // Disable sub-elements if the main 'use_originality' is set to 'No'.
+        // Exclude child lists from this global loop to protect their 'Show More' CSS state.
+        $childelements = ['originality_translation_languages', 'originality_selectfiletypes'];
+
         foreach ($plagiarismelements as $element) {
-            if ($element != 'use_originality') { // Ignore the main switch itself.
-                $mform->hideif($element, 'use_originality', 'eq', 0);
+            if (
+                    $element != 'use_originality' &&
+                    !in_array($element, $childelements, true)
+            ) {
+                $mform->hideIf($element, 'use_originality', 'eq', 0);
             }
         }
-
-        $mform->hideif('originality_selectfiletypes', 'originality_allowallfile', 'eq', 1);
     } else {
         // User does NOT have permission: Add all settings as hidden fields.
         foreach ($plagiarismelements as $element) {
             $mform->addElement('hidden', $element);
-
-            // We MUST set the PARAM types for these hidden fields to ensure.
-            // Data is cleaned securely when the form is saved by this user.
-            // Use the map to set types automatically.
-            if (isset($typesmap[$element])) {
-                $mform->setType($element, $typesmap[$element]);
-            } else {
-                $mform->setType($element, PARAM_RAW); // Fallback.
-            }
+            $mform->setType($element, $typesmap[$element] ?? PARAM_RAW);
         }
     }
 
-    // 4. Set Default Values.
-    // Now that all elements exist (either visible or hidden), set their default values.
-    // Priority: 1) Specific activity values, 2) Admin defaults.
-    $excludeddefaults = [
-        'originality_enable_translations',
-        'originality_translation_languages',
-    ];
+    // 4. Set Default Values (Cleaned up).
     foreach ($plagiarismelements as $element) {
         $defaultelement = $element . '_' . str_replace('mod_', '', $modulename);
         if (isset($plagiarismvalues[$element])) {
-            // Priority 1: Use value saved for this specific activity.
             $mform->setDefault($element, $plagiarismvalues[$element]);
         } else if (isset($plagiarismdefaults[$defaultelement])) {
-            // Even if legacy admin defaults exist in the DB, we ignore them for Translations.
-            // This ensures new activities always default to "Off" (0) as intended.
-            if (in_array($element, $excludeddefaults, true)) {
-                if ($element === 'originality_enable_translations') {
-                    // Force the translations toggle to be disabled by default.
-                    $mform->setDefault($element, 0);
-                } else if ($element === 'originality_translation_languages') {
-                    // For the multi-select languages field, use an empty selection.
-                    // Not a scalar 0, to avoid it being treated as a language code.
-                    $mform->setDefault($element, []);
-                }
-            } else {
-                // Priority 2: Use the admin-defined default for this module type.
-                $mform->setDefault($element, $plagiarismdefaults[$defaultelement]);
+            $mform->setDefault($element, $plagiarismdefaults[$defaultelement]);
+        } else {
+            // If there is no saved value and no Admin default exists, provide safe initial states.
+            if ($element === 'originality_enable_translations') {
+                $mform->setDefault($element, 0); // Default to No.
+            } else if (
+                    $element === 'originality_translation_languages' ||
+                    $element === 'originality_selectfiletypes'
+            ) {
+                $mform->setDefault($element, '');
+            } else if ($element === 'originality_allowallfile') {
+                $mform->setDefault($element, 1); // Default to Yes.
             }
         }
     }
@@ -1309,51 +1286,39 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
 
     $getlistvalues = function ($basename) use ($suffix, $plagiarismvalues, $plagiarismdefaults) {
         $fullname = $basename . $suffix;
-
-        // 1. Try Local Assignment Setting (Snapshot).
         if (isset($plagiarismvalues[$fullname])) {
             $val = $plagiarismvalues[$fullname];
-            if (!is_array($val)) {
-                $valstr = trim((string)$val);
-                if ($valstr === '') {
-                    return [];
-                }
-                $items = array_map('trim', explode(',', $valstr));
-                $items = array_values(array_filter($items, static function ($v) {
-                    return $v !== '';
-                }));
-                return $items;
-            }
-            return $val;
-        }
-
-        // 2. Fallback to Admin Default.
-        if (isset($plagiarismdefaults[$fullname])) {
+        } else if (isset($plagiarismdefaults[$fullname])) {
             $val = $plagiarismdefaults[$fullname];
-            if (!is_array($val)) {
-                $valstr = trim((string)$val);
-                if ($valstr === '') {
-                    return [];
-                }
-                $items = array_map('trim', explode(',', $valstr));
-                $items = array_values(array_filter($items, static function ($v) {
-                    return $v !== '';
-                }));
-                return $items;
-            }
-            return $val;
+        } else {
+            return [];
         }
 
-        return [];
+        if (!is_array($val)) {
+            $valstr = trim((string)$val);
+            if ($valstr === '') {
+                return [];
+            }
+            return array_values(
+                array_filter(
+                    array_map(
+                        'trim',
+                        explode(',', $valstr)
+                    ),
+                    function ($v) {
+                        return $v !== '';
+                    }
+                )
+            );
+        }
+        return $val;
     };
-    $hiddenlist = $getlistvalues('originality_hiddenitems');
-    $lockedlist = $getlistvalues('originality_lockeditems');
-    $advancedlist = $getlistvalues('originality_advanceditems');
 
-    // Check if user is an Admin (can bypass restrictions).
+    $hiddenmap = array_flip($getlistvalues('originality_hiddenitems'));
+    $lockedmap = array_flip($getlistvalues('originality_lockeditems'));
+    $advancedmap = array_flip($getlistvalues('originality_advanceditems'));
+
     $isadmin = has_capability('plagiarism/inspera:manage_locked_settings', $context);
-
-    // Flag to track if we actually have any content for the "Show More" section.
     $hasadvanceditems = false;
 
     // Iterate over all possible plugin settings.
@@ -1362,120 +1327,88 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
             continue;
         }
 
-        // HIDDEN ITEMS.
-        // Priority 1: If it is in the Hidden list AND user is NOT Admin -> Hide it.
-        $hiddenmap = array_flip($hiddenlist);
-        if (isset($hiddenmap[$name]) && !$isadmin) {
-            if ($element = $mform->getElement($name)) {
-                $value = $element->getValue() ?? '';
-                // Fallback to default if value is not set.
-                if ($value === null && isset($plagiarismvalues[$name])) {
-                    $value = $plagiarismvalues[$name];
-                }
+        // BUNDLE CASCADE LOGIC.
+        $ishidden   = isset($hiddenmap[$name]);
+        $islocked   = isset($lockedmap[$name]);
+        $isadvanced = isset($advancedmap[$name]);
 
-                // Remove visible element.
-                $mform->removeElement($name);
+        // If the parent toggle is restricted, cascade that restriction to the child list.
+        if ($name === 'originality_translation_languages') {
+            $ishidden   = $ishidden || isset($hiddenmap['originality_enable_translations']);
+            $islocked   = $islocked || isset($lockedmap['originality_enable_translations']);
+            $isadvanced = $isadvanced || isset($advancedmap['originality_enable_translations']);
+        }
+        if ($name === 'originality_selectfiletypes') {
+            $ishidden   = $ishidden || isset($hiddenmap['originality_allowallfile']);
+            $islocked   = $islocked || isset($lockedmap['originality_allowallfile']);
+            $isadvanced = $isadvanced || isset($advancedmap['originality_allowallfile']);
+        }
 
-                // Add hidden element.
-                $mform->addElement('hidden', $name, $value);
+        // RULE 1: HIDDEN ITEMS.
+        if ($ishidden && !$isadmin) {
+            // Determine coherent fallback value if it's a new assignment.
+            $fallback = ($name === 'originality_enable_translations') ? 0 : (($name === 'originality_allowallfile') ? 1 : '');
 
-                // Use the same map to ensure type safety here too.
-                if (isset($typesmap[$name])) {
-                    $mform->setType($name, $typesmap[$name]);
-                } else {
-                    $mform->setType($name, PARAM_RAW);
-                }
-            }
+            $value = $plagiarismvalues[$name] ?? $fallback;
+
+            // SECURITY: Moodle hidden elements require strings/ints. Prevent "Array to string" PHP notices.
+            $hiddenval = is_array($value) ? implode(',', $value) : (string)$value;
+
+            $mform->removeElement($name);
+            $mform->addElement('hidden', $name, $hiddenval);
+            $mform->setType($name, $typesmap[$name] ?? PARAM_RAW);
             continue;
         }
 
-        // LOCKED ITEMS.
-        // Priority 2: If it is in the Locked list AND user is NOT Admin -> Freeze it.
-        $lockedmap = array_flip($lockedlist);
-        if (isset($lockedmap[$name])) {
-            // Always move Locked items to "Show More" (For BOTH Admins and Teachers).
+        // RULE 2: LOCKED ITEMS.
+        if ($islocked) {
             $mform->setAdvanced($name, true);
             $hasadvanceditems = true;
 
-            // Only Freeze if the user is NOT an Admin.
             if (!$isadmin) {
-                // If the item is locked, check if it's irrelevant and should be hidden instead.
-                // A. Cleanup File Types.
-                if ($name === 'originality_selectfiletypes') {
-                    $allowval = $plagiarismvalues['originality_allowallfile'] ?? null;
-                    if ($allowval === null) {
-                        $defaultkey = 'originality_allowallfile' . $suffix;
-                        $allowval = $plagiarismdefaults[$defaultkey] ?? 0;
-                    }
-                    // If Allow All is YES, hide the empty list completely.
-                    if ($allowval == 1) {
-                        if ($element = $mform->getElement($name)) {
-                            $value = $element->getValue();
-                            $mform->removeElement($name);
-                            $mform->addElement('hidden', $name, $value);
-                            if (isset($typesmap[$name])) {
-                                $mform->setType($name, $typesmap[$name]);
-                            }
-                        }
+                // Hide child lists if parent toggle is locked to a state that makes them irrelevant.
+                if ($name === 'originality_translation_languages') {
+                    $toggleval = $plagiarismvalues['originality_enable_translations'] ?? 0;
+                    if ($toggleval == 0) {
+                        $mform->removeElement($name);
+                        $mform->addElement('hidden', $name, ''); // String, not array.
+                        $mform->setType($name, PARAM_TAGLIST);
                         continue;
                     }
                 }
 
-                // B. Cleanup Translations.
-                if ($name === 'originality_translation_languages') {
-                    $transval = $plagiarismvalues['originality_enable_translations'] ?? null;
-                    if ($transval === null) {
-                        $defaultkey = 'originality_enable_translations' . $suffix;
-                        $transval = $plagiarismdefaults[$defaultkey] ?? 0;
-                    }
-                    // If Translations are NO, hide the list completely.
-                    if ($transval == 0) {
-                        if ($element = $mform->getElement($name)) {
-                            $value = $element->getValue();
-                            $mform->removeElement($name);
-                            $mform->addElement('hidden', $name, $value);
-                            if (isset($typesmap[$name])) {
-                                $mform->setType($name, $typesmap[$name]);
-                            }
-                        }
+                if ($name === 'originality_selectfiletypes') {
+                    $allowval = $plagiarismvalues['originality_allowallfile'] ?? 1;
+                    if ($allowval == 1) {
+                        $mform->removeElement($name);
+                        $mform->addElement('hidden', $name, ''); // String, not array.
+                        $mform->setType($name, PARAM_TAGLIST);
                         continue;
                     }
                 }
 
                 $mform->freeze($name);
-                if ($element = $mform->getElement($name)) {
-                    $mform->setConstant($name, $element->getValue());
-                }
             }
         }
 
         // RULE 3: ADVANCED ITEMS.
-        // If it is in the Advanced list -> Move to "Show More".
-        // (This runs for Admins too, which is correct behavior).
-        $advancedmap = array_flip($advancedlist);
-        if (isset($advancedmap[$name])) {
+        if ($isadvanced) {
             $mform->setAdvanced($name, true);
             $hasadvanceditems = true;
         }
     }
 
-    // FORCE SHOW MORE TO TOP (CONDITIONAL).
-    // Only move the anchor to Advanced if we actually have other advanced items to show.
     if ($hasadvanceditems && $mform->elementExists('originality_advanced_anchor')) {
         $mform->setAdvanced('originality_advanced_anchor', true);
     }
 
     // 7. Handle Module-Specific Logic.
-
-    // Now handle content restriction settings.
-    // For Assign: only show when BOTH file and online text submissions are enabled.
     if ($modulename == 'mod_assign') {
         if ($mform->elementExists('originality_restrictcontent')) {
             $mform->hideIf('originality_restrictcontent', 'assignsubmission_file_enabled', 'notchecked');
             $mform->hideIf('originality_restrictcontent', 'assignsubmission_onlinetext_enabled', 'notchecked');
         }
     } else if ($modulename != 'mod_forum' && $modulename != 'mod_hsuforum') {
-        // Freeze setting for modules that don't support content type restriction.
         $mform->setDefault('originality_restrictcontent', 0);
         $mform->hardFreeze('originality_restrictcontent');
     }

@@ -22,7 +22,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$string['admin_overrides_info'] = 'Some features (like "Translations" and "Select supported translation languages") do not have global defaults and are enabled by teachers directly within each activity. However, you can still use the "Hidden", "Locked", and "Advanced" lists to manage these features globally across the entire site.';
+$string['admin_overrides_info'] = 'Some features (like "Translations") do not have global defaults and are enabled by teachers directly within each activity. However, you can still use the "Hidden", "Locked", and "Advanced" lists to manage these features globally across the entire site.';
 $string['admin_overrides_info_note'] = 'Note';
 $string['ai_index'] = 'AI-generated content index';
 $string['apitokenerror'] = 'Authentication failed. The API returned: "{$a}"';
