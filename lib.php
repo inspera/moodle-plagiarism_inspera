@@ -500,7 +500,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                         'assignsubmission_onlinetext',
                         ['submission' => $eventdata['objectid']]
                     );
-                    if (!empty($submission) && strlen(utf8_decode(strip_tags($submission->onlinetext))) >= $charcount) {
+                    if (!empty($submission) && \core_text::strlen(strip_tags($submission->onlinetext)) >= $charcount) {
                         $file = plagiarism_inspera_create_temp_file(
                             $cmid,
                             $courseid,
@@ -526,7 +526,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
         if (
             !empty($eventdata['other']['content']) &&
             $showcontent &&
-            strlen(utf8_decode(strip_tags($eventdata['other']['content']))) >= $charcount
+            \core_text::strlen(strip_tags($eventdata['other']['content'])) >= $charcount
         ) {
             $file = plagiarism_inspera_create_temp_file(
                 $cmid,
@@ -613,7 +613,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                     if ($responsetext !== null && $responsetext !== '') {
                         $cleantext = trim(strip_tags($responsetext));
 
-                        if (strlen(utf8_decode($cleantext)) >= $charcount) {
+                        if (\core_text::strlen($cleantext) >= $charcount) {
                             $uniquefilename = "quiz_{$cmid}_{$userid}_{$qa->get_database_id()}.html";
                             // Note: Passing 0 for submissionid since quizzes don't use assign_submission IDs.
                             $file = plagiarism_inspera_create_temp_file(
@@ -1300,15 +1300,15 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
                 return [];
             }
             return array_values(
-                    array_filter(
-                            array_map(
-                                    'trim',
-                                    explode(',', $valstr)
-                            ),
-                            function ($v) {
-                                return $v !== '';
-                            }
-                    )
+                array_filter(
+                    array_map(
+                        'trim',
+                        explode(',', $valstr)
+                    ),
+                    function ($v) {
+                        return $v !== '';
+                    }
+                )
             );
         }
         return $val;
@@ -1330,21 +1330,21 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         // BUNDLE CASCADE LOGIC.
         $ishidden   = isset($hiddenmap[$name]);
         $islocked   = isset($lockedmap[$name]);
-        $isadvanced = isset($advancedmap[$name]); // <-- Explicitly set here.
+        $isadvanced = isset($advancedmap[$name]);
 
         // If the parent toggle is restricted, cascade that restriction to the child list.
         if ($name === 'originality_translation_languages') {
             $ishidden   = $ishidden || isset($hiddenmap['originality_enable_translations']);
             $islocked   = $islocked || isset($lockedmap['originality_enable_translations']);
-            $isadvanced = $isadvanced || isset($advancedmap['originality_enable_translations']); // <-- Cascaded here
+            $isadvanced = $isadvanced || isset($advancedmap['originality_enable_translations']);
         }
         if ($name === 'originality_selectfiletypes') {
             $ishidden   = $ishidden || isset($hiddenmap['originality_allowallfile']);
             $islocked   = $islocked || isset($lockedmap['originality_allowallfile']);
-            $isadvanced = $isadvanced || isset($advancedmap['originality_allowallfile']); // <-- Cascaded here
+            $isadvanced = $isadvanced || isset($advancedmap['originality_allowallfile']);
         }
 
-        // RULE 1: HIDDEN ITEMS
+        // RULE 1: HIDDEN ITEMS.
         if ($ishidden && !$isadmin) {
             // Determine coherent fallback value if it's a new assignment.
             $fallback = ($name === 'originality_enable_translations') ? 0 : (($name === 'originality_allowallfile') ? 1 : '');
@@ -1366,12 +1366,12 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
             $hasadvanceditems = true;
 
             if (!$isadmin) {
-                // Dependency Cleanup: Hide child lists if parent toggle is locked to a state that makes them irrelevant.
+                // Hide child lists if parent toggle is locked to a state that makes them irrelevant.
                 if ($name === 'originality_translation_languages') {
                     $toggleval = $plagiarismvalues['originality_enable_translations'] ?? 0;
                     if ($toggleval == 0) {
                         $mform->removeElement($name);
-                        $mform->addElement('hidden', $name, ''); // String, not array
+                        $mform->addElement('hidden', $name, ''); // String, not array.
                         $mform->setType($name, PARAM_TAGLIST);
                         continue;
                     }
@@ -1392,7 +1392,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         }
 
         // RULE 3: ADVANCED ITEMS.
-        if ($isadvanced) { // <-- Fixed: Now evaluates the cascaded boolean
+        if ($isadvanced) {
             $mform->setAdvanced($name, true);
             $hasadvanceditems = true;
         }
