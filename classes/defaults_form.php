@@ -293,7 +293,14 @@ class plagiarism_inspera_defaults_form extends moodleform {
             }
 
             $items = [];
+            // Exclude only the translation languages list, as Admins cannot pre-select its values.
+            $dependent_settings = [
+                'originality_translation_languages',
+            ];
             foreach (plagiarism_plugin_inspera::config_options() as $setting) {
+                if (in_array($setting, $dependent_settings, true)) {
+                    continue; // Skip adding this to the Admin multi-select lists.
+                }
                 $items[$setting] = get_string($setting, 'plagiarism_inspera');
             }
 
