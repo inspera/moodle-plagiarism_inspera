@@ -1241,17 +1241,16 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
 
         // Disable sub-elements if the main 'use_originality' is set to 'No'.
         // Exclude child lists from this global loop to protect their 'Show More' CSS state.
-        $child_elements = ['originality_translation_languages', 'originality_selectfiletypes'];
+        $childelements = ['originality_translation_languages', 'originality_selectfiletypes'];
 
         foreach ($plagiarismelements as $element) {
             if (
                     $element != 'use_originality' &&
-                    !in_array($element, $child_elements, true)
+                    !in_array($element, $childelements, true)
             ) {
                 $mform->hideIf($element, 'use_originality', 'eq', 0);
             }
         }
-
     } else {
         // User does NOT have permission: Add all settings as hidden fields.
         foreach ($plagiarismelements as $element) {
@@ -1268,7 +1267,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         } else if (isset($plagiarismdefaults[$defaultelement])) {
             $mform->setDefault($element, $plagiarismdefaults[$defaultelement]);
         } else {
-            //  If there is no saved value and no Admin default exists, provide safe initial states.
+            // If there is no saved value and no Admin default exists, provide safe initial states.
             if ($element === 'originality_enable_translations') {
                 $mform->setDefault($element, 0); // Default to No.
             } else if (
@@ -1307,8 +1306,10 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
                                     explode(',', $valstr)
                             ),
                             function ($v) {
-                return $v !== '';
-            }));
+                                return $v !== '';
+                            }
+                    )
+            );
         }
         return $val;
     };
@@ -1327,24 +1328,24 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         }
 
         // BUNDLE CASCADE LOGIC.
-        $isHidden   = isset($hiddenmap[$name]);
-        $isLocked   = isset($lockedmap[$name]);
-        $isAdvanced = isset($advancedmap[$name]); // <-- Explicitly set here
+        $ishidden   = isset($hiddenmap[$name]);
+        $islocked   = isset($lockedmap[$name]);
+        $isadvanced = isset($advancedmap[$name]); // <-- Explicitly set here.
 
         // If the parent toggle is restricted, cascade that restriction to the child list.
         if ($name === 'originality_translation_languages') {
-            $isHidden   = $isHidden || isset($hiddenmap['originality_enable_translations']);
-            $isLocked   = $isLocked || isset($lockedmap['originality_enable_translations']);
-            $isAdvanced = $isAdvanced || isset($advancedmap['originality_enable_translations']); // <-- Cascaded here
+            $ishidden   = $ishidden || isset($hiddenmap['originality_enable_translations']);
+            $islocked   = $islocked || isset($lockedmap['originality_enable_translations']);
+            $isadvanced = $isadvanced || isset($advancedmap['originality_enable_translations']); // <-- Cascaded here
         }
         if ($name === 'originality_selectfiletypes') {
-            $isHidden   = $isHidden || isset($hiddenmap['originality_allowallfile']);
-            $isLocked   = $isLocked || isset($lockedmap['originality_allowallfile']);
-            $isAdvanced = $isAdvanced || isset($advancedmap['originality_allowallfile']); // <-- Cascaded here
+            $ishidden   = $ishidden || isset($hiddenmap['originality_allowallfile']);
+            $islocked   = $islocked || isset($lockedmap['originality_allowallfile']);
+            $isadvanced = $isadvanced || isset($advancedmap['originality_allowallfile']); // <-- Cascaded here
         }
 
         // RULE 1: HIDDEN ITEMS
-        if ($isHidden && !$isadmin) {
+        if ($ishidden && !$isadmin) {
             // Determine coherent fallback value if it's a new assignment.
             $fallback = ($name === 'originality_enable_translations') ? 0 : (($name === 'originality_allowallfile') ? 1 : '');
 
@@ -1360,7 +1361,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         }
 
         // RULE 2: LOCKED ITEMS.
-        if ($isLocked) {
+        if ($islocked) {
             $mform->setAdvanced($name, true);
             $hasadvanceditems = true;
 
@@ -1391,7 +1392,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         }
 
         // RULE 3: ADVANCED ITEMS.
-        if ($isAdvanced) { // <-- Fixed: Now evaluates the cascaded boolean
+        if ($isadvanced) { // <-- Fixed: Now evaluates the cascaded boolean
             $mform->setAdvanced($name, true);
             $hasadvanceditems = true;
         }
