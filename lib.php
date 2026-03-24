@@ -1408,9 +1408,15 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
             $mform->hideIf('originality_restrictcontent', 'assignsubmission_file_enabled', 'notchecked');
             $mform->hideIf('originality_restrictcontent', 'assignsubmission_onlinetext_enabled', 'notchecked');
         }
-    } else if ($modulename != 'mod_forum' && $modulename != 'mod_hsuforum') {
-        $mform->setDefault('originality_restrictcontent', 0);
-        $mform->hardFreeze('originality_restrictcontent');
+    }else if (!in_array($modulename, ['mod_forum', 'mod_hsuforum', 'mod_quiz'])) {
+        // For modules that TRULY do not support mixed content.
+        // Remove the visual element entirely to prevent hideIf() JS conflicts.
+        // Safely pass 0 to the database behind the scenes.
+        if ($mform->elementExists('originality_restrictcontent')) {
+            $mform->removeElement('originality_restrictcontent');
+            $mform->addElement('hidden', 'originality_restrictcontent', 0);
+            $mform->setType('originality_restrictcontent', PARAM_INT);
+        }
     }
 
     global $PAGE;
