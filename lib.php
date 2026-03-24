@@ -1785,7 +1785,7 @@ function plagiarism_inspera_default_allowed_file_types($checkdb = false) {
     global $DB;
 
     $filetypes = [
-        // Standard Text & Word Processing
+        // Standard Text & Word Processing.
         'doc'     => 'application/msword',
         'docx'    => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'pdf'     => 'application/pdf',
@@ -1795,21 +1795,21 @@ function plagiarism_inspera_default_allowed_file_types($checkdb = false) {
         'pages'   => 'application/x-iwork-pages-sffpages',
         'wpd'     => 'application/vnd.wordperfect',
 
-        // Spreadsheets
+        // Spreadsheets.
         'xls'     => 'application/vnd.ms-excel',
         'xlsx'    => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'ods'     => 'application/vnd.oasis.opendocument.spreadsheet',
         'numbers' => 'application/x-iwork-numbers-sffnumbers',
         'csv'     => 'text/csv',
 
-        // Presentations
+        // Presentations.
         'ppt'     => 'application/vnd.ms-powerpoint',
         'pptx'    => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'ppsx'    => 'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
         'odp'     => 'application/vnd.oasis.opendocument.presentation',
         'key'     => 'application/x-iwork-keynote-sffkey',
 
-        // Web & Data Formats
+        // Web & Data Formats.
         'html'    => 'text/html',
         'htm'     => 'text/html',
         'json'    => 'application/json',
@@ -1817,10 +1817,10 @@ function plagiarism_inspera_default_allowed_file_types($checkdb = false) {
         'md'      => 'text/markdown',
         'ps'      => 'application/postscript',
 
-        // Legacy/Undocumented (Kept for backwards compatibility)
+        // Legacy/Undocumented (Kept for backwards compatibility).
         'sxw'     => 'application/vnd.sun.xml.writer',
         'wps'     => 'application/vnd.ms-works',
-        'hwp'     => 'application/x-hwp'
+        'hwp'     => 'application/x-hwp',
     ];
 
     if ($checkdb) {
@@ -1995,7 +1995,7 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
             return; // Silently skip unsupported files (e.g., .jpg, .zip).
         }
     } else {
-        // "Allow all" is NO.
+        // Allow all is NO.
         // Restrict to the specific extensions the teacher selected.
         $allowedtypes = !empty($plagiarismvalues['originality_selectfiletypes'])
             ? explode(',', $plagiarismvalues['originality_selectfiletypes'])
