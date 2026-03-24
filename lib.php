@@ -1783,21 +1783,45 @@ function plagiarism_inspera_get_form_elements($mform) {
  */
 function plagiarism_inspera_default_allowed_file_types($checkdb = false) {
     global $DB;
-    $filetypes = ['doc'  => 'application/msword',
-        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'sxw'  => 'application/vnd.sun.xml.writer',
-        'pdf'  => 'application/pdf',
-        'txt'  => 'text/plain',
-        'rtf'  => 'application/rtf',
-        'html' => 'text/html',
-        'htm'  => 'text/html',
-        'wps'  => 'application/vnd.ms-works',
-        'odt'  => 'application/vnd.oasis.opendocument.text',
-        'pages' => 'application/x-iwork-pages-sffpages',
-        'xls' => 'application/vnd.ms-excel',
-        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'ps' => 'application/postscript',
-        'hwp' => 'application/x-hwp'];
+
+    $filetypes = [
+        // Standard Text & Word Processing.
+        'doc'     => 'application/msword',
+        'docx'    => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'pdf'     => 'application/pdf',
+        'txt'     => 'text/plain',
+        'rtf'     => 'application/rtf',
+        'odt'     => 'application/vnd.oasis.opendocument.text',
+        'pages'   => 'application/x-iwork-pages-sffpages',
+        'wpd'     => 'application/vnd.wordperfect',
+
+        // Spreadsheets.
+        'xls'     => 'application/vnd.ms-excel',
+        'xlsx'    => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'ods'     => 'application/vnd.oasis.opendocument.spreadsheet',
+        'numbers' => 'application/x-iwork-numbers-sffnumbers',
+        'csv'     => 'text/csv',
+
+        // Presentations.
+        'ppt'     => 'application/vnd.ms-powerpoint',
+        'pptx'    => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'ppsx'    => 'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
+        'odp'     => 'application/vnd.oasis.opendocument.presentation',
+        'key'     => 'application/x-iwork-keynote-sffkey',
+
+        // Web & Data Formats.
+        'html'    => 'text/html',
+        'htm'     => 'text/html',
+        'json'    => 'application/json',
+        'xml'     => 'application/xml',
+        'md'      => 'text/markdown',
+        'ps'      => 'application/postscript',
+
+        // Legacy/Undocumented (Kept for backwards compatibility).
+        'sxw'     => 'application/vnd.sun.xml.writer',
+        'wps'     => 'application/vnd.ms-works',
+        'hwp'     => 'application/x-hwp',
+    ];
 
     if ($checkdb) {
         // Get all filetypes from db as well.
@@ -1958,14 +1982,31 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
     $ext = strtolower($pathinfo['extension']);
 
     // Allowed file types check.
-    if (isset($plagiarismvalues['originality_allowallfile']) && empty($plagiarismvalues['originality_allowallfile'])) {
+    // Default to true (Allow all) if the setting hasn't been saved yet.
+    $allowall = isset($plagiarismvalues['originality_allowallfile']) ?
+        (bool)$plagiarismvalues['originality_allowallfile'] : true;
+
+    if ($allowall) {
+        // Allow all is YES.
+        // We still MUST restrict the queue strictly to file extensions the API actually supports.
+        $supportedtypes = plagiarism_inspera_default_allowed_file_types(true);
+
+        if (!array_key_exists($ext, $supportedtypes)) {
+            return; // Silently skip unsupported files (e.g., .jpg, .zip).
+        }
+    } else {
+        // Allow all is NO.
+        // Restrict to the specific extensions the teacher selected.
         $allowedtypes = !empty($plagiarismvalues['originality_selectfiletypes'])
             ? explode(',', $plagiarismvalues['originality_selectfiletypes'])
             : [];
+
+        // Always implicitly allow html/htm to support Online Text submissions.
         $allowedtypes[] = 'html';
         $allowedtypes[] = 'htm';
+
         if (!in_array($ext, $allowedtypes)) {
-            return;
+            return; // Silently skip files not explicitly selected by the teacher.
         }
     }
 
