@@ -1408,7 +1408,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
             $mform->hideIf('originality_restrictcontent', 'assignsubmission_file_enabled', 'notchecked');
             $mform->hideIf('originality_restrictcontent', 'assignsubmission_onlinetext_enabled', 'notchecked');
         }
-    }else if (!in_array($modulename, ['mod_forum', 'mod_hsuforum', 'mod_quiz'])) {
+    } else if (!in_array($modulename, ['mod_forum', 'mod_hsuforum', 'mod_quiz'])) {
         // For modules that TRULY do not support mixed content.
         // Remove the visual element entirely to prevent hideIf() JS conflicts.
         // Safely pass 0 to the database behind the scenes.
