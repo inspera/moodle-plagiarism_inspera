@@ -1241,7 +1241,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
 
         // Disable sub-elements if the main 'use_originality' is set to 'No'.
         // Exclude child lists from this global loop to protect their 'Show More' CSS state.
-        $childelements = ['originality_translation_languages', 'originality_selectfiletypes'];
+        $childelements = ['originality_translation_languages'];
 
         foreach ($plagiarismelements as $element) {
             if (
