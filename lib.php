@@ -1241,7 +1241,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
 
         // Disable sub-elements if the main 'use_originality' is set to 'No'.
         // Exclude child lists from this global loop to protect their 'Show More' CSS state.
-        $childelements = ['originality_translation_languages', 'originality_selectfiletypes'];
+        $childelements = ['originality_translation_languages'];
 
         foreach ($plagiarismelements as $element) {
             if (
@@ -1469,6 +1469,7 @@ function plagiarism_inspera_get_form_elements($mform) {
     );
     $mform->addHelpButton('originality_display_type', 'originality_display_type', 'plagiarism_inspera');
     $mform->setType('originality_display_type', PARAM_ALPHA);
+    $mform->setDefault('originality_display_type', 'originality');
 
     // Allow all supported File Types.
     $filetypes = plagiarism_inspera_default_allowed_file_types(true);
