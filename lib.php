@@ -1277,6 +1277,8 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
                 $mform->setDefault($element, '');
             } else if ($element === 'originality_allowallfile') {
                 $mform->setDefault($element, 1); // Default to Yes.
+            } else if ($element === 'originality_display_type') {
+                $mform->setDefault($element, 'originality');
             }
         }
     }
@@ -1469,7 +1471,6 @@ function plagiarism_inspera_get_form_elements($mform) {
     );
     $mform->addHelpButton('originality_display_type', 'originality_display_type', 'plagiarism_inspera');
     $mform->setType('originality_display_type', PARAM_ALPHA);
-    $mform->setDefault('originality_display_type', 'originality');
 
     // Allow all supported File Types.
     $filetypes = plagiarism_inspera_default_allowed_file_types(true);
