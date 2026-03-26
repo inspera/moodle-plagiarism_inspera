@@ -1011,9 +1011,14 @@ function plagiarism_inspera_coursemodule_edit_post_actions($data, $course) {
     }
 
     if (isset($data->use_originality)) {
-        if (empty($data->submissiondrafts)) {
-            // Make sure draft_submit is not set if submissiondrafts not used.
-            $data->originality_draft_submit = 0;
+        // If the activity is NOT an assignment.
+        // Or if assignment drafts are disabled, force the setting to IMMEDIATE.
+        if (
+            !isset($data->modulename) ||
+            $data->modulename !== 'assign' ||
+            empty($data->submissiondrafts)
+        ) {
+            $data->originality_draft_submit = PLAGIARISM_INSPERA_DRAFTSUBMIT_IMMEDIATE;
         }
         // Array of possible plagiarism config options.
         $plagiarismelements = $plugin->config_options();
@@ -1230,7 +1235,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
     // 3. Add Form Elements.
     if (has_capability('plagiarism/inspera:enable', $context)) {
         // This helper function adds the elements AND their specific parent/child hideIf rules.
-        plagiarism_inspera_get_form_elements($mform);
+        plagiarism_inspera_get_form_elements($mform, $modulename);
 
         if (
                 !has_capability('plagiarism/inspera:resubmitonclose', $context) &&
@@ -1246,7 +1251,8 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         foreach ($plagiarismelements as $element) {
             if (
                     $element != 'use_originality' &&
-                    !in_array($element, $childelements, true)
+                    !in_array($element, $childelements, true) &&
+                    $mform->elementExists($element)
             ) {
                 $mform->hideIf($element, 'use_originality', 'eq', 0);
             }
@@ -1430,8 +1436,9 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
  *
  * @package plagiarism_inspera
  * @param object $mform - Moodle form object.
+ * @param string $modulename - Moodle module frankenstyle name (for example, mod_assign).
  */
-function plagiarism_inspera_get_form_elements($mform) {
+function plagiarism_inspera_get_form_elements($mform, $modulename = '') {
     $ynoptions = [ 0 => get_string('no'), 1 => get_string('yes')];
 
     // Supported languages for Translations.
@@ -1693,40 +1700,42 @@ function plagiarism_inspera_get_form_elements($mform) {
     $mform->addHelpButton('originality_show_student_report', 'originality_show_student_report', 'plagiarism_inspera');
     $mform->setType('originality_show_student_report', PARAM_INT);
 
-    // If submissiondrafts exists and is enabled, show both options; otherwise, show only Immediate.
-    $draftoptionsfinal = [
-        PLAGIARISM_INSPERA_DRAFTSUBMIT_IMMEDIATE => get_string("submitondraft", "plagiarism_inspera"),
-        PLAGIARISM_INSPERA_DRAFTSUBMIT_FINAL => get_string("submitonfinal", "plagiarism_inspera"),
-    ];
-    $draftoptionsimmediate = [
-        PLAGIARISM_INSPERA_DRAFTSUBMIT_IMMEDIATE => get_string("submitondraft", "plagiarism_inspera"),
-    ];
-    if ($mform->elementExists('submissiondrafts')) {
-        // We cannot reliably read the runtime value here, so present both, but enforce on save.
-        // However, when the module does not support drafts at all, the element won't exist.
-        $mform->addElement(
-            'select',
-            'originality_draft_submit',
-            get_string(
-                "originality_draft_submit",
-                "plagiarism_inspera"
-            ),
-            $draftoptionsfinal
-        );
-    } else {
-        $mform->addElement(
-            'select',
-            'originality_draft_submit',
-            get_string(
-                "originality_draft_submit",
-                "plagiarism_inspera"
-            ),
-            $draftoptionsimmediate
-        );
-        $mform->setDefault('originality_draft_submit', PLAGIARISM_INSPERA_DRAFTSUBMIT_IMMEDIATE);
+    if ($modulename === 'mod_assign') {
+        // If submissiondrafts exists and is enabled, show both options; otherwise, show only Immediate.
+        $draftoptionsfinal = [
+            PLAGIARISM_INSPERA_DRAFTSUBMIT_IMMEDIATE => get_string("submitondraft", "plagiarism_inspera"),
+            PLAGIARISM_INSPERA_DRAFTSUBMIT_FINAL => get_string("submitonfinal", "plagiarism_inspera"),
+        ];
+        $draftoptionsimmediate = [
+            PLAGIARISM_INSPERA_DRAFTSUBMIT_IMMEDIATE => get_string("submitondraft", "plagiarism_inspera"),
+        ];
+        if ($mform->elementExists('submissiondrafts')) {
+            // We cannot reliably read the runtime value here, so present both, but enforce on save.
+            // However, when the module does not support drafts at all, the element won't exist.
+            $mform->addElement(
+                'select',
+                'originality_draft_submit',
+                get_string(
+                    "originality_draft_submit",
+                    "plagiarism_inspera"
+                ),
+                $draftoptionsfinal
+            );
+        } else {
+            $mform->addElement(
+                'select',
+                'originality_draft_submit',
+                get_string(
+                    "originality_draft_submit",
+                    "plagiarism_inspera"
+                ),
+                $draftoptionsimmediate
+            );
+            $mform->setDefault('originality_draft_submit', PLAGIARISM_INSPERA_DRAFTSUBMIT_IMMEDIATE);
+        }
+        $mform->addHelpButton('originality_draft_submit', 'originality_draft_submit', 'plagiarism_inspera');
+        $mform->setType('originality_draft_submit', PARAM_INT);
     }
-    $mform->addHelpButton('originality_draft_submit', 'originality_draft_submit', 'plagiarism_inspera');
-    $mform->setType('originality_draft_submit', PARAM_INT);
 
     // Translations.
     $mform->addElement(
