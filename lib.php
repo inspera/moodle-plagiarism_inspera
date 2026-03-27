@@ -2137,35 +2137,37 @@ function plagiarism_inspera_cleanup_orphaned_records() {
         ['report_requested', 'pending']
     );
 
-    foreach ($records as $record) {
-        // Check if file still exists.
-        $file = $fs->get_file_by_id($record->storedfileid);
-        if (!$file) {
-            // File was deleted - remove the record if it hasn't been sent to API.
+    foreach ($recordset as $record) {
+        // Check if the source file actually exists in Moodle's file pool.
+        if (!$fs->get_file_by_id($record->storedfileid)) {
             if (empty($record->externalid)) {
+                // If it never reached Inspera, we can safely wipe it.
                 $DB->delete_records('plagiarism_inspera_subs', ['id' => $record->id]);
                 $cleaned++;
             } else {
-                // Mark as error since file is gone but was already submitted.
+                // If it reached Inspera but the source is gone, stop polling.
                 $record->status = 'error';
-                $record->description = 'Stored file deleted after submission';
+                $record->description = 'Source file deleted from Moodle storage.';
+                $record->timemodified = time();
                 $DB->update_record('plagiarism_inspera_subs', $record);
             }
         }
     }
-    $records->close();
+    $recordset->close();
 
     // Clean up temporary files for online text that are too old (> 7 days).
-    $oldtime = time() - (7 * 24 * 60 * 60);
-    $oldrecords = $DB->get_recordset_select(
-        'plagiarism_inspera_subs',
-        'identifier IS NOT NULL AND timecreated < ? AND (status = ? OR status = ? OR status = ?)',
-        [$oldtime, 'report_requested', 'error', 'superseded']
-    );
+    $oldtime = time() - (7 * DAYSECS);
+
+    // Statuses that are considered "dead" or "stale" after 7 days.
+    $sql = "identifier IS NOT NULL AND timecreated < ? AND status IN (?, ?, ?)";
+    $params = [$oldtime, 'report_requested', 'error', 'superseded'];
+
+    $oldrecords = $DB->get_recordset_select('plagiarism_inspera_subs', $sql, $params);
 
     foreach ($oldrecords as $record) {
+        // Only attempt to delete if it's a valid local file path.
         if (!empty($record->identifier) && file_exists($record->identifier)) {
-            unlink($record->identifier);
+            @unlink($record->identifier);
         }
         if (empty($record->externalid)) {
             $DB->delete_records('plagiarism_inspera_subs', ['id' => $record->id]);
@@ -2267,8 +2269,10 @@ function plagiarism_inspera_create_temp_file(
 function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apiclient\api_client $client) {
     global $DB;
 
+    $isrecent = (time() - (int)$plagiarismfile->timemodified) < 3600;
+
     // Step 1: Create submission if not already done, or if status is report_requested (to ensure fresh presigned URL).
-    if (empty($plagiarismfile->externalid) || $plagiarismfile->status === 'report_requested') {
+    if (empty($plagiarismfile->externalid) || ($plagiarismfile->status === 'report_requested' && !$isrecent)) {
         $plagiarismfile->externalid = null; // Clear existing ID to ensure we don't use a stale one if creation fails.
         $user = $DB->get_record('user', ['id' => $plagiarismfile->userid], '*', MUST_EXIST);
 

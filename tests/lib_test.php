@@ -153,7 +153,8 @@ final class lib_test extends advanced_testcase {
             'status' => 'report_requested',
             'externalid' => $oldexternalid,
             'timecreated' => time(),
-            'storedfileid' => 0,
+            'storedfileid' => null,
+            'identifier' => 'online-text-fixture',
         ];
         $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
 
@@ -298,7 +299,8 @@ final class lib_test extends advanced_testcase {
             'description' => null,
             'timecreated' => time(),
             'timemodified' => $timemodified,
-            'storedfileid' => 0,
+            'storedfileid' => null,
+            'identifier' => 'online-text-pending-fixture',
         ];
         $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
 
