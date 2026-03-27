@@ -170,4 +170,131 @@ final class lib_test extends advanced_testcase {
         $this->assertEquals('error', $updatedrecord->status);
         $this->assertStringContainsString('API Down', $updatedrecord->description);
     }
+
+    /**
+     * Test poll keeps status pending when API returns status 2 within the grace period.
+     *
+     * @covers ::plagiarism_inspera_poll_file_status
+     */
+    public function test_plagiarism_inspera_poll_file_status_keeps_pending_within_grace_period(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $record = $this->create_pending_submission(time() - 3600);
+        $record->description = 'keep-existing-description';
+        $DB->update_record('plagiarism_inspera_subs', $record);
+
+        $statusresponse = (object) [
+            'status' => 2,
+            'message' => 'Temporarily unavailable',
+        ];
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+
+        $clientmock->expects($this->once())
+            ->method('check_document_status')
+            ->willReturn($statusresponse);
+
+        $this->expectOutputRegex('/keeping pending during grace period/s');
+        \plagiarism_inspera_poll_file_status($record, $clientmock);
+
+        $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertEquals('pending', $updatedrecord->status);
+        $this->assertEquals('keep-existing-description', $updatedrecord->description);
+    }
+
+    /**
+     * Test poll marks external_error when API returns status 2 after grace period expires.
+     *
+     * @covers ::plagiarism_inspera_poll_file_status
+     */
+    public function test_plagiarism_inspera_poll_file_status_sets_error_after_grace_period(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $record = $this->create_pending_submission(time() - 90000);
+
+        $statusresponse = (object) [
+            'status' => 2,
+            'message' => 'Still failing',
+        ];
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+
+        $clientmock->expects($this->once())
+            ->method('check_document_status')
+            ->willReturn($statusresponse);
+
+        $this->expectOutputRegex('/status 2 after grace period/s');
+        \plagiarism_inspera_poll_file_status($record, $clientmock);
+
+        $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertEquals('external_error', $updatedrecord->status);
+        $this->assertStringContainsString('Still failing', $updatedrecord->description);
+    }
+
+    /**
+     * Test poll catches network exceptions and keeps record pending for retry.
+     *
+     * @covers ::plagiarism_inspera_poll_file_status
+     */
+    public function test_plagiarism_inspera_poll_file_status_exception_keeps_pending(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $record = $this->create_pending_submission(time() - 1000);
+        $record->description = 'unchanged-description';
+        $DB->update_record('plagiarism_inspera_subs', $record);
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+
+        $clientmock->expects($this->once())
+            ->method('check_document_status')
+            ->willThrowException(new \Exception('Network timeout'));
+
+        $this->expectOutputRegex('/poll error.*Network timeout/s');
+        \plagiarism_inspera_poll_file_status($record, $clientmock);
+
+        $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertEquals('pending', $updatedrecord->status);
+        $this->assertEquals('unchanged-description', $updatedrecord->description);
+    }
+
+    /**
+     * Creates a minimal pending plagiarism submission record for poll tests.
+     *
+     * @param int $timecreated Unix timestamp used for grace-period checks.
+     * @return stdClass
+     */
+    private function create_pending_submission(int $timecreated): stdClass {
+        global $DB;
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 0,
+            'status' => 'pending',
+            'externalid' => 'external-id-' . random_int(1000, 9999),
+            'description' => null,
+            'timecreated' => $timecreated,
+            'storedfileid' => 0,
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        return $record;
+    }
 }

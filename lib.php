@@ -2619,6 +2619,18 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
                 $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
                 break;
             case 2:
+                $elapsedseconds = time() - (int)$plagiarismfile->timecreated;
+                if ($elapsedseconds < 86400) {
+                    mtrace("Originality API returned status 2 for fileid {$plagiarismfile->id}; keeping pending during grace period.");
+                    break;
+                }
+
+                $plagiarismfile->status = 'external_error';
+                $plagiarismfile->description = isset($status->message) ? (string)$status->message : json_encode($status);
+                $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+                mtrace("Originality API returned status 2 after grace period for fileid {$plagiarismfile->id}. Response: " .
+                    json_encode($status));
+                break;
             default:
                 $plagiarismfile->status = 'external_error';
                 $plagiarismfile->description = isset($status->message) ? (string)$status->message : json_encode($status);
@@ -2628,9 +2640,6 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
                 break;
         }
     } catch (\Throwable $e) {
-        $plagiarismfile->status = 'external_error';
-        $plagiarismfile->description = $e->getMessage();
-        $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
         mtrace("Originality API poll error for fileid {$plagiarismfile->id}: " . $e->getMessage());
     }
 }
