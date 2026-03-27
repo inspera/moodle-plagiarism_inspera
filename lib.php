@@ -2130,8 +2130,8 @@ function plagiarism_inspera_cleanup_orphaned_records() {
     $fs = get_file_storage();
     $cleaned = 0;
 
-    // Get all records with storedfileid that haven't been sent to API yet.
-    $records = $DB->get_recordset_select(
+    // 1. Get all records with storedfileid that haven't been sent to API yet.
+    $recordset = $DB->get_recordset_select(
         'plagiarism_inspera_subs',
         'storedfileid IS NOT NULL AND (status = ? OR status = ?)',
         ['report_requested', 'pending']
@@ -2155,7 +2155,7 @@ function plagiarism_inspera_cleanup_orphaned_records() {
     }
     $recordset->close();
 
-    // Clean up temporary files for online text that are too old (> 7 days).
+    // 2. Clean up temporary files for online text that are too old (> 7 days).
     $oldtime = time() - (7 * DAYSECS);
 
     // Statuses that are considered "dead" or "stale" after 7 days.
@@ -2165,8 +2165,8 @@ function plagiarism_inspera_cleanup_orphaned_records() {
     $oldrecords = $DB->get_recordset_select('plagiarism_inspera_subs', $sql, $params);
 
     foreach ($oldrecords as $record) {
-        // Only attempt to delete if it's a valid local file path.
-        if (!empty($record->identifier) && file_exists($record->identifier)) {
+        // Only attempt to delete if it's a valid local file path (not a directory).
+        if (!empty($record->identifier) && is_file($record->identifier)) {
             @unlink($record->identifier);
         }
         if (empty($record->externalid)) {
@@ -2268,8 +2268,6 @@ function plagiarism_inspera_create_temp_file(
  */
 function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apiclient\api_client $client) {
     global $DB;
-
-    $isrecent = (time() - (int)$plagiarismfile->timemodified) < 3600;
 
     // Step 1: Create submission if not already done, or if status is report_requested (to ensure fresh presigned URL).
     if (empty($plagiarismfile->externalid) || ($plagiarismfile->status === 'report_requested' && !$isrecent)) {
