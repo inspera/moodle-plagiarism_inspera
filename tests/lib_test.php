@@ -277,6 +277,185 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Test cleanup deletes DB record when Moodle file is gone before reaching Inspera.
+     *
+     * @covers ::plagiarism_inspera_cleanup_orphaned_records
+     */
+    public function test_plagiarism_inspera_cleanup_deletes_unsent_missing_stored_file_record(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $fs = get_file_storage();
+        $filerecord = [
+            'contextid' => \context_module::instance($cm->id)->id,
+            'component' => 'mod_assign',
+            'filearea' => 'submission_files',
+            'itemid' => 1,
+            'filepath' => '/',
+            'filename' => 'missing-before-inspera.pdf',
+            'userid' => $user->id,
+        ];
+        $file = $fs->create_file_from_string($filerecord, 'test');
+
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => null,
+            'timecreated' => time(),
+            'storedfileid' => $file->get_id(),
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        $file->delete();
+        $this->assertFalse((bool)$fs->get_file_by_id($record->storedfileid));
+
+        $cleaned = \plagiarism_inspera_cleanup_orphaned_records();
+
+        $this->assertEquals(1, $cleaned);
+        $this->assertFalse($DB->record_exists('plagiarism_inspera_subs', ['id' => $record->id]));
+    }
+
+    /**
+     * Test cleanup marks record as error when Moodle file is gone after reaching Inspera.
+     *
+     * @covers ::plagiarism_inspera_cleanup_orphaned_records
+     */
+    public function test_plagiarism_inspera_cleanup_marks_sent_missing_stored_file_as_error(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $fs = get_file_storage();
+        $filerecord = [
+            'contextid' => \context_module::instance($cm->id)->id,
+            'component' => 'mod_assign',
+            'filearea' => 'submission_files',
+            'itemid' => 2,
+            'filepath' => '/',
+            'filename' => 'missing-after-inspera.pdf',
+            'userid' => $user->id,
+        ];
+        $file = $fs->create_file_from_string($filerecord, 'test');
+
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 0,
+            'status' => 'pending',
+            'externalid' => 'external-doc-123',
+            'timecreated' => time(),
+            'storedfileid' => $file->get_id(),
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        $file->delete();
+        $this->assertFalse((bool)$fs->get_file_by_id($record->storedfileid));
+
+        $cleaned = \plagiarism_inspera_cleanup_orphaned_records();
+
+        $this->assertEquals(0, $cleaned);
+        $this->assertTrue($DB->record_exists('plagiarism_inspera_subs', ['id' => $record->id]));
+
+        $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertNotFalse($updated);
+        $this->assertEquals('error', $updated->status);
+        $this->assertStringContainsString('Source file deleted', $updated->description);
+    }
+
+    /**
+     * Test cleanup removes stale online-text file and DB record after 7 days.
+     *
+     * @covers ::plagiarism_inspera_cleanup_orphaned_records
+     */
+    public function test_plagiarism_inspera_cleanup_deletes_stale_online_text_file_and_record(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $tempdir = make_temp_directory('plagiarism_inspera_test');
+        $filepath = $tempdir . '/stale_online_text_' . uniqid('', true) . '.html';
+        file_put_contents($filepath, '<p>stale online text</p>');
+        $this->assertTrue(file_exists($filepath));
+
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => null,
+            'identifier' => $filepath,
+            'timecreated' => time() - (8 * 86400),
+            'storedfileid' => null,
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        $cleaned = \plagiarism_inspera_cleanup_orphaned_records();
+
+        $this->assertEquals(1, $cleaned);
+        $this->assertFalse(file_exists($filepath));
+        $this->assertFalse($DB->record_exists('plagiarism_inspera_subs', ['id' => $record->id]));
+    }
+
+    /**
+     * Test cleanup keeps recent online-text file and DB record within 7 days.
+     *
+     * @covers ::plagiarism_inspera_cleanup_orphaned_records
+     */
+    public function test_plagiarism_inspera_cleanup_keeps_recent_online_text_file_and_record(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $tempdir = make_temp_directory('plagiarism_inspera_test');
+        $filepath = $tempdir . '/recent_online_text_' . uniqid('', true) . '.html';
+        file_put_contents($filepath, '<p>recent online text</p>');
+        $this->assertTrue(file_exists($filepath));
+
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => null,
+            'identifier' => $filepath,
+            'timecreated' => time() - 3600,
+            'storedfileid' => null,
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        $cleaned = \plagiarism_inspera_cleanup_orphaned_records();
+
+        $this->assertEquals(0, $cleaned);
+        $this->assertTrue(file_exists($filepath));
+        $this->assertTrue($DB->record_exists('plagiarism_inspera_subs', ['id' => $record->id]));
+
+        @unlink($filepath);
+    }
+
+    /**
      * Creates a minimal pending plagiarism submission record for poll tests.
      *
      * @param int $timemodified Unix timestamp used for grace-period checks.

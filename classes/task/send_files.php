@@ -82,11 +82,12 @@ class send_files extends scheduled_task {
                 mtrace("Polling fileid: {$file->id} (check status)");
                 plagiarism_inspera_poll_file_status($file, $client);
             } catch (\Throwable $e) {
-                mtrace("CRITICAL: Failed to poll fileid {$file->id}. Error: " . $e->getMessage());
-                // If polling fails catastrophically, mark as error.
-                $file->status = 'external_error';
-                $file->description = 'Polling task failure: ' . $e->getMessage();
-                $DB->update_record('plagiarism_inspera_subs', $file);
+                // We catch here ONLY to protect the cron loop from crashing entirely.
+                mtrace("CRITICAL: Unexpected failure while polling fileid {$file->id}. Error: " . $e->getMessage());
+                mtrace("Notice: Leaving fileid {$file->id} as 'pending' to allow soft-resume on the next cron run.");
+
+                // DO NOT update the database status to 'external_error' here.
+                // Let the 24-hour grace period inside plagiarism_inspera_poll_file_status handle timeouts.
             }
             unset($file);
         }
