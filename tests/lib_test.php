@@ -41,7 +41,6 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class lib_test extends advanced_testcase {
-
     /**
      * Test plagiarism_inspera_send_file handles existing externalid when status is report_requested.
      *
