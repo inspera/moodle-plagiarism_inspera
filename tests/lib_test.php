@@ -18,6 +18,7 @@
  * Library tests for the Plagiarism Inspera plugin.
  *
  * @package     plagiarism_inspera
+ * @category   test
  * @copyright   2026 Inspera
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -109,17 +110,23 @@ final class lib_test extends advanced_testcase {
             ->willReturn(true);
 
         // 3. Execution.
+        $beforecall = time();
+
         // Capture mtrace output.
         $this->expectOutputRegex('/Created submission.*Uploaded file content/s');
 
         // Call the global function from our namespaced test.
         \plagiarism_inspera_send_file($record, $clientmock);
+        $aftercall = time();
 
         // 4. Verification.
         $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
         $this->assertEquals($newexternalid, $updatedrecord->externalid);
         $this->assertEquals('pending', $updatedrecord->status);
         $this->assertNotEquals($oldexternalid, $updatedrecord->externalid);
+        $this->assertNotNull($updatedrecord->timemodified);
+        $this->assertGreaterThanOrEqual($beforecall, (int)$updatedrecord->timemodified);
+        $this->assertLessThanOrEqual($aftercall, (int)$updatedrecord->timemodified);
     }
 
     /**

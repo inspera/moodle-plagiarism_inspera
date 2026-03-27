@@ -2422,7 +2422,6 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         // Store external document ID and presigned URL.
         $plagiarismfile->externalid   = $submission->documentId;
         $plagiarismfile->presignedurl = $submission->presignedS3Url;
-        $plagiarismfile->status       = 'pending';
 
         $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
 
@@ -2508,6 +2507,10 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
     try {
         $success = $client->upload_to_presigned_url($plagiarismfile->presignedurl, $content, $mimetype);
         if ($success) {
+            $plagiarismfile->timemodified = time();
+            $plagiarismfile->status = 'pending';
+            $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+
             mtrace("Uploaded file content for documentId: {$plagiarismfile->externalid}");
 
             // Clean up temporary file if it exists.
