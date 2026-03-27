@@ -59,8 +59,16 @@ class send_files extends scheduled_task {
         // Step 1: Process new files (report_requested).
         $newfiles = $DB->get_recordset('plagiarism_inspera_subs', ['status' => 'report_requested']);
         foreach ($newfiles as $file) {
-            mtrace("Processing fileid: {$file->id} (create submission + upload)");
-            plagiarism_inspera_send_file($file, $client);
+            try {
+                mtrace("Processing fileid: {$file->id} (create submission + upload)");
+                plagiarism_inspera_send_file($file, $client);
+            } catch (\Throwable $e) {
+                mtrace("CRITICAL: Failed to process fileid {$file->id}. Error: " . $e->getMessage());
+                // Mark as error so we don't keep retrying and crashing.
+                $file->status = 'error';
+                $file->description = 'Task failure: ' . $e->getMessage();
+                $DB->update_record('plagiarism_inspera_subs', $file);
+            }
 
             // Allow memory cleanup.
             unset($file);
@@ -70,8 +78,16 @@ class send_files extends scheduled_task {
         // Step 2: Poll pending files.
         $pendingfiles = $DB->get_recordset('plagiarism_inspera_subs', ['status' => 'pending']);
         foreach ($pendingfiles as $file) {
-            mtrace("Polling fileid: {$file->id} (check status)");
-            plagiarism_inspera_poll_file_status($file, $client);
+            try {
+                mtrace("Polling fileid: {$file->id} (check status)");
+                plagiarism_inspera_poll_file_status($file, $client);
+            } catch (\Throwable $e) {
+                mtrace("CRITICAL: Failed to poll fileid {$file->id}. Error: " . $e->getMessage());
+                // If polling fails catastrophically, mark as error.
+                $file->status = 'external_error';
+                $file->description = 'Polling task failure: ' . $e->getMessage();
+                $DB->update_record('plagiarism_inspera_subs', $file);
+            }
             unset($file);
         }
         $pendingfiles->close();

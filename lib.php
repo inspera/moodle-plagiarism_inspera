@@ -2267,8 +2267,9 @@ function plagiarism_inspera_create_temp_file(
 function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apiclient\api_client $client) {
     global $DB;
 
-    // Step 1: Create submission if not already done.
-    if (empty($plagiarismfile->externalid)) {
+    // Step 1: Create submission if not already done, or if status is report_requested (to ensure fresh presigned URL).
+    if (empty($plagiarismfile->externalid) || $plagiarismfile->status === 'report_requested') {
+        $plagiarismfile->externalid = null; // Clear existing ID to ensure we don't use a stale one if creation fails.
         $user = $DB->get_record('user', ['id' => $plagiarismfile->userid], '*', MUST_EXIST);
 
         // BLIND MARKING CHECK.
@@ -2524,7 +2525,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
             return false;
         }
-    } catch (\Exception $e) {
+    } catch (\Throwable $e) {
         mtrace("Error uploading file content for documentId: {$plagiarismfile->externalid}: " . $e->getMessage());
         $plagiarismfile->status = 'external_error';
         $plagiarismfile->description = $e->getMessage();
@@ -2626,7 +2627,7 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
                     json_encode($status));
                 break;
         }
-    } catch (\Exception $e) {
+    } catch (\Throwable $e) {
         $plagiarismfile->status = 'external_error';
         $plagiarismfile->description = $e->getMessage();
         $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
