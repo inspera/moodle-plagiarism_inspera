@@ -274,7 +274,7 @@ final class lib_test extends advanced_testcase {
      * @param int $timecreated Unix timestamp used for grace-period checks.
      * @return stdClass
      */
-    private function create_pending_submission(int $timecreated): stdClass {
+    private function create_pending_submission(int $timemodified): stdClass {
         global $DB;
 
         $course = $this->getDataGenerator()->create_course();
@@ -289,7 +289,8 @@ final class lib_test extends advanced_testcase {
             'status' => 'pending',
             'externalid' => 'external-id-' . random_int(1000, 9999),
             'description' => null,
-            'timecreated' => $timecreated,
+            'timecreated' => time(),
+            'timemodified' => $timemodified,
             'storedfileid' => 0,
         ];
         $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);

@@ -2619,7 +2619,7 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
                 $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
                 break;
             case 2:
-                $elapsedseconds = time() - (int)$plagiarismfile->timecreated;
+                $elapsedseconds = time() - (int)$plagiarismfile->timemodified;
                 if ($elapsedseconds < 86400) {
                     mtrace("Originality API returned status 2 for fileid {$plagiarismfile->id}; keeping pending " .
                         "during grace period.");
