@@ -271,7 +271,7 @@ final class lib_test extends advanced_testcase {
     /**
      * Creates a minimal pending plagiarism submission record for poll tests.
      *
-     * @param int $timecreated Unix timestamp used for grace-period checks.
+     * @param int $timemodified Unix timestamp used for grace-period checks.
      * @return stdClass
      */
     private function create_pending_submission(int $timemodified): stdClass {
