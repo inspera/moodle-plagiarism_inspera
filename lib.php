@@ -2270,7 +2270,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
     global $DB;
 
     // Step 1: Create submission if not already done, or if status is report_requested (to ensure fresh presigned URL).
-    if (empty($plagiarismfile->externalid) || ($plagiarismfile->status === 'report_requested' && !$isrecent)) {
+    if (empty($plagiarismfile->externalid) || $plagiarismfile->status === 'report_requested') {
         $plagiarismfile->externalid = null; // Clear existing ID to ensure we don't use a stale one if creation fails.
         $user = $DB->get_record('user', ['id' => $plagiarismfile->userid], '*', MUST_EXIST);
 
