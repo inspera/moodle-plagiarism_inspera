@@ -2158,40 +2158,39 @@ function plagiarism_inspera_cleanup_orphaned_records() {
 
     // 2. Clean up temporary files for online text that are too old (> 7 days).
     $oldtime = time() - (7 * DAYSECS);
-
-    // Statuses that are considered "dead" or "stale" after 7 days.
     $sql = "identifier IS NOT NULL AND timecreated < ? AND status IN (?, ?, ?)";
     $params = [$oldtime, 'report_requested', 'error', 'superseded'];
 
     $oldrecords = $DB->get_recordset_select('plagiarism_inspera_subs', $sql, $params);
 
+    // Resolve the base path
+    $safebase = make_temp_directory('plagiarism_inspera');
+    $realbasepath = realpath($safebase);
+
+    if ($realbasepath === false) {
+        mtrace('SECURITY WARNING: Base temp directory could not be resolved. File cleanup will be skipped.');
+    } else {
+        // Ensure base path ends with a directory separator for reliable prefix checking.
+        $realbasepath = str_replace('\\', '/', $realbasepath);
+        if (substr($realbasepath, -1) !== '/') {
+            $realbasepath .= '/';
+        }
+    }
+
     foreach ($oldrecords as $record) {
         $tempfilepath = $record->identifier;
-        if (empty($tempfilepath)) {
-            continue;
-        }
 
-        $safebase = make_temp_directory('plagiarism_inspera');
-        $realbasepath = realpath($safebase);
-
-        if ($realbasepath === false) {
-            mtrace('SECURITY WARNING: Cleanup skipped because base temp directory could not be resolved.');
-        } else if (file_exists($tempfilepath)) {
+        // Only attempt file cleanup if we successfully resolved the base path.
+        if ($realbasepath !== false && !empty($tempfilepath) && file_exists($tempfilepath)) {
             $realfilepath = realpath($tempfilepath);
 
             if ($realfilepath === false) {
                 mtrace("SECURITY WARNING: Cleanup skipped unresolved path: {$tempfilepath}");
             } else {
                 $normalizedfilepath = str_replace('\\', '/', $realfilepath);
-                $normalizedbase     = str_replace('\\', '/', $realbasepath);
-
-                // Ensure base path ends with a directory separator for reliable prefix checking.
-                if (substr($normalizedbase, -1) !== '/') {
-                    $normalizedbase .= '/';
-                }
 
                 $isunsafe = (strpos($normalizedfilepath, '..') !== false) ||
-                    (strpos($normalizedfilepath, $normalizedbase) !== 0);
+                    (strpos($normalizedfilepath, $realbasepath) !== 0);
 
                 if ($isunsafe) {
                     mtrace("SECURITY WARNING: Cleanup skipped unauthorized path: {$tempfilepath}");
@@ -2465,6 +2464,11 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         mtrace("Created submission for fileid: {$plagiarismfile->id}, documentId: {$submission->documentId}");
     }
 
+    // Extract the transient URL to a local variable and strip it from the DB object.
+    // This prevents dml_write_exceptions on all subsequent DB updates in Step 2.
+    $uploadurl = $plagiarismfile->presignedurl ?? null;
+    unset($plagiarismfile->presignedurl);
+
     // Step 2: Upload file content.
     $content = null;
     $mimetype = 'text/html';
@@ -2542,7 +2546,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
     }
 
     try {
-        $success = $client->upload_to_presigned_url($plagiarismfile->presignedurl, $content, $mimetype);
+        $success = $client->upload_to_presigned_url($uploadurl, $content, $mimetype);
         if ($success) {
             $plagiarismfile->timemodified = time();
             $plagiarismfile->status = 'pending';
