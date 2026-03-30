@@ -2125,7 +2125,7 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
  * @return int Number of records cleaned up
  */
 function plagiarism_inspera_cleanup_orphaned_records() {
-    global $DB, $CFG;
+    global $DB;
 
     $fs = get_file_storage();
     $cleaned = 0;
@@ -2167,25 +2167,41 @@ function plagiarism_inspera_cleanup_orphaned_records() {
 
     foreach ($oldrecords as $record) {
         $tempfilepath = $record->identifier;
-
-        $safebase = make_temp_directory('plagiarism_inspera');
-        $normalizedfilepath = str_replace('\\', '/', $tempfilepath);
-        $normalizedbase     = str_replace('\\', '/', $safebase);
-
-        // Check for Security Violations first.
-        $isunsafe = (
-            strpos($normalizedfilepath, '..') !== false) ||
-            (strpos($normalizedfilepath, $normalizedbase) !== 0
-        );
-
-        if ($isunsafe) {
-            mtrace("SECURITY WARNING: Cleanup skipped unauthorized path: {$tempfilepath}");
-        } else if (is_file($tempfilepath)) {
-            // If the file is already gone, is_file returns false and we do nothing (no empty block needed).
-            @unlink($tempfilepath);
+        if (empty($tempfilepath)) {
+            continue;
         }
 
-        // 3. Always clean up the DB record if it never reached Inspera.
+        $safebase = make_temp_directory('plagiarism_inspera');
+        $realbasepath = realpath($safebase);
+
+        if ($realbasepath === false) {
+            mtrace('SECURITY WARNING: Cleanup skipped because base temp directory could not be resolved.');
+        } else if (file_exists($tempfilepath)) {
+            $realfilepath = realpath($tempfilepath);
+
+            if ($realfilepath === false) {
+                mtrace("SECURITY WARNING: Cleanup skipped unresolved path: {$tempfilepath}");
+            } else {
+                $normalizedfilepath = str_replace('\\', '/', $realfilepath);
+                $normalizedbase     = str_replace('\\', '/', $realbasepath);
+
+                // Ensure base path ends with a directory separator for reliable prefix checking.
+                if (substr($normalizedbase, -1) !== '/') {
+                    $normalizedbase .= '/';
+                }
+
+                $isunsafe = (strpos($normalizedfilepath, '..') !== false) ||
+                    (strpos($normalizedfilepath, $normalizedbase) !== 0);
+
+                if ($isunsafe) {
+                    mtrace("SECURITY WARNING: Cleanup skipped unauthorized path: {$tempfilepath}");
+                } else if (is_file($realfilepath)) {
+                    @unlink($realfilepath);
+                }
+            }
+        }
+
+        // Always clean up the DB record if it never reached Inspera.
         if (empty($record->externalid)) {
             $DB->delete_records('plagiarism_inspera_subs', ['id' => $record->id]);
             $cleaned++;

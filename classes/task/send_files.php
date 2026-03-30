@@ -87,7 +87,7 @@ class send_files extends scheduled_task {
                 mtrace("Notice: Leaving fileid {$file->id} as 'pending' to allow soft-resume on the next cron run.");
 
                 // DO NOT update the database status to 'external_error' here.
-                // Let the 24-hour grace period inside plagiarism_inspera_poll_file_status handle timeouts.
+                // If the network/API recovers on a future cron run, polling will successfully resume.
             }
             unset($file);
         }
