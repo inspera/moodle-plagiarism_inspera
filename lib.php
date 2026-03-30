@@ -2168,27 +2168,24 @@ function plagiarism_inspera_cleanup_orphaned_records() {
     foreach ($oldrecords as $record) {
         $tempfilepath = $record->identifier;
 
-        // Use the same helper to find our "Safe Zone".
-        // make_temp_directory returns the full path like /var/www/moodledata/temp/plagiarism_inspera
         $safebase = make_temp_directory('plagiarism_inspera');
-
         $normalizedfilepath = str_replace('\\', '/', $tempfilepath);
         $normalizedbase     = str_replace('\\', '/', $safebase);
 
-        // Security Check: Path must be inside our plugin's temp dir and have no traversal (../).
-        $ispathsafe = !empty($tempfilepath) &&
-            strpos($normalizedfilepath, '..') === false &&
-            strpos($normalizedfilepath, $normalizedbase) === 0;
+        // Check for Security Violations first.
+        $isunsafe = (
+            strpos($normalizedfilepath, '..') !== false) ||
+            (strpos($normalizedfilepath, $normalizedbase) !== 0
+        );
 
-        if ($ispathsafe && is_file($tempfilepath)) {
-            @unlink($tempfilepath);
-        } else if (!empty($tempfilepath) && !is_file($tempfilepath)) {
-            // File already gone, ignore.
-        } else if (!empty($tempfilepath)) {
+        if ($isunsafe) {
             mtrace("SECURITY WARNING: Cleanup skipped unauthorized path: {$tempfilepath}");
+        } else if (is_file($tempfilepath)) {
+            // If the file is already gone, is_file returns false and we do nothing (no empty block needed).
+            @unlink($tempfilepath);
         }
 
-        // Wipe the DB record if it never successfully reached Inspera.
+        // 3. Always clean up the DB record if it never reached Inspera.
         if (empty($record->externalid)) {
             $DB->delete_records('plagiarism_inspera_subs', ['id' => $record->id]);
             $cleaned++;
