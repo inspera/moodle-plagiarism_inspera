@@ -76,7 +76,11 @@ class send_files extends scheduled_task {
         $newfiles->close();
 
         // Step 2: Poll pending files.
-        $pendingfiles = $DB->get_recordset('plagiarism_inspera_subs', ['status' => 'pending']);
+        $pendingfiles = $DB->get_recordset(
+            'plagiarism_inspera_subs',
+            ['status' => 'pending'],
+            'timemodified ASC, id ASC'
+        );
         foreach ($pendingfiles as $file) {
             try {
                 mtrace("Polling fileid: {$file->id} (check status)");
