@@ -57,7 +57,11 @@ class send_files extends scheduled_task {
         $client = new api_client();
 
         // Step 1: Process new files (report_requested).
-        $newfiles = $DB->get_recordset('plagiarism_inspera_subs', ['status' => 'report_requested']);
+        $newfiles = $DB->get_recordset(
+            'plagiarism_inspera_subs',
+            ['status' => 'report_requested'],
+            'timecreated ASC, id ASC'
+        );
         foreach ($newfiles as $file) {
             try {
                 mtrace("Processing fileid: {$file->id} (create submission + upload)");
