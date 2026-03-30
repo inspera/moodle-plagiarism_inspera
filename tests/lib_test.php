@@ -390,7 +390,7 @@ final class lib_test extends advanced_testcase {
         $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('assign', $assign->id);
 
-        $tempdir = make_temp_directory('plagiarism_inspera_test');
+        $tempdir = make_temp_directory('plagiarism_inspera');
         $filepath = $tempdir . '/stale_online_text_' . uniqid('', true) . '.html';
         file_put_contents($filepath, '<p>stale online text</p>');
         $this->assertTrue(file_exists($filepath));
@@ -429,7 +429,7 @@ final class lib_test extends advanced_testcase {
         $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('assign', $assign->id);
 
-        $tempdir = make_temp_directory('plagiarism_inspera_test');
+        $tempdir = make_temp_directory('plagiarism_inspera');
         $filepath = $tempdir . '/recent_online_text_' . uniqid('', true) . '.html';
         file_put_contents($filepath, '<p>recent online text</p>');
         $this->assertTrue(file_exists($filepath));

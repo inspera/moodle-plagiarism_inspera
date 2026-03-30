@@ -2125,12 +2125,13 @@ function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = n
  * @return int Number of records cleaned up
  */
 function plagiarism_inspera_cleanup_orphaned_records() {
-    global $DB;
+    global $DB, $CFG;
 
     $fs = get_file_storage();
     $cleaned = 0;
 
-    // 1. Get all records with storedfileid that haven't been sent to API yet.
+    // 1. Handle Moodle File Uploads.
+    // Use get_recordset for memory efficiency.
     $recordset = $DB->get_recordset_select(
         'plagiarism_inspera_subs',
         'storedfileid IS NOT NULL AND (status = ? OR status = ?)',
@@ -2141,11 +2142,11 @@ function plagiarism_inspera_cleanup_orphaned_records() {
         // Check if the source file actually exists in Moodle's file pool.
         if (!$fs->get_file_by_id($record->storedfileid)) {
             if (empty($record->externalid)) {
-                // If it never reached Inspera, we can safely wipe it.
+                // If it never reached Inspera, we can safely wipe the DB record.
                 $DB->delete_records('plagiarism_inspera_subs', ['id' => $record->id]);
                 $cleaned++;
             } else {
-                // If it reached Inspera but the source is gone, stop polling.
+                // If it reached Inspera but the source is gone, mark as error and stop polling.
                 $record->status = 'error';
                 $record->description = 'Source file deleted from Moodle storage.';
                 $record->timemodified = time();
@@ -2165,10 +2166,29 @@ function plagiarism_inspera_cleanup_orphaned_records() {
     $oldrecords = $DB->get_recordset_select('plagiarism_inspera_subs', $sql, $params);
 
     foreach ($oldrecords as $record) {
-        // Only attempt to delete if it's a valid local file path (not a directory).
-        if (!empty($record->identifier) && is_file($record->identifier)) {
-            @unlink($record->identifier);
+        $tempfilepath = $record->identifier;
+
+        // Use the same helper to find our "Safe Zone".
+        // make_temp_directory returns the full path like /var/www/moodledata/temp/plagiarism_inspera
+        $safebase = make_temp_directory('plagiarism_inspera');
+
+        $normalizedfilepath = str_replace('\\', '/', $tempfilepath);
+        $normalizedbase     = str_replace('\\', '/', $safebase);
+
+        // Security Check: Path must be inside our plugin's temp dir and have no traversal (../).
+        $ispathsafe = !empty($tempfilepath) &&
+            strpos($normalizedfilepath, '..') === false &&
+            strpos($normalizedfilepath, $normalizedbase) === 0;
+
+        if ($ispathsafe && is_file($tempfilepath)) {
+            @unlink($tempfilepath);
+        } else if (!empty($tempfilepath) && !is_file($tempfilepath)) {
+            // File already gone, ignore.
+        } else if (!empty($tempfilepath)) {
+            mtrace("SECURITY WARNING: Cleanup skipped unauthorized path: {$tempfilepath}");
         }
+
+        // Wipe the DB record if it never successfully reached Inspera.
         if (empty($record->externalid)) {
             $DB->delete_records('plagiarism_inspera_subs', ['id' => $record->id]);
             $cleaned++;
@@ -2423,9 +2443,11 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
 
         // Store external document ID and presigned URL.
         $plagiarismfile->externalid   = $submission->documentId;
-        $plagiarismfile->presignedurl = $submission->presignedS3Url;
+        $transienturl = $submission->presignedS3Url;
 
         $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+
+        $plagiarismfile->presignedurl = $transienturl;
 
         mtrace("Created submission for fileid: {$plagiarismfile->id}, documentId: {$submission->documentId}");
     }
@@ -2626,7 +2648,7 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
             case 2:
                 $graceperiodreference = (int)($plagiarismfile->timemodified ?? $plagiarismfile->timecreated ?? time());
                 $elapsedseconds = time() - $graceperiodreference;
-                if ($elapsedseconds < 86400) {
+                if ($elapsedseconds < DAYSECS) {
                     mtrace("Originality API returned status 2 for fileid {$plagiarismfile->id}; keeping pending " .
                         "during grace period.");
                     break;
