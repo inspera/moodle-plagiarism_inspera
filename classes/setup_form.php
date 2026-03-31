@@ -97,6 +97,16 @@ class plagiarism_inspera_setup_form extends moodleform {
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
 
+        // BEHAT BYPASS.
+        // If Behat is driving the browser AND it uses our specific "success" URL.
+        // We skip the external API call and return immediately with no errors.
+        if (
+            defined('BEHAT_SITE_RUNNING') &&
+            $data['baseurl'] === 'https://api.originality.example/v1'
+        ) {
+            return $errors;
+        }
+
         // Only validate if we have the minimum required fields filled in.
         if (!empty($data['baseurl']) && !empty($data['clientid'])) {
             // Prepare the config object for the client.
