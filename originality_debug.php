@@ -159,6 +159,7 @@ if (!empty($deleteselected)) {
                     character_replacement = NULL,
                     hidden_text = NULL,
                     image_as_text = NULL,
+                    externalid = NULL,
                     description = NULL
                 WHERE id $insql";
 

@@ -2130,43 +2130,77 @@ function plagiarism_inspera_cleanup_orphaned_records() {
     $fs = get_file_storage();
     $cleaned = 0;
 
-    // Get all records with storedfileid that haven't been sent to API yet.
-    $records = $DB->get_recordset_select(
+    // 1. Handle Moodle File Uploads.
+    // Use get_recordset for memory efficiency.
+    $recordset = $DB->get_recordset_select(
         'plagiarism_inspera_subs',
         'storedfileid IS NOT NULL AND (status = ? OR status = ?)',
         ['report_requested', 'pending']
     );
 
-    foreach ($records as $record) {
-        // Check if file still exists.
-        $file = $fs->get_file_by_id($record->storedfileid);
-        if (!$file) {
-            // File was deleted - remove the record if it hasn't been sent to API.
+    foreach ($recordset as $record) {
+        // Check if the source file actually exists in Moodle's file pool.
+        if (!$fs->get_file_by_id($record->storedfileid)) {
             if (empty($record->externalid)) {
+                // If it never reached Inspera, we can safely wipe the DB record.
                 $DB->delete_records('plagiarism_inspera_subs', ['id' => $record->id]);
                 $cleaned++;
             } else {
-                // Mark as error since file is gone but was already submitted.
+                // If it reached Inspera but the source is gone, mark as error and stop polling.
                 $record->status = 'error';
-                $record->description = 'Stored file deleted after submission';
+                $record->description = 'Source file deleted from Moodle storage.';
+                $record->timemodified = time();
                 $DB->update_record('plagiarism_inspera_subs', $record);
             }
         }
     }
-    $records->close();
+    $recordset->close();
 
-    // Clean up temporary files for online text that are too old (> 7 days).
-    $oldtime = time() - (7 * 24 * 60 * 60);
-    $oldrecords = $DB->get_recordset_select(
-        'plagiarism_inspera_subs',
-        'identifier IS NOT NULL AND timecreated < ? AND (status = ? OR status = ? OR status = ?)',
-        [$oldtime, 'report_requested', 'error', 'superseded']
-    );
+    // 2. Clean up temporary files for online text that are too old (> 7 days).
+    $oldtime = time() - (7 * DAYSECS);
+    $sql = "identifier IS NOT NULL AND timecreated < ? AND status IN (?, ?, ?)";
+    $params = [$oldtime, 'report_requested', 'error', 'superseded'];
+
+    $oldrecords = $DB->get_recordset_select('plagiarism_inspera_subs', $sql, $params);
+
+    // Resolve the base path
+    $safebase = make_temp_directory('plagiarism_inspera');
+    $realbasepath = realpath($safebase);
+
+    if ($realbasepath === false) {
+        mtrace('SECURITY WARNING: Base temp directory could not be resolved. File cleanup will be skipped.');
+    } else {
+        // Ensure base path ends with a directory separator for reliable prefix checking.
+        $realbasepath = str_replace('\\', '/', $realbasepath);
+        if (substr($realbasepath, -1) !== '/') {
+            $realbasepath .= '/';
+        }
+    }
 
     foreach ($oldrecords as $record) {
-        if (!empty($record->identifier) && file_exists($record->identifier)) {
-            unlink($record->identifier);
+        $tempfilepath = $record->identifier;
+
+        // Only attempt file cleanup if we successfully resolved the base path.
+        if ($realbasepath !== false && !empty($tempfilepath) && file_exists($tempfilepath)) {
+            $realfilepath = realpath($tempfilepath);
+
+            if ($realfilepath === false) {
+                mtrace("SECURITY WARNING: Cleanup skipped unresolved path: {$tempfilepath}");
+            } else {
+                $normalizedfilepath = str_replace('\\', '/', $realfilepath);
+
+                $isunsafe = (strpos($normalizedfilepath, '..') !== false) ||
+                    (strpos($normalizedfilepath, $realbasepath) !== 0);
+
+                if ($isunsafe) {
+                    mtrace("SECURITY WARNING: Cleanup skipped unauthorized path: {$tempfilepath}");
+                } else if (is_file($realfilepath)) {
+                    @unlink($realfilepath);
+                }
+            }
         }
+
+        // Always clean up the DB record if it never reached Inspera.
         if (empty($record->externalid)) {
             $DB->delete_records('plagiarism_inspera_subs', ['id' => $record->id]);
             $cleaned++;
@@ -2267,8 +2301,9 @@ function plagiarism_inspera_create_temp_file(
 function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apiclient\api_client $client) {
     global $DB;
 
-    // Step 1: Create submission if not already done.
-    if (empty($plagiarismfile->externalid)) {
+    // Step 1: Create submission if not already done, or if status is report_requested (to ensure fresh presigned URL).
+    if (empty($plagiarismfile->externalid) || $plagiarismfile->status === 'report_requested') {
+        $plagiarismfile->externalid = null; // Clear existing ID to ensure we don't use a stale one if creation fails.
         $user = $DB->get_record('user', ['id' => $plagiarismfile->userid], '*', MUST_EXIST);
 
         // BLIND MARKING CHECK.
@@ -2420,13 +2455,19 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
 
         // Store external document ID and presigned URL.
         $plagiarismfile->externalid   = $submission->documentId;
-        $plagiarismfile->presignedurl = $submission->presignedS3Url;
-        $plagiarismfile->status       = 'pending';
+        $transienturl = $submission->presignedS3Url;
 
         $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
 
+        $plagiarismfile->presignedurl = $transienturl;
+
         mtrace("Created submission for fileid: {$plagiarismfile->id}, documentId: {$submission->documentId}");
     }
+
+    // Extract the transient URL to a local variable and strip it from the DB object.
+    // This prevents dml_write_exceptions on all subsequent DB updates in Step 2.
+    $uploadurl = $plagiarismfile->presignedurl ?? null;
+    unset($plagiarismfile->presignedurl);
 
     // Step 2: Upload file content.
     $content = null;
@@ -2505,8 +2546,12 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
     }
 
     try {
-        $success = $client->upload_to_presigned_url($plagiarismfile->presignedurl, $content, $mimetype);
+        $success = $client->upload_to_presigned_url($uploadurl, $content, $mimetype);
         if ($success) {
+            $plagiarismfile->timemodified = time();
+            $plagiarismfile->status = 'pending';
+            $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+
             mtrace("Uploaded file content for documentId: {$plagiarismfile->externalid}");
 
             // Clean up temporary file if it exists.
@@ -2524,7 +2569,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
             return false;
         }
-    } catch (\Exception $e) {
+    } catch (\Throwable $e) {
         mtrace("Error uploading file content for documentId: {$plagiarismfile->externalid}: " . $e->getMessage());
         $plagiarismfile->status = 'external_error';
         $plagiarismfile->description = $e->getMessage();
@@ -2615,21 +2660,37 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
                 $plagiarismfile->character_replacement = $charrepl;
                 $plagiarismfile->hidden_text = $status->hiddenText ?? null;
                 $plagiarismfile->image_as_text = $status->imageAsText ?? null;
+                $plagiarismfile->timemodified = time();
                 $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
                 break;
             case 2:
+                $graceperiodreference = (int)($plagiarismfile->timemodified ?? $plagiarismfile->timecreated ?? time());
+                $elapsedseconds = time() - $graceperiodreference;
+                if ($elapsedseconds < DAYSECS) {
+                    mtrace("Originality API returned status 2 for fileid {$plagiarismfile->id}; keeping pending " .
+                        "during grace period.");
+                    break;
+                }
+
+                $plagiarismfile->status = 'external_error';
+                $plagiarismfile->description = isset($status->message) ? (string)$status->message : json_encode($status);
+
+                $plagiarismfile->timemodified = time();
+
+                $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+                mtrace("Originality API returned status 2 after grace period for fileid {$plagiarismfile->id}. Response: " .
+                    json_encode($status));
+                break;
             default:
                 $plagiarismfile->status = 'external_error';
                 $plagiarismfile->description = isset($status->message) ? (string)$status->message : json_encode($status);
+                $plagiarismfile->timemodified = time();
                 $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
                 mtrace("Originality API returned error status for fileid {$plagiarismfile->id}. Response: " .
                     json_encode($status));
                 break;
         }
-    } catch (\Exception $e) {
-        $plagiarismfile->status = 'external_error';
-        $plagiarismfile->description = $e->getMessage();
-        $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+    } catch (\Throwable $e) {
         mtrace("Originality API poll error for fileid {$plagiarismfile->id}: " . $e->getMessage());
     }
 }

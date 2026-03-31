@@ -57,10 +57,22 @@ class send_files extends scheduled_task {
         $client = new api_client();
 
         // Step 1: Process new files (report_requested).
-        $newfiles = $DB->get_recordset('plagiarism_inspera_subs', ['status' => 'report_requested']);
+        $newfiles = $DB->get_recordset(
+            'plagiarism_inspera_subs',
+            ['status' => 'report_requested'],
+            'timecreated ASC, id ASC'
+        );
         foreach ($newfiles as $file) {
-            mtrace("Processing fileid: {$file->id} (create submission + upload)");
-            plagiarism_inspera_send_file($file, $client);
+            try {
+                mtrace("Processing fileid: {$file->id} (create submission + upload)");
+                plagiarism_inspera_send_file($file, $client);
+            } catch (\Throwable $e) {
+                mtrace("CRITICAL: Failed to process fileid {$file->id}. Error: " . $e->getMessage());
+                // Mark as error so we don't keep retrying and crashing.
+                $file->status = 'error';
+                $file->description = 'Task failure: ' . $e->getMessage();
+                $DB->update_record('plagiarism_inspera_subs', $file);
+            }
 
             // Allow memory cleanup.
             unset($file);
@@ -68,10 +80,23 @@ class send_files extends scheduled_task {
         $newfiles->close();
 
         // Step 2: Poll pending files.
-        $pendingfiles = $DB->get_recordset('plagiarism_inspera_subs', ['status' => 'pending']);
+        $pendingfiles = $DB->get_recordset(
+            'plagiarism_inspera_subs',
+            ['status' => 'pending'],
+            'timemodified ASC, id ASC'
+        );
         foreach ($pendingfiles as $file) {
-            mtrace("Polling fileid: {$file->id} (check status)");
-            plagiarism_inspera_poll_file_status($file, $client);
+            try {
+                mtrace("Polling fileid: {$file->id} (check status)");
+                plagiarism_inspera_poll_file_status($file, $client);
+            } catch (\Throwable $e) {
+                // We catch here ONLY to protect the cron loop from crashing entirely.
+                mtrace("CRITICAL: Unexpected failure while polling fileid {$file->id}. Error: " . $e->getMessage());
+                mtrace("Notice: Leaving fileid {$file->id} as 'pending' to allow soft-resume on the next cron run.");
+
+                // DO NOT update the database status to 'external_error' here.
+                // If the network/API recovers on a future cron run, polling will successfully resume.
+            }
             unset($file);
         }
         $pendingfiles->close();
