@@ -1,4 +1,4 @@
-@plagiarism_inspera
+@plagiarism @plagiarism_inspera
 Feature: Admin config for Inspera Originality plugin
   In order to configure Inspera Originality globally
   As an admin
