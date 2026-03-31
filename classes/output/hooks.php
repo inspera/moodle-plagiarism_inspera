@@ -61,7 +61,7 @@ class hooks {
 
         // 2. Page Action Check.
         $action = optional_param('action', '', PARAM_ALPHA);
-        if ($action !== 'grading' && $action !== 'grader') {
+        if ($action !== 'grading') {
             return;
         }
 
