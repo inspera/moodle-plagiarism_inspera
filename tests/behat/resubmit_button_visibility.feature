@@ -40,7 +40,6 @@ Feature: Resubmit all button visibility
     And I wait "3" seconds
     And I press "Save and display"
 
-
     # 2. Go to submissions list (action=grading) and verify button is present.
     When I click on "Submissions" "link"
     Then I should see "Generate originality reports"
