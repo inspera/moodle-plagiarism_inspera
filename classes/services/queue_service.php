@@ -24,13 +24,12 @@
 
 namespace plagiarism_inspera\services;
 
-defined('MOODLE_INTERNAL') || die();
+\defined('MOODLE_INTERNAL') || die();
 
 /**
  * Service class for queuing files to Inspera Originality.
  */
 class queue_service {
-
     /** @var \moodle_database */
     private $db;
 
@@ -56,7 +55,7 @@ class queue_service {
     public function queue_file(
         int $cmid,
         int $userid,
-            $file,
+        mixed $file,
         ?int $relateduserid = null,
         ?int $submissionid = null
     ): void {

@@ -1999,7 +1999,7 @@ function plagiarism_inspera_cleanup_orphaned_records() {
 
     $oldrecords = $DB->get_recordset_select('plagiarism_inspera_subs', $sql, $params);
 
-    // Resolve the base path
+    // Resolve the base path.
     $safebase = make_temp_directory('plagiarism_inspera');
     $realbasepath = realpath($safebase);
 

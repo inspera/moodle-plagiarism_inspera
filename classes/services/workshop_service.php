@@ -24,13 +24,12 @@
 
 namespace plagiarism_inspera\services;
 
-defined('MOODLE_INTERNAL') || die();
+\defined('MOODLE_INTERNAL') || die();
 
 /**
  * Service class for handling workshop activities.
  */
 class workshop_service {
-
     /** @var \moodle_database */
     private $db;
 
