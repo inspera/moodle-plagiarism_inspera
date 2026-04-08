@@ -135,7 +135,7 @@ class workshop_service {
                         (int) $submission->authorid,
                         $tempfile,
                         null,
-                        (int) $submission->id
+                        0
                     );
                 }
             }
@@ -166,7 +166,7 @@ class workshop_service {
                     (int) $submission->authorid,
                     $file,
                     null,
-                    (int) $submission->id
+                    0
                 );
             }
         }

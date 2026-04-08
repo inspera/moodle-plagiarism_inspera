@@ -81,10 +81,16 @@ final class workshop_service_test extends advanced_testcase {
         ], 'Fake PDF content');
 
         // 4. Mock the queue_service.
-        // We expect exactly 3 calls: (User 1 Text) + (User 2 Text) + (User 2 File).
         $mockqueueservice = $this->createMock(queue_service::class);
         $mockqueueservice->expects($this->exactly(3))
-            ->method('queue_file');
+            ->method('queue_file')
+            ->with(
+                $this->equalTo($cm->id), // arg 1: cmid
+                $this->anything(),       // arg 2: userid
+                $this->anything(),       // arg 3: file
+                $this->anything(),       // arg 4: relateduserid
+                $this->equalTo(0)        // arg 5: submissionid MUST BE 0 for Workshops
+            );
 
         // 5. Execute.
         $service = new workshop_service($DB, $mockqueueservice);
@@ -109,10 +115,17 @@ final class workshop_service_test extends advanced_testcase {
             'contentformat' => FORMAT_HTML,
         ]);
 
-        // 1. Mock the queue_service. We expect exactly 1 call.
+        // 1. Mock the queue_service.
         $mockqueueservice = $this->createMock(queue_service::class);
         $mockqueueservice->expects($this->exactly(1))
-            ->method('queue_file');
+            ->method('queue_file')
+            ->with(
+                $this->equalTo($cm->id),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->equalTo(0)        // arg 5: submissionid MUST BE 0 for Workshops
+            );
 
         // 2. Execute.
         $service = new workshop_service($DB, $mockqueueservice);

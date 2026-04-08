@@ -132,6 +132,19 @@ class observer {
      * @return void
      */
     public static function workshop_phase_switched(\core\event\base $event): void {
+        global $CFG;
+
+        if (empty($CFG->enableplagiarism)) {
+            return;
+        }
+
+        require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+        $plugin = new \plagiarism_plugin_inspera();
+        $settings = $plugin->get_settings();
+
+        if (empty($settings['use_originality'])) {
+            return;
+        }
         // Check if plugin is globally enabled for workshops before doing any logic.
         if (empty(get_config('plagiarism_inspera', 'enable_mod_workshop'))) {
             return;
@@ -160,7 +173,19 @@ class observer {
      * @return void
      */
     public static function workshop_assessable_uploaded(\core\event\base $event): void {
-        global $DB;
+        global $CFG, $DB;
+
+        if (empty($CFG->enableplagiarism)) {
+            return;
+        }
+
+        require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+        $plugin = new \plagiarism_plugin_inspera();
+        $settings = $plugin->get_settings();
+
+        if (empty($settings['use_originality'])) {
+            return;
+        }
 
         if (empty(get_config('plagiarism_inspera', 'enable_mod_workshop'))) {
             return;
