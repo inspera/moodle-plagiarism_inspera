@@ -132,8 +132,6 @@ class observer {
      * @return void
      */
     public static function workshop_phase_switched(\core\event\base $event): void {
-        global $DB;
-
         // Check if plugin is globally enabled for workshops before doing any logic.
         if (empty(get_config('plagiarism_inspera', 'enable_mod_workshop'))) {
             return;

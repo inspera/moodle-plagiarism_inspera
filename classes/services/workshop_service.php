@@ -59,18 +59,17 @@ class workshop_service {
      * @return void
      */
     public function process_phase_switch(int $workshopid, int $cmid): void {
-        $submissions = $this->db->get_records(
+        $submissions = $this->db->get_recordset(
             'workshop_submissions',
             ['workshopid' => $workshopid],
             'id ASC'
         );
-
-        if (empty($submissions)) {
-            return;
-        }
-
-        foreach ($submissions as $submission) {
-            $this->queue_submission_files($cmid, $submission);
+        try {
+            foreach ($submissions as $submission) {
+                $this->queue_submission_files($cmid, $submission);
+            }
+        } finally {
+            $submissions->close();
         }
     }
 
@@ -162,11 +161,6 @@ class workshop_service {
             }
 
             foreach ($files as $file) {
-                // Ignore directory objects.
-                if ($file->get_filename() === '.') {
-                    continue;
-                }
-
                 $this->queueservice->queue_file(
                     $cmid,
                     (int) $submission->authorid,
