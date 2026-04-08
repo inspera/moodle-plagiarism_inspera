@@ -25,8 +25,6 @@
 
 namespace plagiarism_inspera;
 
-defined('MOODLE_INTERNAL') || die();
-
 use advanced_testcase;
 use plagiarism_inspera\services\queue_service;
 
@@ -37,7 +35,7 @@ use plagiarism_inspera\services\queue_service;
  * @copyright   2025 Inspera AS
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class queue_service_test extends advanced_testcase {
+final class queue_service_test extends advanced_testcase {
     /**
      * Setup the test environment.
      */

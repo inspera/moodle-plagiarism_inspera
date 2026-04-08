@@ -25,8 +25,6 @@
 
 namespace plagiarism_inspera;
 
-defined('MOODLE_INTERNAL') || die();
-
 use advanced_testcase;
 use plagiarism_inspera\services\workshop_service;
 use plagiarism_inspera\services\queue_service;
@@ -137,5 +135,6 @@ final class workshop_service_test extends advanced_testcase {
         $service->process_late_submission(9999, 9999, 99999);
     }
 }
+
 
 
