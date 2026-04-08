@@ -135,6 +135,3 @@ final class workshop_service_test extends advanced_testcase {
         $service->process_late_submission(9999, 9999, 99999);
     }
 }
-
-
-
