@@ -23,9 +23,9 @@
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace plagiarism_inspera\tests;
+namespace plagiarism_inspera;
 
-\defined('MOODLE_INTERNAL') || die();
+defined('MOODLE_INTERNAL') || die();
 
 use advanced_testcase;
 use plagiarism_inspera\services\workshop_service;
@@ -36,12 +36,12 @@ use plagiarism_inspera\services\queue_service;
  *
  * @covers \plagiarism_inspera\services\workshop_service
  */
-class workshop_service_test extends advanced_testcase {
-
+final class workshop_service_test extends advanced_testcase {
     /**
      * Setup the test environment.
      */
     protected function setUp(): void {
+        parent::setUp();
         $this->resetAfterTest(true);
         $this->setAdminUser();
     }
@@ -137,4 +137,5 @@ class workshop_service_test extends advanced_testcase {
         $service->process_late_submission(9999, 9999, 99999);
     }
 }
+
 

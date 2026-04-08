@@ -149,7 +149,7 @@ class observer {
             $task = new \plagiarism_inspera\task\process_workshop_phase();
             $task->set_custom_data([
                 'workshopid' => $workshopid,
-                'cmid' => $cmid
+                'cmid' => $cmid,
             ]);
             \core\task\manager::queue_adhoc_task($task);
         }

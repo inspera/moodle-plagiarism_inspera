@@ -24,7 +24,7 @@
 
 namespace plagiarism_inspera\services;
 
-\defined('MOODLE_INTERNAL') || die();
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Service class for queuing files to Inspera Originality.

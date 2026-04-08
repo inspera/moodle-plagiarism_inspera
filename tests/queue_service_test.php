@@ -23,7 +23,7 @@
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace plagiarism_inspera\tests;
+namespace plagiarism_inspera;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -38,11 +38,11 @@ use plagiarism_inspera\services\queue_service;
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class queue_service_test extends advanced_testcase {
-
     /**
      * Setup the test environment.
      */
     protected function setUp(): void {
+        parent::setUp();
         $this->resetAfterTest(true);
     }
 
@@ -166,7 +166,7 @@ class queue_service_test extends advanced_testcase {
         // Create a fake object with a filepath property (simulating our temp HTML file).
         $filepath = '/tmp/fake_onlinetext.html';
         $fakefile = (object) [
-            'filepath' => $filepath
+            'filepath' => $filepath,
         ];
 
         // 2. Execute.

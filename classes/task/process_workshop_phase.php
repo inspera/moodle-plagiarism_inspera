@@ -24,7 +24,7 @@
 
 namespace plagiarism_inspera\task;
 
-\defined('MOODLE_INTERNAL') || die();
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Ad-hoc task to process workshop submissions asynchronously.
@@ -34,7 +34,6 @@ namespace plagiarism_inspera\task;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class process_workshop_phase extends \core\task\adhoc_task {
-
     /**
      * Execute the task.
      */
@@ -55,4 +54,5 @@ class process_workshop_phase extends \core\task\adhoc_task {
         $workshopservice->process_phase_switch((int)$data->workshopid, (int)$data->cmid);
     }
 }
+
 
