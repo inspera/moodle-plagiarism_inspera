@@ -30,6 +30,9 @@ namespace plagiarism_inspera\services;
  * Service class for handling workshop activities.
  */
 class workshop_service {
+    /** @var int Moodle's internal integer for the Workshop Assessment phase. */
+    public const PHASE_ASSESSMENT = 30;
+
     /** @var \moodle_database */
     private $db;
 

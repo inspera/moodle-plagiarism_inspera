@@ -33,6 +33,9 @@ class queue_service {
     /** @var \moodle_database */
     private $db;
 
+    /** @var array In-memory cache for plugin config per course module. */
+    private array $configcache = [];
+
     /**
      * Constructor.
      *
@@ -60,13 +63,17 @@ class queue_service {
         ?int $submissionid = null
     ): void {
 
-        // 1. Check if plugin is actually enabled for this CM.
-        $plagiarismvalues = $this->db->get_records_menu(
-            'plagiarism_inspera_config',
-            ['cm' => $cmid],
-            '',
-            'name, value'
-        );
+        // 1. Check if plugin is actually enabled for this CM (using in-memory cache).
+        if (!isset($this->configcache[$cmid])) {
+            $this->configcache[$cmid] = $this->db->get_records_menu(
+                'plagiarism_inspera_config',
+                ['cm' => $cmid],
+                '',
+                'name, value'
+            ) ?: []; // Fallback to empty array if nothing found.
+        }
+
+        $plagiarismvalues = $this->configcache[$cmid];
 
         if (empty($plagiarismvalues['use_originality'])) {
             return;
@@ -124,8 +131,9 @@ class queue_service {
      * @return bool
      */
     private function is_file_type_allowed(string $ext, array $plagiarismvalues): bool {
+        // Explicit integer comparison is safer for Moodle database flags.
         $allowall = isset($plagiarismvalues['originality_allowallfile']) ?
-            (bool)$plagiarismvalues['originality_allowallfile'] : true;
+            ((int)$plagiarismvalues['originality_allowallfile'] === 1) : true;
 
         if ($allowall) {
             global $CFG;

@@ -34,6 +34,7 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
  *
  * @package    plagiarism_inspera
  * @copyright  2025 Inspera AS
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class observer {
     /**
@@ -143,10 +144,14 @@ class observer {
         $cmid = (int) $event->contextinstanceid;
 
         // Only proceed if the new phase is 30 (PHASE_ASSESSMENT).
-        if ($newphase == 30) {
-            $queueservice = new \plagiarism_inspera\services\queue_service($DB);
-            $workshopservice = new \plagiarism_inspera\services\workshop_service($DB, $queueservice);
-            $workshopservice->process_phase_switch($workshopid, $cmid);
+        if ($newphase === \plagiarism_inspera\services\workshop_service::PHASE_ASSESSMENT) {
+            // Queue an ad-hoc task to prevent blocking the teacher's web request.
+            $task = new \plagiarism_inspera\task\process_workshop_phase();
+            $task->set_custom_data([
+                'workshopid' => $workshopid,
+                'cmid' => $cmid
+            ]);
+            \core\task\manager::queue_adhoc_task($task);
         }
     }
 
@@ -180,7 +185,7 @@ class observer {
 
         $workshop = $DB->get_record('workshop', ['id' => $workshopid], 'id, phase');
 
-        if ($workshop && (int)$workshop->phase === 30) {
+        if ($workshop && (int)$workshop->phase === \plagiarism_inspera\services\workshop_service::PHASE_ASSESSMENT) {
             $queueservice = new \plagiarism_inspera\services\queue_service($DB);
             $workshopservice = new \plagiarism_inspera\services\workshop_service($DB, $queueservice);
             $workshopservice->process_late_submission((int)$workshopid, $cmid, $submissionid);

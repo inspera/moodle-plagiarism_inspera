@@ -29,7 +29,6 @@ defined('MOODLE_INTERNAL') || die();
 
 use advanced_testcase;
 use plagiarism_inspera\services\queue_service;
-use stdClass;
 
 /**
  * Unit tests for queue_service.

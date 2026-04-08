@@ -1924,7 +1924,7 @@ function plagiarism_inspera_get_plagiarism_file($cmid, $userid, $file, $relatedu
 
 /**
  * Queues a specific file for processing by the plagiarism API.
- * * NOTE: This is a legacy wrapper. All logic has been moved to
+ * NOTE: This is a legacy wrapper. All logic has been moved to
  * \plagiarism_inspera\services\queue_service for better testability
  * and consistency across modules.
  *
