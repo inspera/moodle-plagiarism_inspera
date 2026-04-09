@@ -132,7 +132,11 @@ class workshop_service {
     ): void {
         global $CFG;
         $fs = get_file_storage();
-        $context = \context_module::instance($cmid);
+
+        $context = \context_module::instance($cmid, IGNORE_MISSING);
+        if (!$context) {
+            return; // Fail gracefully if the module was deleted mid-processing.
+        }
 
         // 1. HANDLE ONLINE TEXT.
         // Moodle workshops store inline text directly in the submission content field.
