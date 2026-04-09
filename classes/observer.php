@@ -159,12 +159,15 @@ class observer {
             return;
         }
 
-        if (!$DB->record_exists('plagiarism_inspera_config', [
-            'cm' => $cmid,
-            'name' => 'use_originality',
-            'value' => '1',
-        ])) {
-            return; // Don't even queue the task if originality is disabled.
+        if (!$DB->record_exists(
+            'plagiarism_inspera_config',
+            [
+                'cm' => $cmid,
+                'name' => 'use_originality',
+                'value' => '1',
+            ]
+        )) {
+            return;
         }
 
         // Only proceed if the new phase is 30 (PHASE_ASSESSMENT).
@@ -212,11 +215,14 @@ class observer {
             return;
         }
 
-        if (!$DB->record_exists('plagiarism_inspera_config', [
-            'cm' => $cmid,
-            'name' => 'use_originality',
-            'value' => '1',
-        ])) {
+        if (!$DB->record_exists(
+            'plagiarism_inspera_config',
+            [
+                'cm' => $cmid,
+                'name' => 'use_originality',
+                'value' => '1',
+            ]
+        )) {
             return;
         }
 
