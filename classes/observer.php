@@ -194,6 +194,19 @@ class observer {
         $submissionid = (int) $event->objectid;
         $cmid = (int) $event->contextinstanceid;
 
+        // 4. Instance Switch: Does this specific CM exist and have originality enabled?
+        if (empty($cmid) || !$DB->record_exists('course_modules', ['id' => $cmid])) {
+            return;
+        }
+
+        if (!$DB->record_exists('plagiarism_inspera_config', [
+            'cm' => $cmid,
+            'name' => 'use_originality',
+            'value' => '1',
+        ])) {
+            return;
+        }
+
         // Fallback logic for workshopid.
         $workshopid = $event->other['workshopid'] ?? $event->other['instanceid'] ?? 0;
 
