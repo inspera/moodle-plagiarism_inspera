@@ -85,11 +85,11 @@ final class workshop_service_test extends advanced_testcase {
         $mockqueueservice->expects($this->exactly(3))
             ->method('queue_file')
             ->with(
-                $this->equalTo($cm->id), // arg 1: cmid
-                $this->anything(),       // arg 2: userid
-                $this->anything(),       // arg 3: file
-                $this->anything(),       // arg 4: relateduserid
-                $this->equalTo(0)        // arg 5: submissionid MUST BE 0 for Workshops
+                $this->equalTo($cm->id),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->equalTo(0)
             );
 
         // 5. Execute.
@@ -124,7 +124,7 @@ final class workshop_service_test extends advanced_testcase {
                 $this->anything(),
                 $this->anything(),
                 $this->anything(),
-                $this->equalTo(0)        // arg 5: submissionid MUST BE 0 for Workshops
+                $this->equalTo(0)
             );
 
         // 2. Execute.
