@@ -132,7 +132,7 @@ class observer {
      * @return void
      */
     public static function workshop_phase_switched(\core\event\base $event): void {
-        global $CFG;
+        global $CFG, $DB;
 
         if (empty($CFG->enableplagiarism)) {
             return;
@@ -145,6 +145,7 @@ class observer {
         if (empty($settings['enabled'])) {
             return;
         }
+
         // Check if plugin is globally enabled for workshops before doing any logic.
         if (empty(get_config('plagiarism_inspera', 'enable_mod_workshop'))) {
             return;
@@ -153,6 +154,18 @@ class observer {
         $newphase = $event->other['workshopphase'] ?? null;
         $workshopid = (int) $event->objectid;
         $cmid = (int) $event->contextinstanceid;
+
+        if (empty($cmid) || !$DB->record_exists('course_modules', ['id' => $cmid])) {
+            return;
+        }
+
+        if (!$DB->record_exists('plagiarism_inspera_config', [
+            'cm' => $cmid,
+            'name' => 'use_originality',
+            'value' => '1',
+        ])) {
+            return; // Don't even queue the task if originality is disabled.
+        }
 
         // Only proceed if the new phase is 30 (PHASE_ASSESSMENT).
         if ($newphase === \plagiarism_inspera\services\workshop_service::PHASE_ASSESSMENT) {
