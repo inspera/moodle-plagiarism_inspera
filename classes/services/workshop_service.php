@@ -130,7 +130,6 @@ class workshop_service {
         int $courseid,
         \stdClass $submission
     ): void {
-        global $CFG;
         $fs = get_file_storage();
 
         $context = \context_module::instance($cmid, IGNORE_MISSING);
