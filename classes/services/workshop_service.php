@@ -59,6 +59,16 @@ class workshop_service {
      * @return void
      */
     public function process_phase_switch(int $workshopid, int $cmid): void {
+        global $CFG;
+
+        $cm = get_coursemodule_from_id('workshop', $cmid, 0, false, IGNORE_MISSING);
+        if (!$cm) {
+            return;
+        }
+
+        // Include the lib once for the entire batch of submissions.
+        require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+
         $submissions = $this->db->get_recordset(
             'workshop_submissions',
             ['workshopid' => $workshopid],
@@ -66,7 +76,7 @@ class workshop_service {
         );
         try {
             foreach ($submissions as $submission) {
-                $this->queue_submission_files($cmid, $submission);
+                $this->queue_submission_files($cmid, (int)$cm->course,$submission);
             }
         } finally {
             $submissions->close();
@@ -86,6 +96,15 @@ class workshop_service {
         int $cmid,
         int $submissionid
     ): void {
+        global $CFG;
+
+        $cm = get_coursemodule_from_id('workshop', $cmid, 0, false, IGNORE_MISSING);
+        if (!$cm) {
+            return;
+        }
+
+        require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+
         $submission = $this->db->get_record(
             'workshop_submissions',
             ['id' => $submissionid, 'workshopid' => $workshopid]
@@ -95,18 +114,20 @@ class workshop_service {
             return;
         }
 
-        $this->queue_submission_files($cmid, $submission);
+        $this->queue_submission_files($cmid, (int)$cm->course, $submission);
     }
 
     /**
      * Helper to retrieve and queue all files and online text for a given submission.
      *
      * @param int $cmid
+     * @param int $courseid
      * @param \stdClass $submission
      * @return void
      */
     private function queue_submission_files(
         int $cmid,
+        int $courseid,
         \stdClass $submission
     ): void {
         global $CFG;
@@ -116,28 +137,22 @@ class workshop_service {
         // 1. HANDLE ONLINE TEXT.
         // Moodle workshops store inline text directly in the submission content field.
         if (!empty($submission->content) && !empty(trim(strip_tags($submission->content)))) {
-            require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+            $tempfile = plagiarism_inspera_create_temp_file(
+                $cmid,
+                $courseid,
+                (int) $submission->authorid,
+                $submission->content,
+                (int) $submission->id
+            );
 
-            $cm = get_coursemodule_from_id('workshop', $cmid, 0, false, IGNORE_MISSING);
-
-            if ($cm) {
-                $tempfile = plagiarism_inspera_create_temp_file(
+            if ($tempfile) {
+                $this->queueservice->queue_file(
                     $cmid,
-                    $cm->course,
                     (int) $submission->authorid,
-                    $submission->content,
-                    (int) $submission->id
+                    $tempfile,
+                    null,
+                    0
                 );
-
-                if ($tempfile) {
-                    $this->queueservice->queue_file(
-                        $cmid,
-                        (int) $submission->authorid,
-                        $tempfile,
-                        null,
-                        0
-                    );
-                }
             }
         }
 
