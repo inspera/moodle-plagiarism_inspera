@@ -25,8 +25,6 @@
 
 namespace plagiarism_inspera;
 
-defined('MOODLE_INTERNAL') || die();
-
 use advanced_testcase;
 use plagiarism_inspera\services\workshop_service;
 use plagiarism_inspera\services\queue_service;
