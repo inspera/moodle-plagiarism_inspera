@@ -142,7 +142,7 @@ class observer {
         $plugin = new \plagiarism_plugin_inspera();
         $settings = $plugin->get_settings();
 
-        if (empty($settings['use_originality'])) {
+        if (empty($settings['enabled'])) {
             return;
         }
         // Check if plugin is globally enabled for workshops before doing any logic.
@@ -183,7 +183,7 @@ class observer {
         $plugin = new \plagiarism_plugin_inspera();
         $settings = $plugin->get_settings();
 
-        if (empty($settings['use_originality'])) {
+        if (empty($settings['enabled'])) {
             return;
         }
 
