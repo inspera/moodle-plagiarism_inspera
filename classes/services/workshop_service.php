@@ -76,7 +76,7 @@ class workshop_service {
         );
         try {
             foreach ($submissions as $submission) {
-                $this->queue_submission_files($cmid, (int)$cm->course,$submission);
+                $this->queue_submission_files($cmid, (int)$cm->course, $submission);
             }
         } finally {
             $submissions->close();

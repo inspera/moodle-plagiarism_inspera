@@ -54,10 +54,14 @@ class process_workshop_phase extends \core\task\adhoc_task {
         }
 
         // 2. Guard: Did the teacher disable the plugin for this activity before the task ran?
-        $useoriginality = $DB->get_field('plagiarism_inspera_config', 'value', [
-            'cm' => $cmid,
-            'name' => 'use_originality'
-        ]);
+        $useoriginality = $DB->get_field(
+            'plagiarism_inspera_config',
+            'value',
+            [
+                'cm' => $cmid,
+                'name' => 'use_originality',
+            ]
+        );
 
         if (empty($useoriginality)) {
             return; // Silently drop the task.
