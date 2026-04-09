@@ -34,6 +34,9 @@ class queue_service {
     /** @var array In-memory cache for plugin config per course module. */
     private array $configcache = [];
 
+    /** @var array|null In-memory cache for global allowed file types. */
+    private ?array $defaultallowedtypes = null;
+
     /**
      * Constructor.
      *
@@ -134,10 +137,13 @@ class queue_service {
             ((int)$plagiarismvalues['originality_allowallfile'] === 1) : true;
 
         if ($allowall) {
-            global $CFG;
-            require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
-            $supportedtypes = plagiarism_inspera_default_allowed_file_types(true);
-            return array_key_exists($ext, $supportedtypes);
+            // Lazy-load and cache the allowed types.
+            if ($this->defaultallowedtypes === null) {
+                global $CFG;
+                require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+                $this->defaultallowedtypes = plagiarism_inspera_default_allowed_file_types(true);
+            }
+            return array_key_exists($ext, $this->defaultallowedtypes);
         } else {
             $allowedtypes = !empty($plagiarismvalues['originality_selectfiletypes'])
                 ? explode(',', $plagiarismvalues['originality_selectfiletypes'])
