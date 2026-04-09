@@ -45,10 +45,28 @@ class process_workshop_phase extends \core\task\adhoc_task {
             return;
         }
 
+        $cmid = (int)$data->cmid;
+        $workshopid = (int)$data->workshopid;
+
+        // 1. Guard: Was the workshop deleted while this task was waiting in the queue?
+        if (!get_coursemodule_from_id('workshop', $cmid, 0, false, IGNORE_MISSING)) {
+            return; // Silently drop the task.
+        }
+
+        // 2. Guard: Did the teacher disable the plugin for this activity before the task ran?
+        $useoriginality = $DB->get_field('plagiarism_inspera_config', 'value', [
+            'cm' => $cmid,
+            'name' => 'use_originality'
+        ]);
+
+        if (empty($useoriginality)) {
+            return; // Silently drop the task.
+        }
+
         // Call the service exactly as we did before.
         $queueservice = new \plagiarism_inspera\services\queue_service($DB);
         $workshopservice = new \plagiarism_inspera\services\workshop_service($DB, $queueservice);
 
-        $workshopservice->process_phase_switch((int)$data->workshopid, (int)$data->cmid);
+        $workshopservice->process_phase_switch($workshopid, $cmid);
     }
 }
