@@ -1938,8 +1938,13 @@ function plagiarism_inspera_get_plagiarism_file($cmid, $userid, $file, $relatedu
 function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = null, ?int $submissionid = null) {
     global $DB;
 
-    // Instantiate our new service.
-    $queueservice = new \plagiarism_inspera\services\queue_service($DB);
+    // Use a static variable to persist the service (and its caches) across multiple calls.
+    /** @var \plagiarism_inspera\services\queue_service|null $queueservice */
+    static $queueservice = null;
+
+    if ($queueservice === null) {
+        $queueservice = new \plagiarism_inspera\services\queue_service($DB);
+    }
 
     // Delegate the work.
     $queueservice->queue_file(
