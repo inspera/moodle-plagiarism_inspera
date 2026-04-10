@@ -990,7 +990,7 @@ function plagiarism_inspera_supported_qtypes() {
  * @return string[] An array of module names (e.g., 'assign', 'quiz').
  */
 function plagiarism_inspera_supported_modules() {
-    $supportedmodules = ['assign', 'quiz'];
+    $supportedmodules = ['assign', 'quiz', 'workshop'];
     return $supportedmodules;
 }
 
@@ -1924,12 +1924,10 @@ function plagiarism_inspera_get_plagiarism_file($cmid, $userid, $file, $relatedu
 
 /**
  * Queues a specific file for processing by the plagiarism API.
+ * NOTE: This is a legacy wrapper. All logic has been moved to
+ * \plagiarism_inspera\services\queue_service for better testability
+ * and consistency across modules.
  *
- * This creates or updates a record in the 'plagiarism_inspera_subs' table
- * for the scheduled task to pick up. If a record already exists for this file,
- * it will be updated instead of creating a duplicate.
- *
- * @package plagiarism_inspera
  * @param int $cmid The course module ID.
  * @param int $userid The ID of the user who submitted.
  * @param \stored_file|stdClass $file The Moodle stored_file object or temp file object to process.
@@ -1938,181 +1936,24 @@ function plagiarism_inspera_get_plagiarism_file($cmid, $userid, $file, $relatedu
  * @return void
  */
 function plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid = null, ?int $submissionid = null) {
-    global $DB, $CFG;
+    global $DB;
 
-    // RESOLVE SUBMISSION ID.
-    if (empty($submissionid)) {
-        if ($file instanceof \stored_file) {
-            $comp = $file->get_component();
-            if ($comp === 'assignsubmission_file' || $comp === 'assignsubmission_onlinetext') {
-                $submissionid = $file->get_itemid();
-            }
-        }
+    // Use a static variable to persist the service (and its caches) across multiple calls.
+    /** @var \plagiarism_inspera\services\queue_service|null $queueservice */
+    static $queueservice = null;
 
-        if (empty($submissionid)) {
-            $cm = get_coursemodule_from_id('assign', $cmid, 0, false, IGNORE_MISSING);
-            if ($cm) {
-                require_once($CFG->dirroot . '/mod/assign/locallib.php');
-                $context = \context_module::instance($cm->id);
-                $assign = new \assign($context, $cm, null);
-                $submission = $assign->get_user_submission($userid, false);
-                if ($submission) {
-                    $submissionid = $submission->id;
-                }
-            }
-        }
+    if ($queueservice === null) {
+        $queueservice = new \plagiarism_inspera\services\queue_service($DB);
     }
-    $submissionid = (int)$submissionid;
 
-    // Get plagiarism settings.
-    $plagiarismvalues = $DB->get_records_menu(
-        'plagiarism_inspera_config',
-        ['cm' => $cmid],
-        '',
-        'name, value'
+    // Delegate the work.
+    $queueservice->queue_file(
+        (int)$cmid,
+        (int)$userid,
+        $file,
+        $relateduserid,
+        $submissionid
     );
-
-    // Determine identifiers.
-    if ($file instanceof \stored_file) {
-        $filename = $file->get_filename();
-        $storedfileid = $file->get_id();
-        $identifier = null;
-    } else if (is_object($file) && isset($file->filepath)) {
-        $filename = basename($file->filepath);
-        $storedfileid = null;
-        $identifier = $file->filepath;
-    } else {
-        return;
-    }
-
-    // Extension check.
-    $pathinfo = pathinfo($filename);
-    if (empty($pathinfo['extension'])) {
-        return;
-    }
-    $ext = strtolower($pathinfo['extension']);
-
-    // Allowed file types check.
-    // Default to true (Allow all) if the setting hasn't been saved yet.
-    $allowall = isset($plagiarismvalues['originality_allowallfile']) ?
-        (bool)$plagiarismvalues['originality_allowallfile'] : true;
-
-    if ($allowall) {
-        // Allow all is YES.
-        // We still MUST restrict the queue strictly to file extensions the API actually supports.
-        $supportedtypes = plagiarism_inspera_default_allowed_file_types(true);
-
-        if (!array_key_exists($ext, $supportedtypes)) {
-            return; // Silently skip unsupported files (e.g., .jpg, .zip).
-        }
-    } else {
-        // Allow all is NO.
-        // Restrict to the specific extensions the teacher selected.
-        $allowedtypes = !empty($plagiarismvalues['originality_selectfiletypes'])
-            ? explode(',', $plagiarismvalues['originality_selectfiletypes'])
-            : [];
-
-        // Always implicitly allow html/htm to support Online Text submissions.
-        $allowedtypes[] = 'html';
-        $allowedtypes[] = 'htm';
-
-        if (!in_array($ext, $allowedtypes)) {
-            return; // Silently skip files not explicitly selected by the teacher.
-        }
-    }
-
-    // FIND EXISTING RECORD.
-    $existingrecord = null;
-    if ($storedfileid) {
-        if ($submissionid > 0) {
-            $existingrecord = $DB->get_record('plagiarism_inspera_subs', [
-                'submissionid' => $submissionid,
-                'storedfileid' => $storedfileid,
-            ]);
-        } else {
-            $existingrecord = $DB->get_record('plagiarism_inspera_subs', [
-                'cm' => $cmid,
-                'userid' => $userid,
-                'storedfileid' => $storedfileid,
-            ]);
-        }
-    } else if ($identifier) {
-        // For online text, we identify by submissionid and the absence of a storedfileid.
-        if ($submissionid > 0) {
-            $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                    WHERE submissionid = ? AND storedfileid IS NULL
-                    ORDER BY timecreated DESC, id DESC";
-            $existingrecord = $DB->get_record_sql($sql, [$submissionid], IGNORE_MULTIPLE);
-        } else {
-            $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                    WHERE cm = ? AND userid = ? AND identifier = ? AND storedfileid IS NULL
-                    ORDER BY timecreated DESC, id DESC";
-            $existingrecord = $DB->get_record_sql($sql, [$cmid, $userid, $identifier], IGNORE_MULTIPLE);
-        }
-    }
-
-    $currenttime = time();
-
-    // INSERT OR UPDATE LOGIC.
-    if ($existingrecord) {
-        $status = $existingrecord->status ?? '';
-
-        // SCENARIO 1: FILES (Immutable in Moodle).
-        if ($storedfileid) {
-            // If the file previously failed, reset it so cron tries again.
-            if (in_array($status, ['error', 'external_error'])) {
-                $existingrecord->status = 'report_requested';
-                $existingrecord->description = '';
-                $existingrecord->externalid = ''; // Clear external ID to force a fresh upload.
-                $existingrecord->timemodified = $currenttime;
-                $DB->update_record('plagiarism_inspera_subs', $existingrecord);
-            }
-            // It's the exact same file content. We do not need to queue it again.
-            return;
-        }
-
-        // SCENARIO 2: ONLINE TEXT (Mutable, temp file gets overwritten).
-        if ($identifier) {
-            // If it hasn't been picked up by the cron yet, the cron will naturally.
-            // Read the freshly overwritten temp file when it runs. No DB changes needed.
-            if ($status === 'report_requested') {
-                return;
-            }
-
-            // If it previously failed, reset the row so cron tries again.
-            if (in_array($status, ['error', 'external_error'])) {
-                $existingrecord->status = 'report_requested';
-                $existingrecord->description = '';
-                $existingrecord->externalid = '';
-                $existingrecord->timemodified = $currenttime;
-                $DB->update_record('plagiarism_inspera_subs', $existingrecord);
-                return;
-            }
-
-            if (in_array($status, ['pending', 'finished'])) {
-                $existingrecord->status = 'superseded';
-                $existingrecord->timemodified = $currenttime;
-                $DB->update_record('plagiarism_inspera_subs', $existingrecord);
-
-                // DO NOT RETURN! Let it fall through to create the new record below.
-            }
-        }
-    }
-
-    // 3. Create NEW record (for brand new files or superseded text).
-    $record = new \stdClass();
-    $record->cm = $cmid;
-    $record->userid = $userid;
-    $record->relateduserid = $relateduserid;
-    $record->submissionid = $submissionid;
-    $record->storedfileid = $storedfileid;
-    $record->identifier = $identifier;
-    $record->status = 'report_requested';
-    $record->timecreated = $currenttime;
-    $record->timemodified = $currenttime;
-    $record->description = '';
-
-    $DB->insert_record('plagiarism_inspera_subs', $record);
 }
 
 /**
@@ -2163,7 +2004,7 @@ function plagiarism_inspera_cleanup_orphaned_records() {
 
     $oldrecords = $DB->get_recordset_select('plagiarism_inspera_subs', $sql, $params);
 
-    // Resolve the base path
+    // Resolve the base path.
     $safebase = make_temp_directory('plagiarism_inspera');
     $realbasepath = realpath($safebase);
 
