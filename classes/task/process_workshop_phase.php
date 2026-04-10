@@ -67,7 +67,7 @@ class process_workshop_phase extends \core\task\adhoc_task {
             return; // Silently drop the task.
         }
 
-        // Call the service exactly as we did before.
+        // Call the service.
         $queueservice = new \plagiarism_inspera\services\queue_service($DB);
         $workshopservice = new \plagiarism_inspera\services\workshop_service($DB, $queueservice);
 
