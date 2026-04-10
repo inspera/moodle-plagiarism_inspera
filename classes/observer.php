@@ -159,16 +159,13 @@ class observer {
             return;
         }
 
-        if (
-            !$DB->record_exists(
-                'plagiarism_inspera_config',
-                [
-                    'cm' => $cmid,
-                    'name' => 'use_originality',
-                    'value' => '1',
-                ]
-            )
-        ) {
+        $configvalue = $DB->get_field(
+            'plagiarism_inspera_config',
+            'value',
+            ['cm' => $cmid, 'name' => 'use_originality']
+        );
+
+        if ($configvalue !== '1') {
             return;
         }
 
@@ -217,16 +214,13 @@ class observer {
             return;
         }
 
-        if (
-            !$DB->record_exists(
-                'plagiarism_inspera_config',
-                [
-                    'cm' => $cmid,
-                    'name' => 'use_originality',
-                    'value' => '1',
-                ]
-            )
-        ) {
+        $configvalue = $DB->get_field(
+            'plagiarism_inspera_config',
+            'value',
+            ['cm' => $cmid, 'name' => 'use_originality']
+        );
+
+        if ($configvalue !== '1') {
             return;
         }
 
