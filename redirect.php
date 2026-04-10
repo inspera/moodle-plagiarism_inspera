@@ -53,6 +53,8 @@ if ($modulename === 'quiz') {
     $isgrader = has_capability('mod/quiz:grade', $context);
 } else if ($modulename === 'assign') {
     $isgrader = has_capability('mod/assign:grade', $context);
+} else if ($modulename === 'workshop') {
+    $isgrader = has_capability('mod/workshop:viewallsubmissions', $context);
 } else {
     // SECURITY GUARD: Reject any unsupported module types immediately.
     throw new moodle_exception('error', 'error', '', null, 'Unsupported module type: ' . s($modulename));
