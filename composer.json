@@ -5,7 +5,15 @@
   "scripts": {
     "sync-moodle": [
       "echo 'Syncing plugin to Moodle directory...'",
-      "rsync -avh --delete --exclude 'vendor' --exclude '.git' --exclude '.idea' ./ ../moodle-docker/moodle/plagiarism/inspera/"
+      "rsync -avh --delete --exclude 'vendor' --exclude 'node_modules' --exclude '.git' --exclude '.idea' ./ ../moodle-docker/moodle/plagiarism/inspera/",
+      "echo 'Running Moodle Codechecker...'",
+      "docker exec -i $(docker ps -q -f name=webserver) /var/www/html/vendor/bin/phpcs --standard=moodle /var/www/html/plagiarism/inspera"
+    ],
+    "build-amd-js": [
+      "echo '🚀 Compiling Javascript with Grunt...remember to run sync-moodle first!'",
+      "docker exec -i $(docker ps -q -f name=webserver) bash -c 'cd /var/www/html && ./node_modules/.bin/grunt amd --plugin=plagiarism_inspera'",
+      "echo '📥 Copying build folder back to local project...'",
+      "docker cp $(docker ps -q -f name=webserver):/var/www/html/plagiarism/inspera/amd/build ./amd/"
     ],
     "build": [
       "echo 'Building Moodle compatible ZIP archive...'",
