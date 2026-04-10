@@ -159,10 +159,9 @@ class workshop_service {
             }
         }
 
-        // 2. HANDLE ATTACHMENTS.
-        // submission_content: Images embedded in the editor.
+        // 2. HANDLE UPLOADED FILES.
         // submission_attachment: Physical files attached to the submission.
-        $fileareas = ['submission_content', 'submission_attachment'];
+        $fileareas = ['submission_attachment'];
 
         foreach ($fileareas as $filearea) {
             $files = $fs->get_area_files(
