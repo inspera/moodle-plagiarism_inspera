@@ -16,8 +16,6 @@
 
 namespace plagiarism_inspera;
 
-defined('MOODLE_INTERNAL') || die();
-
 use advanced_testcase;
 use stdClass;
 use plagiarism_inspera\services\display\report_formatter;
