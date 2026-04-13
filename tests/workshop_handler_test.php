@@ -45,7 +45,7 @@ final class workshop_handler_test extends advanced_testcase {
     }
 
     /**
-     * Tests the generation of links for a file attachment in a Workshop.
+     * Tests the generation of links for an online-text submission in a Workshop.
      *
      * @covers \plagiarism_inspera\services\display\workshop_handler::get_links
      */

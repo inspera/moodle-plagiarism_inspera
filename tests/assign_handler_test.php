@@ -45,7 +45,7 @@ final class assign_handler_test extends advanced_testcase {
     }
 
     /**
-     * Tests the generation of links for a file attachment in an Assignment.
+     * Tests the generation of links for online text in an Assignment.
      *
      * @covers \plagiarism_inspera\services\display\assign_handler::get_links
      */
