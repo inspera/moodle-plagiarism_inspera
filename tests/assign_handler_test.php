@@ -29,12 +29,12 @@ use plagiarism_inspera\services\display\assign_handler;
 use plagiarism_inspera\services\display\report_formatter;
 
 /**
- * Tests for the assigment display handler.
+ * Tests for the assignment display handler.
  *
  * @package    plagiarism_inspera
  * @copyright  2026 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * * @covers \plagiarism_inspera\services\display\assign_handler
+ * @covers \plagiarism_inspera\services\display\assign_handler
  */
 final class assign_handler_test extends advanced_testcase {
     protected function setUp(): void {

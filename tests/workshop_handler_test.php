@@ -29,12 +29,12 @@ use plagiarism_inspera\services\display\workshop_handler;
 use plagiarism_inspera\services\display\report_formatter;
 
 /**
- * Tests for the quiz display handler.
+ * Tests for the workshop display handler.
  *
  * @package    plagiarism_inspera
  * @copyright  2026 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * * @covers \plagiarism_inspera\services\display\workshop_handler
+ * @covers \plagiarism_inspera\services\display\workshop_handler
  */
 final class workshop_handler_test extends advanced_testcase {
     protected function setUp(): void {
