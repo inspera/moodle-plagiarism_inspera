@@ -31,6 +31,5 @@ $functions = [
         'description' => 'Checks the status of a submission and returns formatted HTML if finished.',
         'type'        => 'read',
         'ajax'        => true, // Allow calling from Javascript.
-        'capabilities' => 'moodle/course:viewreports', // Basic security check.
     ],
 ];
