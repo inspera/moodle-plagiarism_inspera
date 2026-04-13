@@ -172,29 +172,11 @@ class display_manager {
      */
     private function resolve_quiz_link_fields(array &$linkarray): void {
         // Only skip if we have a valid userid AND a non-empty content string.
-        if (
-            !empty($linkarray['userid']) &&
-            !empty($linkarray['content'])
-        ) {
+        if (!empty($linkarray['userid']) && !empty($linkarray['content'])) {
             return;
         }
 
-        $questionattemptid = $this->extract_question_attempt_id($linkarray);
-        if (!$questionattemptid) {
-            return;
-        }
-
-        $sql = "SELECT qa.id,
-                       qa.responsesummary,
-                       qa.questionusageid,
-                       quiza.userid,
-                       quiza.quiz
-                  FROM {question_attempts} qa
-             LEFT JOIN {quiz_attempts} quiza
-                    ON quiza.uniqueid = qa.questionusageid
-                 WHERE qa.id = :questionattemptid";
-
-        $record = $this->db->get_record_sql($sql, ['questionattemptid' => $questionattemptid]);
+        $record = $this->resolve_question_attempt_record($linkarray);
         if (!$record) {
             return;
         }
@@ -228,13 +210,55 @@ class display_manager {
     }
 
     /**
+     * Resolve the question attempt record from a Moodle plagiarism link payload.
+     *
+     * Supports both explicit question attempt ids and the common qtype_* payload
+     * shape where area is the question usage id and itemid is the slot.
+     *
+     * @param array $linkarray The raw link data.
+     * @return \stdClass|false
+     */
+    private function resolve_question_attempt_record(array $linkarray) {
+        $sql = "SELECT qa.id,
+                       qa.responsesummary,
+                       qa.questionusageid,
+                       quiza.userid,
+                       quiza.quiz
+                  FROM {question_attempts} qa
+             LEFT JOIN {quiz_attempts} quiza
+                    ON quiza.uniqueid = qa.questionusageid";
+
+        $questionattemptid = $this->extract_question_attempt_id($linkarray);
+        if ($questionattemptid) {
+            return $this->db->get_record_sql(
+                $sql . " WHERE qa.id = :questionattemptid",
+                ['questionattemptid' => $questionattemptid]
+            );
+        }
+
+        if (!empty($linkarray['area']) && !empty($linkarray['itemid'])) {
+            return $this->db->get_record_sql(
+                $sql . " WHERE qa.questionusageid = :usageid
+                           AND qa.slot = :slot",
+                [
+                    'usageid' => (int)$linkarray['area'],
+                    'slot' => (int)$linkarray['itemid'],
+                ]
+            );
+        }
+
+        return false;
+    }
+
+    /**
      * Extract a question attempt id from a Moodle plagiarism link payload.
      *
      * @param array $linkarray The raw link data.
      * @return int
      */
     private function extract_question_attempt_id(array $linkarray): int {
-        $candidates = ['questionattemptid', 'questionattempt', 'qaid', 'itemid'];
+        // 'itemid' is deliberately excluded here as it represents a slot in qtype contexts.
+        $candidates = ['questionattemptid', 'questionattempt', 'qaid'];
         foreach ($candidates as $key) {
             if (!empty($linkarray[$key])) {
                 return (int)$linkarray[$key];
