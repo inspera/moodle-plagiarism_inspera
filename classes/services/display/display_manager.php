@@ -66,11 +66,20 @@ class display_manager {
      * @return string HTML output to be displayed in the Moodle UI.
      */
     public function generate_links(array $linkarray): string {
-        // 1. We must resolve Quiz cmid early if it's hidden inside a question attempt.
+        // 1. Resolve missing Quiz/Question-engine fields.
         $this->resolve_quiz_cmid($linkarray);
+        $this->resolve_quiz_link_fields($linkarray);
 
         if (empty($linkarray['cmid'])) {
             return '';
+        }
+
+        // Defensive checks for downstream handlers.
+        if (!array_key_exists('userid', $linkarray)) {
+            $linkarray['userid'] = null;
+        }
+        if (!array_key_exists('content', $linkarray)) {
+            $linkarray['content'] = '';
         }
 
         $cmid = (int)$linkarray['cmid'];
@@ -112,6 +121,86 @@ class display_manager {
         }
 
         return '';
+    }
+
+    /**
+     * Resolve missing quiz link fields for question-engine contexts.
+     *
+     * Moodle callbacks for qtype_* contexts may not include the same payload
+     * as standard quiz module callbacks. Backfill userid/content (and cmid as
+     * a fallback) from the related question attempt so handlers receive a
+     * consistent link structure.
+     *
+     * @param array $linkarray The link data to enrich.
+     * @return void
+     */
+    private function resolve_quiz_link_fields(array &$linkarray): void {
+        if (!empty($linkarray['userid']) && array_key_exists('content', $linkarray)) {
+            return;
+        }
+
+        $questionattemptid = $this->extract_question_attempt_id($linkarray);
+        if (!$questionattemptid) {
+            return;
+        }
+
+        $sql = "SELECT qa.id,
+                       qa.responsesummary,
+                       qa.questionusageid,
+                       quiza.userid,
+                       quiza.quiz
+                  FROM {question_attempts} qa
+             LEFT JOIN {quiz_attempts} quiza
+                    ON quiza.uniqueid = qa.questionusageid
+                 WHERE qa.id = :questionattemptid";
+
+        $record = $this->db->get_record_sql($sql, ['questionattemptid' => $questionattemptid]);
+        if (!$record) {
+            return;
+        }
+
+        if (empty($linkarray['userid']) && !empty($record->userid)) {
+            $linkarray['userid'] = (int)$record->userid;
+        }
+
+        if (!array_key_exists('content', $linkarray) || $linkarray['content'] === null || $linkarray['content'] === '') {
+            $linkarray['content'] = (string)($record->responsesummary ?? '');
+        }
+
+        if (empty($linkarray['cmid']) && !empty($record->quiz)) {
+            $cmid = $this->db->get_field_sql(
+                "SELECT cm.id
+                   FROM {course_modules} cm
+                   JOIN {modules} m
+                     ON m.id = cm.module
+                  WHERE m.name = :modname
+                    AND cm.instance = :instanceid",
+                [
+                    'modname' => 'quiz',
+                    'instanceid' => $record->quiz,
+                ]
+            );
+
+            if ($cmid) {
+                $linkarray['cmid'] = (int)$cmid;
+            }
+        }
+    }
+
+    /**
+     * Extract a question attempt id from a Moodle plagiarism link payload.
+     *
+     * @param array $linkarray The raw link data.
+     * @return int
+     */
+    private function extract_question_attempt_id(array $linkarray): int {
+        $candidates = ['questionattemptid', 'questionattempt', 'qaid', 'itemid'];
+        foreach ($candidates as $key) {
+            if (!empty($linkarray[$key])) {
+                return (int)$linkarray[$key];
+            }
+        }
+        return 0;
     }
 
     /**
