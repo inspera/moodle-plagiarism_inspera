@@ -50,14 +50,27 @@ $isgrader = false;
 $modulename = $cm->modname;
 
 if ($modulename === 'quiz') {
-    $isgrader = has_capability('mod/quiz:grade', $context);
+    if ($isgrader) {
+        // Teacher: Go to Quiz Reports.
+        $returnurl = new moodle_url('/mod/quiz/report.php', ['id' => $cm->id, 'mode' => 'overview']);
+    } else {
+        // Student: Go to Quiz Summary.
+        $returnurl = new moodle_url('/mod/quiz/view.php', ['id' => $cm->id]);
+    }
 } else if ($modulename === 'assign') {
-    $isgrader = has_capability('mod/assign:grade', $context);
+    if ($isgrader) {
+        // Teacher: Go to Assignment Grading.
+        $returnurl = new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'grading']);
+    } else {
+        // Student: Go to Assignment Submission.
+        $returnurl = new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'editsubmission']);
+    }
 } else if ($modulename === 'workshop') {
-    $isgrader = has_capability('mod/workshop:viewallsubmissions', $context);
+    // Teacher & Student: Go to Workshop Dashboard.
+    $returnurl = new moodle_url('/mod/workshop/view.php', ['id' => $cm->id]);
 } else {
-    // SECURITY GUARD: Reject any unsupported module types immediately.
-    throw new moodle_exception('error', 'error', '', null, 'Unsupported module type: ' . s($modulename));
+    // Absolute fallback to course page if all else fails.
+    $returnurl = new moodle_url('/course/view.php', ['id' => $cm->course]);
 }
 
 // Access Control: You must be a grader OR the owner of the submission.
