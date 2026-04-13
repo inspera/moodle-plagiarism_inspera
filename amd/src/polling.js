@@ -54,8 +54,17 @@ define(['core/ajax'], function(Ajax) {
                 const element = elements[index];
 
                 if (response.status === 'finished' || response.status === 'error') {
-                    element.innerHTML = response.html;
-                    element.removeAttribute('data-inspera-status'); // Stop polling this item.
+                    // Create a temporary template element to parse the HTML string.
+                    const template = document.createElement('template');
+                    template.innerHTML = response.html.trim();
+                    const replacement = template.content.firstElementChild;
+
+                    if (replacement) {
+                        element.replaceWith(replacement);
+                    } else {
+                        // Fallback: if the HTML was empty, just stop polling it
+                        element.removeAttribute('data-inspera-status');
+                    }
                 }
             });
 
