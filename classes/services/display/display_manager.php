@@ -131,26 +131,31 @@ class display_manager {
     /**
      * Checks whether a quiz-related display request should be processed.
      *
-     * This restores the early-exit guards previously applied in lib.php so
-     * unsupported qtype components and globally disabled quiz handling do not
-     * trigger unnecessary quiz/question-engine resolution work.
-     *
      * @param array $linkarray The raw link data provided by Moodle.
      * @return bool True when the request should proceed.
      */
     private function should_process_quiz_link(array $linkarray): bool {
+        global $CFG;
+        require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+
         $component = $linkarray['component'] ?? '';
         $isqtypecomponent = strpos($component, 'qtype_') === 0;
         $isquizcomponent = $component === 'mod_quiz';
+
         if (!$isquizcomponent && !$isqtypecomponent) {
             return true;
         }
+
         if (!get_config('plagiarism_inspera', 'enable_mod_quiz')) {
             return false;
         }
+
         if ($isqtypecomponent) {
-            return in_array($component, plagiarism_inspera_supported_qtypes(), true);
+            // Strip 'qtype_' prefix (6 chars) to match the values returned by supported_qtypes().
+            $qtype = substr($component, 6);
+            return in_array($qtype, plagiarism_inspera_supported_qtypes(), true);
         }
+
         return true;
     }
 
