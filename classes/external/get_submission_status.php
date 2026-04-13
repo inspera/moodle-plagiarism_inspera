@@ -52,6 +52,8 @@ class get_submission_status extends external_api {
      * Check whether the current user may view this submission status.
      *
      * @param \stdClass $record
+     * @param \context_module $context
+     * @param \stdClass $cm
      * @return bool
      */
     private static function can_view_submission_status(\stdClass $record, \context_module $context, \stdClass $cm): bool {
@@ -65,15 +67,8 @@ class get_submission_status extends external_api {
                 'quiz' => 'mod/quiz:grade',
                 'workshop' => 'mod/workshop:viewallsubmissions',
             ];
-            if (
-                isset($gradecapabilities[$cm->modname]) &&
-                has_capability(
-                    $gradecapabilities[
-                        $cm->modname
-                    ],
-                    $context
-                )
-            ) {
+
+            if (isset($gradecapabilities[$cm->modname]) && has_capability($gradecapabilities[$cm->modname], $context)) {
                 return true;
             }
         }
@@ -88,7 +83,7 @@ class get_submission_status extends external_api {
                 'name, value'
             );
 
-            // This legacy function evaluates "Immediately", "Never", "After Grading", and "Due Date".
+            // Check the legacy report sharing configuration rules.
             return (bool)plagiarism_inspera_should_show_report(
                 (int)$record->cm,
                 (int)$USER->id,
