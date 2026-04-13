@@ -115,11 +115,11 @@ class get_submission_status extends external_api {
      * The core logic: Check DB and return HTML.
      *
      * @param int $submissionid
-     * @param string $displaytype
+     * @param string $displaytype Defaults to 'similarity' when omitted.
      * @return array
      * @throws \moodle_exception
      */
-    public static function execute(int $submissionid, string $displaytype) {
+    public static function execute(int $submissionid, string $displaytype = 'similarity') {
         global $DB;
 
         // 1. Validate parameters.
