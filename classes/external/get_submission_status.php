@@ -119,7 +119,7 @@ class get_submission_status extends external_api {
         // 4. Security: Validate context and check specific permissions.
         self::validate_context($context);
 
-        if (!self::can_view_submission_status($record)) {
+        if (!self::can_view_submission_status($record, $context, $cm)) {
             throw new \moodle_exception('nopermissions', 'error');
         }
 
