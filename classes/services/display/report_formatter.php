@@ -104,7 +104,10 @@ class report_formatter {
                     ($record->status === 'pending' ? 'pending' : 'requested'), 'plagiarism_inspera');
 
                 // Moodle ensures this is only called once per page load.
-                $PAGE->requires->js_call_amd('plagiarism_inspera/polling', 'init');
+                // Guard: Only register page requirements when running in a standard page-rendering context.
+                if (isset($PAGE) && $PAGE instanceof \moodle_page) {
+                    $PAGE->requires->js_call_amd('plagiarism_inspera/polling', 'init');
+                }
                 break;
 
             case 'error':
