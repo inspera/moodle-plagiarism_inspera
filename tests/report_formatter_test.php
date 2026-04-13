@@ -45,6 +45,7 @@ final class report_formatter_test extends advanced_testcase {
         $formatter = new report_formatter();
 
         $record = new stdClass();
+        $record->id = 123;
         $record->status = 'pending';
 
         $html = $formatter->get_originality_status($record);
@@ -86,6 +87,7 @@ final class report_formatter_test extends advanced_testcase {
         $formatter = new report_formatter();
 
         $record = new stdClass();
+        $record->id = 123;
         $record->status = 'error';
         $record->description = 'The Inspera API returned a 500 Internal Server Error.';
 
