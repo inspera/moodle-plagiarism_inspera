@@ -41,7 +41,7 @@ use core_external\external_value;
 class get_submission_status extends external_api {
     /**
      * Parameters for the execute method.
-     * * @return external_function_parameters
+     * @return external_function_parameters
      */
     public static function execute_parameters() {
         return new external_function_parameters([
@@ -129,7 +129,7 @@ class get_submission_status extends external_api {
 
     /**
      * Define the return structure.
-     * * @return external_single_structure
+     * @return external_single_structure
      */
     public static function execute_returns() {
         return new external_single_structure([
