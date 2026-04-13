@@ -59,7 +59,7 @@ class assign_handler implements handler_interface {
      *
      * @param array $linkarray The Moodle link data (contains cmid, userid, file, content, etc.).
      * @param array $plagiarismvalues The plugin configuration for this specific course module.
-     * @param bool $isgrader Whether the current viewing user has grading capabilities for this quiz.
+     * @param bool $isgrader Whether the current viewing user has grading capabilities for this assignment.
      * @return string HTML output containing the originality status, or an empty string if not applicable.
      */
     public function get_links(array $linkarray, array $plagiarismvalues, bool $isgrader): string {
