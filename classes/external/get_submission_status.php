@@ -44,8 +44,23 @@ class get_submission_status extends external_api {
     public static function execute_parameters() {
         return new external_function_parameters([
             'submissionid' => new external_value(PARAM_INT, 'The ID of the plagiarism record'),
-            'displaytype'  => new external_value(PARAM_TEXT, 'originality or similarity', VALUE_DEFAULT, 'similarity'),
+            'displaytype'  => new external_value(PARAM_ALPHA, 'originality or similarity', VALUE_DEFAULT, 'similarity'),
         ]);
+    }
+
+    /**
+     * Validate and normalise the display type.
+     *
+     * @param string $displaytype
+     * @return string
+     * @throws \invalid_parameter_exception
+     */
+    private static function normalise_displaytype(string $displaytype): string {
+        $displaytype = strtolower($displaytype);
+        if (!in_array($displaytype, ['similarity', 'originality'], true)) {
+            throw new \invalid_parameter_exception('Invalid displaytype');
+        }
+        return $displaytype;
     }
 
     /**
@@ -113,6 +128,9 @@ class get_submission_status extends external_api {
             'displaytype'  => $displaytype,
         ]);
 
+        // Strictly normalise and validate the displaytype.
+        $validated_displaytype = self::normalise_displaytype($params['displaytype']);
+
         // 2. Get the record FIRST so we know which module context we belong to.
         $record = $DB->get_record('plagiarism_inspera_subs', ['id' => $params['submissionid']], '*', MUST_EXIST);
 
@@ -129,7 +147,7 @@ class get_submission_status extends external_api {
 
         // 5. Format and return.
         $formatter = new \plagiarism_inspera\services\display\report_formatter();
-        $html = $formatter->get_originality_status($record, $params['displaytype']);
+        $html = $formatter->get_originality_status($record, $validated_displaytype);
 
         return [
             'status' => $record->status,
