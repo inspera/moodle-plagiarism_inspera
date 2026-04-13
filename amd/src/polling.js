@@ -10,6 +10,7 @@ define(['core/ajax'], function(Ajax) {
     const POLLING_INTERVAL = 20000; // 20 seconds.
 
     let isPolling = false;
+    const isTerminalStatus = status => status !== 'pending' && status !== 'report_requested';
 
     const poll = async () => {
         // 1. Find all pollable badges on the page (both pending and newly requested).
@@ -54,7 +55,7 @@ define(['core/ajax'], function(Ajax) {
             responses.forEach((response, index) => {
                 const element = elements[index];
 
-                if (response.status === 'finished' || response.status === 'error') {
+                if (isTerminalStatus(response.status)) {
                     // Create a temporary template element to parse the HTML string.
                     const template = document.createElement('template');
                     template.innerHTML = response.html.trim();
