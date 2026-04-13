@@ -58,13 +58,22 @@ class get_submission_status extends external_api {
         global $USER, $DB, $CFG;
         require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
-        // 1. Graders have unconditional access to view reports.
+        // 1. Graders have unconditional access to view reports for supported modules only.
         if (!empty($cm->modname)) {
-            $gradecapability = ($cm->modname === 'workshop')
-                ? 'mod/workshop:viewallsubmissions'
-                : 'mod/' . $cm->modname . ':grade';
-
-            if (has_capability($gradecapability, $context)) {
+            $gradecapabilities = [
+                'assign' => 'mod/assign:grade',
+                'quiz' => 'mod/quiz:grade',
+                'workshop' => 'mod/workshop:viewallsubmissions',
+            ];
+            if (
+                isset($gradecapabilities[$cm->modname]) &&
+                has_capability(
+                    $gradecapabilities[
+                        $cm->modname
+                    ],
+                    $context
+                )
+            ) {
                 return true;
             }
         }
