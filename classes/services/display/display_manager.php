@@ -68,6 +68,11 @@ class display_manager {
      * @return string HTML output to be displayed in the Moodle UI.
      */
     public function generate_links(array $linkarray): string {
+        // 0. Early exit if Quiz support is disabled or the question type is unsupported.
+        if (!$this->should_process_quiz_link($linkarray)) {
+            return '';
+        }
+
         // 1. Resolve missing Quiz/Question-engine fields.
         $this->resolve_quiz_cmid($linkarray);
         $this->resolve_quiz_link_fields($linkarray);
@@ -123,6 +128,32 @@ class display_manager {
         }
 
         return '';
+    }
+
+    /**
+     * Checks whether a quiz-related display request should be processed.
+     *
+     * This restores the early-exit guards previously applied in lib.php so
+     * unsupported qtype components and globally disabled quiz handling do not
+     * trigger unnecessary quiz/question-engine resolution work.
+     *
+     * @param array $linkarray The raw link data provided by Moodle.
+     * @return bool True when the request should proceed.
+     */
+    private function should_process_quiz_link(array $linkarray): bool {
+        $component = $linkarray['component'] ?? '';
+        $isqtypecomponent = strpos($component, 'qtype_') === 0;
+        $isquizcomponent = $component === 'mod_quiz';
+        if (!$isquizcomponent && !$isqtypecomponent) {
+            return true;
+        }
+        if (!get_config('plagiarism_inspera', 'enable_mod_quiz')) {
+            return false;
+        }
+        if ($isqtypecomponent) {
+            return in_array($component, plagiarism_inspera_supported_qtypes(), true);
+        }
+        return true;
     }
 
     /**
