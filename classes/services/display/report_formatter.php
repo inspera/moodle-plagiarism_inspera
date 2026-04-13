@@ -67,15 +67,20 @@ class report_formatter {
                 $context['wrapperclass'] = 'plagiarism-originality-reportlink';
 
                 $url = new \moodle_url('/plagiarism/inspera/redirect.php', ['id' => $record->id]);
-                $context['url'] = $url->out(false); // Extract the raw URL string.
+                $context['url'] = $url->out(false);
 
-                // Score calculation logic remains untouched.
-                if ($displaytype === 'originality' && $record->originality_score !== null) {
+                // Score calculation logic with defensive property checks.
+                if ($displaytype === 'originality' &&
+                    property_exists($record, 'originality_score') &&
+                    $record->originality_score !== null) {
+
                     $scorevalue = $record->originality_score;
-                    $riskclass = strtolower(explode(' ', $record->originality ?? 'Low')[0]);
+                    $originality = property_exists($record, 'originality') ? $record->originality : 'Low';
+                    $riskclass = strtolower(explode(' ', $originality)[0]);
                     $score = round((float)$scorevalue);
                 } else {
-                    $scorevalue = $record->similarity;
+                    // Fallback to similarity.
+                    $scorevalue = property_exists($record, 'similarity') ? $record->similarity : 0;
                     $score = (int)round((float)$scorevalue);
 
                     if ($score <= 20) {
