@@ -28,7 +28,6 @@ use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
-use plagiarism_inspera\services\display\report_formatter;
 
 /**
  * External function for getting submission status.
@@ -50,10 +49,35 @@ class get_submission_status extends external_api {
     }
 
     /**
+     * Check whether the current user may view this submission status.
+     *
+     * @param \stdClass $record
+     * @return bool
+     */
+    private static function can_view_submission_status(\stdClass $record): bool {
+        global $CFG, $USER;
+        require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+
+        // 1. The owner can always see their own submission status.
+        if ((int)$record->userid === (int)$USER->id) {
+            return true;
+        }
+
+        // 2. Fall back to the plugin's existing visibility logic (for teachers/graders).
+        if (function_exists('plagiarism_inspera_should_show_report')) {
+            return (bool)plagiarism_inspera_should_show_report($record);
+        }
+
+        return false;
+    }
+
+    /**
      * The core logic: Check DB and return HTML.
-     * * @param int $submissionid
+     *
+     * @param int $submissionid
      * @param string $displaytype
      * @return array
+     * @throws \moodle_exception
      */
     public static function execute(int $submissionid, string $displaytype) {
         global $DB;
@@ -64,15 +88,22 @@ class get_submission_status extends external_api {
             'displaytype'  => $displaytype,
         ]);
 
-        // 2. Security: Ensure the user is logged in.
-        $context = \context_system::instance();
-        self::validate_context($context);
-
-        // 3. Get the record.
+        // 2. Get the record FIRST so we know which module context we belong to.
         $record = $DB->get_record('plagiarism_inspera_subs', ['id' => $params['submissionid']], '*', MUST_EXIST);
 
-        // 4. Format.
-        $formatter = new report_formatter();
+        // 3. Set up the exact Module Context.
+        $cm = get_coursemodule_from_id('', $record->cm, 0, false, MUST_EXIST);
+        $context = \context_module::instance($cm->id);
+
+        // 4. Security: Validate context and check specific permissions.
+        self::validate_context($context);
+
+        if (!self::can_view_submission_status($record)) {
+            throw new \moodle_exception('nopermissions', 'error');
+        }
+
+        // 5. Format and return.
+        $formatter = new \plagiarism_inspera\services\display\report_formatter();
         $html = $formatter->get_originality_status($record, $params['displaytype']);
 
         return [
