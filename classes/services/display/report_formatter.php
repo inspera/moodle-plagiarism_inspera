@@ -68,16 +68,16 @@ class report_formatter {
                 $context['url'] = $url->out(false);
 
                 // Score calculation logic with defensive property checks.
+                // Safely extract the originality text, falling back to an empty string if null/missing.
+                $originality = trim((string)($record->originality ?? ''));
+
                 if (
                     $displaytype === 'originality' &&
-                    property_exists(
-                        $record,
-                        'originality_score'
-                    ) &&
-                    $record->originality_score !== null
+                    property_exists($record, 'originality_score') &&
+                    $record->originality_score !== null &&
+                    $originality !== ''
                 ) {
                     $scorevalue = $record->originality_score;
-                    $originality = property_exists($record, 'originality') ? $record->originality : 'Low';
                     $riskclass = strtolower(explode(' ', $originality)[0]);
                     $score = round((float)$scorevalue);
                 } else {
