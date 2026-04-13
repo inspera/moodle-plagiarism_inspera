@@ -137,7 +137,11 @@ class display_manager {
      * @return void
      */
     private function resolve_quiz_link_fields(array &$linkarray): void {
-        if (!empty($linkarray['userid']) && array_key_exists('content', $linkarray)) {
+        // Only skip if we have a valid userid AND a non-empty content string.
+        if (
+            !empty($linkarray['userid']) &&
+            !empty($linkarray['content'])
+        ) {
             return;
         }
 
