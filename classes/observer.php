@@ -160,11 +160,13 @@ class observer {
         }
 
         // Defensive check: Explicitly look for the '1' value to avoid issues with duplicate config rows.
-        if (!$DB->record_exists('plagiarism_inspera_config', [
-            'cm' => $cmid,
-            'name' => 'use_originality',
-            'value' => '1',
-        ])) {
+        if (
+            !$DB->record_exists('plagiarism_inspera_config', [
+                'cm' => $cmid,
+                'name' => 'use_originality',
+                'value' => '1',
+            ])
+        ) {
             return;
         }
 
@@ -214,11 +216,13 @@ class observer {
         }
 
         // Defensive check: Explicitly look for the '1' value to avoid issues with duplicate config rows.
-        if (!$DB->record_exists('plagiarism_inspera_config', [
-            'cm' => $cmid,
-            'name' => 'use_originality',
-            'value' => '1',
-        ])) {
+        if (
+            !$DB->record_exists('plagiarism_inspera_config', [
+                'cm' => $cmid,
+                'name' => 'use_originality',
+                'value' => '1',
+            ])
+        ) {
             return;
         }
 
