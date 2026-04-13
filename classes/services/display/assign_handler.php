@@ -24,8 +24,6 @@
 
 namespace plagiarism_inspera\services\display;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Display handler for the Assignment module.
  *
