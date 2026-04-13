@@ -2,7 +2,7 @@
  * Polling module for Inspera plagiarism reports.
  *
  * @module     plagiarism_inspera/polling
- * @copyright  2026 Your Company Name
+ * @copyright  2026 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 define(['core/ajax'], function(Ajax) {
@@ -12,9 +12,10 @@ define(['core/ajax'], function(Ajax) {
     let isPolling = false;
 
     const poll = async () => {
-        // 1. Find all pending badges on the page.
-        const pendingItems = document.querySelectorAll('[data-inspera-status="pending"]');
-
+        // 1. Find all pollable badges on the page (both pending and newly requested).
+        const pendingItems = document.querySelectorAll(
+            '[data-inspera-status="pending"], [data-inspera-status="report_requested"]'
+        );
         if (pendingItems.length === 0) {
             // We are out of items! Let the loop die, but reset the flag
             // so a future PHP init() call can wake it back up if needed.
