@@ -19,10 +19,16 @@
 
     Example context (json):
     {
+        "wrapperclass": "plagiarism-originality-reportlink",
         "status": "finished",
-        "submissionid": "123",
-        "displaytype": "originality",
-        "html": "<div class='badge'>85%</div>"
+        "id": 123,
+        "displaytype": "similarity",
+        "isfinished": true,
+        "url": "https://example.com/report/123",
+        "iconhtml": "<img src='#' class='originality-logo-icon' alt='logo'>",
+        "linkprefix": "Originality Report",
+        "riskclass": "medium",
+        "scoretext": "45%"
     }
 }}
 <div class="{{wrapperclass}}"
