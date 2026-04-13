@@ -46,31 +46,21 @@ $context = context_module::instance($cm->id);
 require_login($course, true, $cm);
 
 // 4. Determine Capability based on Module.
-$isgrader = false;
 $modulename = $cm->modname;
+$isgrader = false;
 
-if ($modulename === 'quiz') {
-    if ($isgrader) {
-        // Teacher: Go to Quiz Reports.
-        $returnurl = new moodle_url('/mod/quiz/report.php', ['id' => $cm->id, 'mode' => 'overview']);
-    } else {
-        // Student: Go to Quiz Summary.
-        $returnurl = new moodle_url('/mod/quiz/view.php', ['id' => $cm->id]);
-    }
-} else if ($modulename === 'assign') {
-    if ($isgrader) {
-        // Teacher: Go to Assignment Grading.
-        $returnurl = new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'grading']);
-    } else {
-        // Student: Go to Assignment Submission.
-        $returnurl = new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'editsubmission']);
-    }
-} else if ($modulename === 'workshop') {
-    // Teacher & Student: Go to Workshop Dashboard.
-    $returnurl = new moodle_url('/mod/workshop/view.php', ['id' => $cm->id]);
+// We use the same secure capability map established in get_submission_status.
+$gradecapabilities = [
+    'assign'   => 'mod/assign:grade',
+    'quiz'     => 'mod/quiz:grade',
+    'workshop' => 'mod/workshop:viewallsubmissions',
+];
+
+if (isset($gradecapabilities[$modulename])) {
+    $isgrader = has_capability($gradecapabilities[$modulename], $context);
 } else {
-    // Absolute fallback to course page if all else fails.
-    $returnurl = new moodle_url('/course/view.php', ['id' => $cm->course]);
+    // SECURITY GUARD: Reject any unsupported module types immediately.
+    throw new moodle_exception('error', 'error', '', null, 'Unsupported module type: ' . s($modulename));
 }
 
 // Access Control: You must be a grader OR the owner of the submission.
@@ -91,19 +81,20 @@ if (!empty($returnurlparam)) {
     // Generate intelligent fallbacks based on module type.
     if ($modulename === 'quiz') {
         if ($isgrader) {
-            // Teacher: Go to Quiz Reports.
             $returnurl = new moodle_url('/mod/quiz/report.php', ['id' => $cm->id, 'mode' => 'overview']);
         } else {
-            // Student: Go to Quiz Summary.
             $returnurl = new moodle_url('/mod/quiz/view.php', ['id' => $cm->id]);
         }
-    } else {
-        // Assignment Logic.
+    } else if ($modulename === 'assign') {
         if ($isgrader) {
             $returnurl = new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'grading']);
         } else {
             $returnurl = new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'editsubmission']);
         }
+    } else if ($modulename === 'workshop') {
+        $returnurl = new moodle_url('/mod/workshop/view.php', ['id' => $cm->id]);
+    } else {
+        $returnurl = new moodle_url('/course/view.php', ['id' => $cm->course]);
     }
 }
 
