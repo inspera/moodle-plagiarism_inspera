@@ -57,7 +57,7 @@ class get_submission_status extends external_api {
      * @return bool
      */
     private static function can_view_submission_status(\stdClass $record): bool {
-        global $CFG, $USER;
+        global $CFG, $DB, $USER;
         require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
         // 1. The owner can always see their own submission status.
@@ -67,7 +67,20 @@ class get_submission_status extends external_api {
 
         // 2. Fall back to the plugin's existing visibility logic (for teachers/graders).
         if (function_exists('plagiarism_inspera_should_show_report')) {
-            return (bool)plagiarism_inspera_should_show_report($record);
+            // We must fetch the plugin settings for this specific course module.
+            $settings = $DB->get_records_menu(
+                'plagiarism_inspera_config',
+                ['cm' => (int)$record->cm],
+                '',
+                'name, value'
+            );
+
+            return (bool)plagiarism_inspera_should_show_report(
+                (int)$record->cm,
+                (int)$USER->id,
+                $settings ?: [],
+                $record
+            );
         }
 
         return false;
