@@ -55,16 +55,11 @@ class get_submission_status extends external_api {
      * @return bool
      */
     private static function can_view_submission_status(\stdClass $record, \context_module $context, \stdClass $cm): bool {
-        global $USER;
+        global $USER, $DB, $CFG;
+        require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
-        // 1. The owner can always see their own submission status.
-        if ((int)$record->userid === (int)$USER->id) {
-            return true;
-        }
-
-        // 2. Non-owners must be graders in this specific module context.
+        // 1. Graders have unconditional access to view reports.
         if (!empty($cm->modname)) {
-            // Workshop uses a different capability for grading/viewing all.
             $gradecapability = ($cm->modname === 'workshop')
                 ? 'mod/workshop:viewallsubmissions'
                 : 'mod/' . $cm->modname . ':grade';
@@ -74,6 +69,26 @@ class get_submission_status extends external_api {
             }
         }
 
+        // 2. The submission Owner is subject to the plugin's "shareopt" visibility settings.
+        if ((int)$record->userid === (int)$USER->id) {
+            // Fetch the plugin settings for this specific course module to check 'shareopt'.
+            $settings = $DB->get_records_menu(
+                'plagiarism_inspera_config',
+                ['cm' => (int)$record->cm],
+                '',
+                'name, value'
+            );
+
+            // This legacy function evaluates "Immediately", "Never", "After Grading", and "Due Date".
+            return (bool)plagiarism_inspera_should_show_report(
+                (int)$record->cm,
+                (int)$USER->id,
+                $settings ?: [],
+                $record
+            );
+        }
+
+        // 3. Anyone else (non-owner, non-grader) is denied.
         return false;
     }
 
