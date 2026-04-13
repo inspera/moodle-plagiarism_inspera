@@ -24,6 +24,8 @@
 
 namespace plagiarism_inspera\services\display;
 
+defined('MOODLE_INTERNAL') || die();
+
 /**
  * Interface for plagiarism display handlers.
  *

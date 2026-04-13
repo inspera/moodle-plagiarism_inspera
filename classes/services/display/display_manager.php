@@ -24,6 +24,8 @@
 
 namespace plagiarism_inspera\services\display;
 
+defined('MOODLE_INTERNAL') || die();
+
 /**
  * Manager class for routing plagiarism display requests.
  *

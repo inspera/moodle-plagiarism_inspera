@@ -24,6 +24,8 @@
 
 namespace plagiarism_inspera\services\display;
 
+defined('MOODLE_INTERNAL') || die();
+
 /**
  * Formatter service for plagiarism report display.
  *
