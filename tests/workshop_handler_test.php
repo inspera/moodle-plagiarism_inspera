@@ -102,6 +102,7 @@ final class workshop_handler_test extends advanced_testcase {
      */
     public function test_get_links_blocks_peer_access_for_non_graders(): void {
         global $DB;
+        $this->setAdminUser();
 
         // 1. Setup: Create a course, workshop, and TWO distinct users.
         $generator = $this->getDataGenerator();
