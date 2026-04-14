@@ -55,16 +55,20 @@ define(['core/ajax'], function(Ajax) {
             responses.forEach((response, index) => {
                 const element = elements[index];
 
-                if (isTerminalStatus(response.status)) {
+                // Compare the new status against the current DOM state.
+                const currentStatus = element.dataset.insperaStatus;
+                const statusChanged = response.status !== currentStatus;
+
+                if (statusChanged) {
                     // Create a temporary template element to parse the HTML string.
                     const template = document.createElement('template');
-                    template.innerHTML = response.html.trim();
+                    template.innerHTML = (response.html || '').trim();
                     const replacement = template.content.firstElementChild;
 
                     if (replacement) {
                         element.replaceWith(replacement);
-                    } else {
-                        // Fallback: if the HTML was empty, just stop polling it
+                    } else if (isTerminalStatus(response.status)) {
+                        // Fallback: if terminal-state HTML was empty, just stop polling it.
                         element.removeAttribute('data-inspera-status');
                     }
                 }
