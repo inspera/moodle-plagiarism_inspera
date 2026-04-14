@@ -57,7 +57,7 @@ if (isset($gradecapabilities[$modulename])) {
 } else {
     // SECURITY GUARD: Reject any unsupported module types immediately.
     // Throws a coding_exception because legitimate UI flows will never generate links for unsupported modules.
-    throw new coding_exception('Unsupported module type in plagiarism_inspera redirect.php: ' . $modulename);
+    throw new moodle_exception('nopermissions', 'error');
 }
 
 // Access Control: Graders have unconditional access.
