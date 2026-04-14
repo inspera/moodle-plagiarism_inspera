@@ -74,12 +74,21 @@ class report_formatter {
                 if (
                     $displaytype === 'originality' &&
                     property_exists($record, 'originality_score') &&
-                    $record->originality_score !== null &&
-                    $originality !== ''
+                    $record->originality_score !== null
                 ) {
                     $scorevalue = $record->originality_score;
-                    $riskclass = strtolower(explode(' ', $originality)[0]);
-                    $score = round((float)$scorevalue);
+                    $score = (int)round((float)$scorevalue);
+
+                    // Derive risk class from text if available, otherwise synthesize from the score.
+                    if ($originality !== '') {
+                        $riskclass = strtolower(explode(' ', $originality)[0]);
+                    } else if ($score <= 20) {
+                        $riskclass = 'low';
+                    } else if ($score <= 80) {
+                        $riskclass = 'medium';
+                    } else {
+                        $riskclass = 'high';
+                    }
                 } else {
                     // Fallback to similarity.
                     $scorevalue = property_exists($record, 'similarity') ? $record->similarity : 0;
