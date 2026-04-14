@@ -28,7 +28,8 @@ $functions = [
     'plagiarism_inspera_get_submission_status' => [
         'classname'   => 'plagiarism_inspera\external\get_submission_status',
         'methodname'  => 'execute',
-        'description' => 'Checks the status of a submission and returns formatted HTML if finished.',
+        'description' => 'Checks the status of a submission and returns a formatted ' .
+            'HTML fragment for the current status.',
         'type'        => 'read',
         'ajax'        => true, // Allow calling from Javascript.
     ],
