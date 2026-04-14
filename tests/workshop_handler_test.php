@@ -93,4 +93,54 @@ final class workshop_handler_test extends advanced_testcase {
         $this->assertStringContainsString('15', $html); // The 15% score.
         $this->assertStringContainsString('low', $html); // The low risk class.
     }
+
+    /**
+     * Tests that a non-grading student cannot see a peer's originality score
+     * during a Workshop peer assessment.
+     *
+     * @covers \plagiarism_inspera\services\display\workshop_handler::get_links
+     */
+    public function test_get_links_blocks_peer_access_for_non_graders(): void {
+        global $DB;
+
+        // 1. Setup: Create a course, workshop, and TWO distinct users.
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $author = $generator->create_user(); // The student who wrote the essay.
+        $peer = $generator->create_user();   // The student assessing the essay.
+
+        $workshop = $generator->create_module('workshop', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('workshop', $workshop->id);
+
+        // 2. Setup: Insert a fake row for the AUTHOR's submission.
+        $record = new \stdClass();
+        $record->cm = $cm->id;
+        $record->userid = $author->id;
+        $record->storedfileid = null;
+        $record->status = 'finished';
+        $record->similarity = 85; // High risk, definitely shouldn't be leaked!
+        $record->timecreated = time();
+        $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        // 3. Execute: Set the currently logged-in user to the PEER.
+        $this->setUser($peer);
+
+        $formatter = new report_formatter();
+        $handler = new workshop_handler($DB, $formatter);
+
+        // Mock Moodle passing the AUTHOR's ID to the hook.
+        $linkarray = [
+            'cmid' => $cm->id,
+            'userid' => $author->id,
+            'content' => '<p>Here is my workshop essay.</p>',
+        ];
+
+        $plagiarismvalues = ['originality_display_type' => 'similarity'];
+
+        // False = simulate the user is NOT a grader (they are a student peer).
+        $html = $handler->get_links($linkarray, $plagiarismvalues, false);
+
+        // 4. Assert: The security guard must intercept this and return an empty string.
+        $this->assertSame('', $html, 'A non-grader must not see report links for other users.');
+    }
 }
