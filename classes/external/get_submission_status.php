@@ -132,10 +132,19 @@ class get_submission_status extends external_api {
         $validateddisplaytype = self::normalise_displaytype($params['displaytype']);
 
         // 2. Get the record FIRST so we know which module context we belong to.
-        $record = $DB->get_record('plagiarism_inspera_subs', ['id' => $params['recordid']], '*', MUST_EXIST);
+        // Use IGNORE_MISSING to prevent ID enumeration attacks.
+        $record = $DB->get_record('plagiarism_inspera_subs', ['id' => $params['recordid']], '*', IGNORE_MISSING);
+
+        if (!$record) {
+            // Throw a generic permission error so attackers cannot distinguish between "missing" and "unauthorized".
+            throw new \moodle_exception('nopermissions', 'error');
+        }
 
         // 3. Set up the exact Module Context.
-        $cm = get_coursemodule_from_id('', $record->cm, 0, false, MUST_EXIST);
+        $cm = get_coursemodule_from_id('', $record->cm, 0, false, IGNORE_MISSING);
+        if (!$cm) {
+            throw new \moodle_exception('nopermissions', 'error');
+        }
         $context = \context_module::instance($cm->id);
 
         // 4. Security: Validate context and check specific permissions.
