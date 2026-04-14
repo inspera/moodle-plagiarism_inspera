@@ -121,11 +121,16 @@ class report_formatter {
                 $context['statustext'] = get_string('status' .
                     ($record->status === 'pending' ? 'pending' : 'requested'), 'plagiarism_inspera');
 
-                // Moodle ensures this is only called once per page load.
-                // Guard: Only register page requirements when running in a standard page-rendering context.
-                if (isset($PAGE) && $PAGE instanceof \moodle_page) {
-                    $PAGE->requires->js_call_amd('plagiarism_inspera/polling', 'init');
-                }
+            // Guard: Only register page requirements when running in a standard page-rendering context.
+            // Do NOT register JS during AJAX or Web Service requests (like the polling request itself).
+            if (
+                isset($PAGE) &&
+                $PAGE instanceof \moodle_page &&
+                !defined('AJAX_SCRIPT') &&
+                !defined('WS_SERVER')
+            ) {
+                $PAGE->requires->js_call_amd('plagiarism_inspera/polling', 'init');
+            }
                 break;
 
             case 'error':
