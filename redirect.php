@@ -56,7 +56,8 @@ if (isset($gradecapabilities[$modulename])) {
     $isgrader = has_capability($gradecapabilities[$modulename], $context);
 } else {
     // SECURITY GUARD: Reject any unsupported module types immediately.
-    throw new moodle_exception('error', 'error', '', null, 'Unsupported module type: ' . s($modulename));
+    // Throws a coding_exception because legitimate UI flows will never generate links for unsupported modules.
+    throw new coding_exception('Unsupported module type in plagiarism_inspera redirect.php: ' . $modulename);
 }
 
 // Access Control: Graders have unconditional access.
