@@ -63,9 +63,24 @@ if (isset($gradecapabilities[$modulename])) {
     throw new moodle_exception('error', 'error', '', null, 'Unsupported module type: ' . s($modulename));
 }
 
-// Access Control: You must be a grader OR the owner of the submission.
-if (!$isgrader && $record->userid != $USER->id) {
-    throw new moodle_exception('nopermission', 'plagiarism_inspera');
+// Access Control: Graders have unconditional access.
+if (!$isgrader) {
+    // 1. Non-graders MUST be the owner of the submission.
+    if ((int)$record->userid !== (int)$USER->id) {
+        throw new moodle_exception('nopermission', 'plagiarism_inspera');
+    }
+
+    // 2. The plugin settings for this specific activity must permit the student to view it right now.
+    $settings = $DB->get_records_menu(
+        'plagiarism_inspera_config',
+        ['cm' => (int)$record->cm],
+        '',
+        'name, value'
+    );
+
+    if (!plagiarism_inspera_should_show_report((int)$record->cm, (int)$USER->id, $settings ?: [], $record)) {
+        throw new moodle_exception('nopermission', 'plagiarism_inspera');
+    }
 }
 
 // Prepare page (used for graceful error rendering below).
