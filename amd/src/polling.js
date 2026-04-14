@@ -29,12 +29,12 @@ define(['core/ajax'], function(Ajax) {
 
         // 2. Build the batch array.
         pendingItems.forEach(item => {
-            const submissionId = item.dataset.submissionid;
-            if (submissionId) {
+            const recordId = item.dataset.recordid;
+            if (recordId) {
                 requests.push({
                     methodname: 'plagiarism_inspera_get_submission_status',
                     args: {
-                        submissionid: parseInt(submissionId, 10),
+                        recordid: parseInt(recordId, 10),
                         displaytype: item.dataset.displaytype || 'similarity'
                     }
                 });

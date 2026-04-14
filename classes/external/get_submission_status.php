@@ -43,7 +43,7 @@ class get_submission_status extends external_api {
      */
     public static function execute_parameters() {
         return new external_function_parameters([
-            'submissionid' => new external_value(PARAM_INT, 'The ID of the plagiarism record'),
+            'recordid'    => new external_value(PARAM_INT, 'The primary ID of the plagiarism record'),
             'displaytype'  => new external_value(PARAM_ALPHA, 'originality or similarity', VALUE_DEFAULT, 'similarity'),
         ]);
     }
@@ -114,17 +114,17 @@ class get_submission_status extends external_api {
     /**
      * The core logic: Check DB and return HTML.
      *
-     * @param int $submissionid
+     * @param int $recordid
      * @param string $displaytype Defaults to 'similarity' when omitted.
      * @return array
      * @throws \moodle_exception
      */
-    public static function execute(int $submissionid, string $displaytype = 'similarity') {
+    public static function execute(int $recordid, string $displaytype = 'similarity') {
         global $DB;
 
         // 1. Validate parameters.
         $params = self::validate_parameters(self::execute_parameters(), [
-            'submissionid' => $submissionid,
+            'recordid' => $recordid,
             'displaytype'  => $displaytype,
         ]);
 
@@ -132,7 +132,7 @@ class get_submission_status extends external_api {
         $validateddisplaytype = self::normalise_displaytype($params['displaytype']);
 
         // 2. Get the record FIRST so we know which module context we belong to.
-        $record = $DB->get_record('plagiarism_inspera_subs', ['id' => $params['submissionid']], '*', MUST_EXIST);
+        $record = $DB->get_record('plagiarism_inspera_subs', ['id' => $params['recordid']], '*', MUST_EXIST);
 
         // 3. Set up the exact Module Context.
         $cm = get_coursemodule_from_id('', $record->cm, 0, false, MUST_EXIST);
