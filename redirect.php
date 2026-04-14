@@ -55,8 +55,9 @@ $gradecapabilities = plagiarism_inspera_get_grade_capabilities();
 if (isset($gradecapabilities[$modulename])) {
     $isgrader = has_capability($gradecapabilities[$modulename], $context);
 } else {
-    // SECURITY GUARD: Reject any unsupported module types immediately.
-    // Throws a coding_exception because legitimate UI flows will never generate links for unsupported modules.
+    // SECURITY GUARD: Reject any unsupported module types.
+    // This endpoint is user-accessible via URL manipulation, so we fail with a standard.
+    // Permission error rather than a coding_exception to avoid leaking system details.
     throw new moodle_exception('nopermissions', 'error');
 }
 
