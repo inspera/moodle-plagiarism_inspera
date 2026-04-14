@@ -292,11 +292,23 @@ class display_manager {
             global $CFG;
             require_once($CFG->dirroot . '/question/engine/lib.php');
 
-            if (empty($linkarray['cmid']) && !empty($linkarray['area'])) {
-                $quba = \question_engine::load_questions_usage_by_activity($linkarray['area']);
-                $context = $quba->get_owning_context();
-                if ($context->contextlevel == CONTEXT_MODULE) {
-                    $linkarray['cmid'] = $context->instanceid;
+            if (!empty($linkarray['component']) && strpos($linkarray['component'], 'qtype_') === 0) {
+                global $CFG;
+                require_once($CFG->dirroot . '/question/engine/lib.php');
+
+                if (empty($linkarray['cmid']) && !empty($linkarray['area'])) {
+                    try {
+                        $quba = \question_engine::load_questions_usage_by_activity($linkarray['area']);
+                        $context = $quba->get_owning_context();
+                        if ($context->contextlevel == CONTEXT_MODULE) {
+                            $linkarray['cmid'] = $context->instanceid;
+                        }
+                    } catch (\Exception $e) {
+                        // If the usage ID is invalid, missing, or expired, fail gracefully.
+                        // The cmid remains unset, and generate_links() will cleanly exit.
+                        debugging("INSPERA ERROR: Failed to load question usage in display_manager. Message: " .
+                            $e->getMessage(), DEBUG_DEVELOPER);
+                    }
                 }
             }
         }
