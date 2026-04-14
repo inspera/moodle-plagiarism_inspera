@@ -23,10 +23,9 @@
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace plagiarism_inspera\tests\external;
+namespace plagiarism_inspera\external;
 
 use advanced_testcase;
-use plagiarism_inspera\external\get_submission_status;
 
 /**
  * Unit tests for the get_submission_status external API.
@@ -38,7 +37,6 @@ use plagiarism_inspera\external\get_submission_status;
  * @covers     \plagiarism_inspera\external\get_submission_status
  */
 final class get_submission_status_test extends advanced_testcase {
-
     /** @var \stdClass The test course. */
     private $course;
 
@@ -97,12 +95,12 @@ final class get_submission_status_test extends advanced_testcase {
         global $DB;
         $DB->delete_records('plagiarism_inspera_config', [
             'cm' => $this->cm->id,
-            'name' => 'originality_show_student_report'
+            'name' => 'originality_show_student_report',
         ]);
         $DB->insert_record('plagiarism_inspera_config', [
             'cm' => $this->cm->id,
             'name' => 'originality_show_student_report',
-            'value' => $isvisible ? '1' : '0'
+            'value' => $isvisible ? '1' : '0',
         ]);
     }
 
