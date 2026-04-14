@@ -68,6 +68,13 @@ class workshop_handler implements handler_interface {
 
         $cmid = (int)($linkarray['cmid'] ?? 0);
         $userid = $linkarray['userid'] ?? null;
+
+        // SECURITY GUARD: In Workshop peer-assessment, non-graders must only see their own reports.
+        // If the viewer is not a grader, and the submission belongs to someone else, bail immediately.
+        if (!$isgrader && !empty($userid) && (int)$USER->id !== (int)$userid) {
+            return '';
+        }
+
         $vieweruserid = !empty($userid) ? (int)$userid : (int)$USER->id;
         $displaytype = $plagiarismvalues['originality_display_type'] ?? 'similarity';
 
