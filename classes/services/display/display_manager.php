@@ -257,7 +257,6 @@ class display_manager {
      * @return int
      */
     private function extract_question_attempt_id(array $linkarray): int {
-        // 'itemid' is deliberately excluded here as it represents a slot in qtype contexts.
         $candidates = ['questionattemptid', 'questionattempt', 'qaid'];
         foreach ($candidates as $key) {
             if (!empty($linkarray[$key])) {
