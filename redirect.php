@@ -49,12 +49,8 @@ require_login($course, true, $cm);
 $modulename = $cm->modname;
 $isgrader = false;
 
-// We use the same secure capability map established in get_submission_status.
-$gradecapabilities = [
-    'assign'   => 'mod/assign:grade',
-    'quiz'     => 'mod/quiz:grade',
-    'workshop' => 'mod/workshop:viewallsubmissions',
-];
+// Fetch the centralized secure capability map.
+$gradecapabilities = plagiarism_inspera_get_grade_capabilities();
 
 if (isset($gradecapabilities[$modulename])) {
     $isgrader = has_capability($gradecapabilities[$modulename], $context);

@@ -2385,3 +2385,17 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
 
     return false;
 }
+
+/**
+ * Returns the capability required to act as a grader/manager for supported modules.
+ * Centralized to prevent capability mapping drift across endpoints.
+ *
+ * @return array Map of module name to its required grading capability.
+ */
+function plagiarism_inspera_get_grade_capabilities(): array {
+    return [
+        'assign'   => 'mod/assign:grade',
+        'quiz'     => 'mod/quiz:grade',
+        'workshop' => 'mod/workshop:viewallsubmissions',
+    ];
+}

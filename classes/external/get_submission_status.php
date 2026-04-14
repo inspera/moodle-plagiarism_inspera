@@ -77,11 +77,8 @@ class get_submission_status extends external_api {
 
         // 1. Graders have unconditional access to view reports for supported modules only.
         if (!empty($cm->modname)) {
-            $gradecapabilities = [
-                'assign' => 'mod/assign:grade',
-                'quiz' => 'mod/quiz:grade',
-                'workshop' => 'mod/workshop:viewallsubmissions',
-            ];
+            // Fetch the centralized secure capability map.
+            $gradecapabilities = plagiarism_inspera_get_grade_capabilities();
 
             if (isset($gradecapabilities[$cm->modname]) && has_capability($gradecapabilities[$cm->modname], $context)) {
                 return true;
