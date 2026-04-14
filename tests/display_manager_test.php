@@ -41,7 +41,6 @@ use plagiarism_inspera\services\display\workshop_handler;
  * @coversDefaultClass \plagiarism_inspera\services\display\display_manager
  */
 final class display_manager_test extends advanced_testcase {
-
     /**
      * Helper to access private/protected methods via Reflection.
      *
@@ -128,7 +127,7 @@ final class display_manager_test extends advanced_testcase {
             'userid' => $user->id,
             'attempt' => 1,
             'uniqueid' => 12345, // The question usage ID.
-            'layout' => '1,0',   // Required by Postgres.
+            'layout' => '1,0', // Required by Postgres.
             'currentpage' => 0,
             'preview' => 0,
             'state' => 'finished',
@@ -175,5 +174,3 @@ final class display_manager_test extends advanced_testcase {
         $this->assertEquals($cm->id, $linkarray['cmid']);
     }
 }
-
-
