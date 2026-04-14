@@ -63,19 +63,22 @@ class workshop_handler implements handler_interface {
      * @return string HTML output containing the originality status, or an empty string if not applicable.
      */
     public function get_links(array $linkarray, array $plagiarismvalues, bool $isgrader): string {
+        global $USER;
         $output = '';
-        $cmid = $linkarray['cmid'];
-        $userid = $linkarray['userid'];
+
+        $cmid = (int)($linkarray['cmid'] ?? 0);
+        $userid = $linkarray['userid'] ?? null;
+        $vieweruserid = !empty($userid) ? (int)$userid : (int)$USER->id;
         $displaytype = $plagiarismvalues['originality_display_type'] ?? 'similarity';
 
-        // 1. ATTACHMENTS
-        if (!empty($linkarray['file'])) {
+        // 1. ATTACHMENTS.
+        if (!empty($linkarray['file']) && !empty($userid)) {
             $file = $linkarray['file'];
             $sql = "SELECT * FROM {plagiarism_inspera_subs}
                      WHERE cm = ? AND userid = ? AND storedfileid = ? AND status != 'superseded'
                   ORDER BY timecreated DESC, id DESC";
 
-            $record = $this->db->get_record_sql($sql, [$cmid, $userid, $file->get_id()], IGNORE_MULTIPLE);
+            $record = $this->db->get_record_sql($sql, [$cmid, (int)$userid, $file->get_id()], IGNORE_MULTIPLE);
 
             if (
                 $record &&
@@ -83,7 +86,7 @@ class workshop_handler implements handler_interface {
                     $isgrader ||
                     plagiarism_inspera_should_show_report(
                         $cmid,
-                        $userid,
+                        $vieweruserid,
                         $plagiarismvalues,
                         $record
                     )
@@ -93,13 +96,13 @@ class workshop_handler implements handler_interface {
             }
         }
 
-        // 2. ONLINE TEXT
-        if (!empty($linkarray['content']) && empty($linkarray['file'])) {
+        // 2. ONLINE TEXT.
+        if (!empty($linkarray['content']) && empty($linkarray['file']) && !empty($userid)) {
             $sql = "SELECT * FROM {plagiarism_inspera_subs}
                      WHERE cm = ? AND userid = ? AND storedfileid IS NULL AND status != 'superseded'
                   ORDER BY timecreated DESC, id DESC";
 
-            $textrecord = $this->db->get_record_sql($sql, [$cmid, $userid], IGNORE_MULTIPLE);
+            $textrecord = $this->db->get_record_sql($sql, [$cmid, (int)$userid], IGNORE_MULTIPLE);
 
             if (
                 $textrecord &&
@@ -107,7 +110,7 @@ class workshop_handler implements handler_interface {
                     $isgrader ||
                     plagiarism_inspera_should_show_report(
                         $cmid,
-                        $userid,
+                        $vieweruserid,
                         $plagiarismvalues,
                         $textrecord
                     )

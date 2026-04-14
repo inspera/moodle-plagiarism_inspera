@@ -63,27 +63,46 @@ class quiz_handler implements handler_interface {
      * @return string HTML output containing the originality status, or an empty string if not applicable.
      */
     public function get_links(array $linkarray, array $plagiarismvalues, bool $isgrader): string {
+        global $USER;
         $output = '';
-        $cmid = $linkarray['cmid'];
-        $userid = $linkarray['userid'];
+
+        $cmid = (int)($linkarray['cmid'] ?? 0);
+        $userid = $linkarray['userid'] ?? null;
+        $vieweruserid = !empty($userid) ? (int)$userid : (int)$USER->id;
         $displaytype = $plagiarismvalues['originality_display_type'] ?? 'similarity';
 
-        // 1. ATTACHMENTS
-        if (!empty($linkarray['file'])) {
+        // 1. ATTACHMENTS.
+        if (!empty($linkarray['file']) && !empty($userid)) {
             $file = $linkarray['file'];
             $sql = "SELECT * FROM {plagiarism_inspera_subs}
                      WHERE cm = ? AND userid = ? AND storedfileid = ? AND status != 'superseded'
                   ORDER BY timecreated DESC, id DESC";
 
-            $record = $this->db->get_record_sql($sql, [$cmid, $userid, $file->get_id()], IGNORE_MULTIPLE);
+            $record = $this->db->get_record_sql($sql, [$cmid, (int)$userid, $file->get_id()], IGNORE_MULTIPLE);
 
-            if ($record && ($isgrader || plagiarism_inspera_should_show_report($cmid, $userid, $plagiarismvalues, $record))) {
+            if (
+                $record &&
+                (
+                    $isgrader ||
+                    plagiarism_inspera_should_show_report(
+                        $cmid,
+                        $vieweruserid,
+                        $plagiarismvalues,
+                        $record
+                    )
+                )
+            ) {
                 $output .= $this->formatter->get_originality_status($record, $displaytype);
             }
         }
 
-        // 2. ESSAY TEXT (Question Engine)
-        if (!empty($linkarray['content']) && !empty($linkarray['itemid']) && !empty($linkarray['area'])) {
+        // 2. ESSAY TEXT (Question Engine).
+        if (
+            !empty($linkarray['content']) &&
+            !empty($linkarray['itemid']) &&
+            !empty($linkarray['area']) &&
+            !empty($userid)
+        ) {
             try {
                 $quba = \question_engine::load_questions_usage_by_activity($linkarray['area']);
                 $qa = $quba->get_question_attempt($linkarray['itemid']);
@@ -97,7 +116,7 @@ class quiz_handler implements handler_interface {
 
                 $params = [
                     'cm'         => $cmid,
-                    'userid'     => $userid,
+                    'userid'     => (int)$userid,
                     'identifier' => '%' . $this->db->sql_like_escape($expectedfilename),
                 ];
 
@@ -109,7 +128,7 @@ class quiz_handler implements handler_interface {
                         $isgrader ||
                         plagiarism_inspera_should_show_report(
                             $cmid,
-                            $userid,
+                            $vieweruserid,
                             $plagiarismvalues,
                             $textrecord
                         )
