@@ -106,17 +106,19 @@ class display_manager {
             return '';
         }
 
-        // 4. Determine Grader Status based on module type.
-        $cmcontext = \context_module::instance($cmid);
-        $isgrader = false;
+        // 4. Determine Grader Status using the centralized capability map.
+        global $CFG;
+        require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
-        if ($cm->modname === 'assign') {
-            $isgrader = has_capability('mod/assign:grade', $cmcontext);
-        } else if ($cm->modname === 'quiz') {
-            $isgrader = has_capability('mod/quiz:grade', $cmcontext);
-        } else if ($cm->modname === 'workshop') {
-            $isgrader = has_capability('mod/workshop:viewallsubmissions', $cmcontext);
+        $gradecapabilities = plagiarism_inspera_get_grade_capabilities();
+
+        // If the module isn't in our supported capability map, exit early.
+        if (!isset($gradecapabilities[$cm->modname])) {
+            return '';
         }
+
+        $cmcontext = \context_module::instance($cmid);
+        $isgrader = has_capability($gradecapabilities[$cm->modname], $cmcontext);
 
         // 5. Route to the correct dedicated Handler Service!
         $handler = $this->get_handler($cm->modname);
