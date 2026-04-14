@@ -63,10 +63,15 @@ class assign_handler implements handler_interface {
      * @return string HTML output containing the originality status, or an empty string if not applicable.
      */
     public function get_links(array $linkarray, array $plagiarismvalues, bool $isgrader): string {
-        global $CFG;
+        global $CFG, $USER;
         $output = '';
-        $cmid = $linkarray['cmid'];
-        $userid = $linkarray['userid'];
+
+        $cmid = (int)($linkarray['cmid'] ?? 0);
+        $userid = $linkarray['userid'] ?? null;
+
+        // If the hook doesn't provide a userid, assume the viewer is the currently logged-in user.
+        $vieweruserid = !empty($userid) ? (int)$userid : (int)$USER->id;
+
         $displaytype = $plagiarismvalues['originality_display_type'] ?? 'similarity';
 
         // 1. ATTACHMENTS
@@ -83,19 +88,32 @@ class assign_handler implements handler_interface {
 
                 $record = $this->db->get_record_sql($sql, [$submissionid, $file->get_id()], IGNORE_MULTIPLE);
 
-                if ($record && ($isgrader || plagiarism_inspera_should_show_report($cmid, $userid, $plagiarismvalues, $record))) {
+                if (
+                    $record &&
+                    (
+                        $isgrader ||
+                        plagiarism_inspera_should_show_report(
+                            $cmid,
+                            $vieweruserid,
+                            $plagiarismvalues,
+                            $record
+                        )
+                    )
+                ) {
                     $output .= $this->formatter->get_originality_status($record, $displaytype);
                 }
             }
         }
 
         // 2. ONLINE TEXT
-        if (!empty($linkarray['content']) && empty($linkarray['file'])) {
+        // Explicitly require a valid $userid to fetch the assignment submission.
+        if (!empty($linkarray['content']) && empty($linkarray['file']) && !empty($userid)) {
             $cm = get_coursemodule_from_id('assign', $cmid, 0, false, IGNORE_MISSING);
             if ($cm) {
                 require_once($CFG->dirroot . '/mod/assign/locallib.php');
                 $assign = new \assign(\context_module::instance($cm->id), $cm, null);
-                $submission = $assign->get_user_submission($userid, false);
+
+                $submission = $assign->get_user_submission((int)$userid, false);
 
                 if ($submission) {
                     $sql = "SELECT * FROM {plagiarism_inspera_subs}
@@ -110,7 +128,7 @@ class assign_handler implements handler_interface {
                             $isgrader ||
                             plagiarism_inspera_should_show_report(
                                 $cmid,
-                                $userid,
+                                $vieweruserid,
                                 $plagiarismvalues,
                                 $textrecord
                             )
