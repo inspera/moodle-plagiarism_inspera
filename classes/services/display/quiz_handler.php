@@ -103,6 +103,8 @@ class quiz_handler implements handler_interface {
             !empty($linkarray['area']) &&
             !empty($userid)
         ) {
+            global $CFG;
+            require_once($CFG->dirroot . '/question/engine/lib.php');
             try {
                 $quba = \question_engine::load_questions_usage_by_activity($linkarray['area']);
                 $qa = $quba->get_question_attempt($linkarray['itemid']);
