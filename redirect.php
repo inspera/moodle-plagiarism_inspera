@@ -67,7 +67,7 @@ if (isset($gradecapabilities[$modulename])) {
 if (!$isgrader) {
     // 1. Non-graders MUST be the owner of the submission.
     if ((int)$record->userid !== (int)$USER->id) {
-        throw new moodle_exception('nopermission', 'plagiarism_inspera');
+        throw new moodle_exception('nopermissions', 'error');
     }
 
     // 2. The plugin settings for this specific activity must permit the student to view it right now.
@@ -79,7 +79,7 @@ if (!$isgrader) {
     );
 
     if (!plagiarism_inspera_should_show_report((int)$record->cm, (int)$USER->id, $settings ?: [], $record)) {
-        throw new moodle_exception('nopermission', 'plagiarism_inspera');
+        throw new moodle_exception('nopermissions', 'error');
     }
 }
 
