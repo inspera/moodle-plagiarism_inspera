@@ -160,13 +160,9 @@ class observer {
         }
 
         // Defensive check: Explicitly look for the '1' value to avoid issues with duplicate config rows.
-        if (
-            !$DB->record_exists('plagiarism_inspera_config', [
-                'cm' => $cmid,
-                'name' => 'use_originality',
-                'value' => '1',
-            ])
-        ) {
+        // Use the deterministic helper to ensure we respect the LATEST configuration row.
+        $cmsettings = plagiarism_inspera_get_cm_settings($cmid);
+        if (empty($cmsettings['use_originality'])) {
             return;
         }
 
@@ -216,13 +212,9 @@ class observer {
         }
 
         // Defensive check: Explicitly look for the '1' value to avoid issues with duplicate config rows.
-        if (
-            !$DB->record_exists('plagiarism_inspera_config', [
-                'cm' => $cmid,
-                'name' => 'use_originality',
-                'value' => '1',
-            ])
-        ) {
+        // Use the deterministic helper to ensure we respect the LATEST configuration row.
+        $cmsettings = plagiarism_inspera_get_cm_settings($cmid);
+        if (empty($cmsettings['use_originality'])) {
             return;
         }
 
