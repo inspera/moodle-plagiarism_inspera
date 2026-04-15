@@ -4,16 +4,16 @@
   "require": {},
   "scripts": {
     "sync-moodle": [
-      "echo 'Syncing plugin to Moodle directory...'",
-      "rsync -avh --delete --exclude 'vendor' --exclude 'node_modules' --exclude '.git' --exclude '.idea' ./ ../moodle-docker/moodle/plagiarism/inspera/",
-      "echo 'Running Moodle Codechecker...'",
-      "docker exec -i $(docker ps -q -f name=webserver) /var/www/html/vendor/bin/phpcs --standard=moodle /var/www/html/plagiarism/inspera"
+      "echo \"Syncing plugin to Moodle directory...\"",
+      "rsync -ah --delete --exclude \"vendor\" --exclude \"node_modules\" --exclude \".git\" --exclude \".idea\" ./ ../moodle-docker/moodle/plagiarism/inspera/",
+      "echo \"Running Moodle Codechecker...\"",
+      "sh -c 'WEBSERVER_CONTAINER=$(docker ps -q -f name=webserver | head -n 1); test -n \"$WEBSERVER_CONTAINER\" || { echo \"No webserver container found\"; exit 1; }; docker exec \"$WEBSERVER_CONTAINER\" /var/www/html/vendor/bin/phpcs --standard=moodle /var/www/html/plagiarism/inspera'"
     ],
     "build-amd-js": [
-      "echo '🚀 Compiling Javascript with Grunt...remember to run sync-moodle first!'",
-      "docker exec -i $(docker ps -q -f name=webserver) bash -c 'cd /var/www/html && ./node_modules/.bin/grunt amd --plugin=plagiarism_inspera'",
-      "echo '📥 Copying build folder back to local project...'",
-      "docker cp $(docker ps -q -f name=webserver):/var/www/html/plagiarism/inspera/amd/build ./amd/"
+      "echo \"🚀 Compiling Javascript with Grunt...remember to run sync-moodle first!\"",
+      "sh -c 'WEBSERVER_CONTAINER=$(docker ps -q -f name=webserver | head -n 1); test -n \"$WEBSERVER_CONTAINER\" || { echo \"No webserver container found\"; exit 1; }; docker exec \"$WEBSERVER_CONTAINER\" bash -c \"cd /var/www/html && ./node_modules/.bin/grunt amd --plugin=plagiarism_inspera\"'",
+      "echo \"📥 Copying build folder back to local project...\"",
+      "sh -c 'WEBSERVER_CONTAINER=$(docker ps -q -f name=webserver | head -n 1); test -n \"$WEBSERVER_CONTAINER\" || { echo \"No webserver container found\"; exit 1; }; docker cp \"$WEBSERVER_CONTAINER\":/var/www/html/plagiarism/inspera/amd/build ./amd/'"
     ],
     "build": [
       "echo 'Building Moodle compatible ZIP archive...'",
