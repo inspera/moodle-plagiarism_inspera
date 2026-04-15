@@ -2421,6 +2421,6 @@ function plagiarism_inspera_get_cm_settings(int $cmid): array {
         'plagiarism_inspera_config',
         ['cm' => $cmid],
         'id ASC',
-        'id, name, value'
+        'name, value'
     );
 }
