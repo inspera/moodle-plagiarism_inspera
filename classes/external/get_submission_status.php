@@ -87,19 +87,15 @@ class get_submission_status extends external_api {
 
         // 2. The submission Owner is subject to the plugin's "shareopt" visibility settings.
         if ((int)$record->userid === (int)$USER->id) {
-            // Fetch the plugin settings for this specific course module to check 'shareopt'.
-            $settings = $DB->get_records_menu(
-                'plagiarism_inspera_config',
-                ['cm' => (int)$record->cm],
-                '',
-                'name, value'
-            );
+            // Fetch the plugin settings for this specific course module deterministically.
+            // This ensures consistent permission checks even if duplicate config rows exist.
+            $settings = plagiarism_inspera_get_cm_settings((int)$record->cm);
 
             // Check the legacy report sharing configuration rules.
             return (bool)plagiarism_inspera_should_show_report(
                 (int)$record->cm,
                 (int)$USER->id,
-                $settings ?: [],
+                $settings,
                 $record
             );
         }
