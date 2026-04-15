@@ -175,9 +175,16 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
     public function get_links($linkarray) {
         global $DB;
 
-        // Use a static variable to cache the manager instance across multiple calls.
-        // In the same page request. This ensures the display_manager's internal.
-        // Config cache is actually utilized, while still being safe for PHPUnit.
+        // Bypass the static cache in PHPUnit. Static variables persist for the lifetime
+        // of the PHP process, which causes state leakage between isolated tests.
+        if (defined('PHPUNIT_TEST') && PHPUNIT_TEST) {
+            $manager = new \plagiarism_inspera\services\display\display_manager($DB);
+            return $manager->generate_links($linkarray);
+        }
+
+        // Use a static variable to cache the manager instance across multiple calls
+        // in the same production page request. This ensures the internal config cache
+        // is utilized efficiently without repeated DB queries.
         static $manager = null;
 
         if ($manager === null) {
