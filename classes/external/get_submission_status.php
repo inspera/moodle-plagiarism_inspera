@@ -72,7 +72,7 @@ class get_submission_status extends external_api {
      * @return bool
      */
     private static function can_view_submission_status(\stdClass $record, \context_module $context, \stdClass $cm): bool {
-        global $USER, $DB, $CFG;
+        global $USER, $CFG;
         require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
         // 1. Graders have unconditional access to view reports for supported modules only.
