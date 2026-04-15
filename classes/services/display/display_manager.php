@@ -91,12 +91,7 @@ class display_manager {
 
         // 2. Load plugin config (with static caching).
         if (!isset($this->configcache[$cmid])) {
-            $this->configcache[$cmid] = $this->db->get_records_menu(
-                'plagiarism_inspera_config',
-                ['cm' => $cmid],
-                '',
-                'name,value'
-            );
+            $this->configcache[$cmid] = plagiarism_inspera_get_cm_settings($cmid);
         }
         $plagiarismvalues = $this->configcache[$cmid];
 

@@ -2406,3 +2406,21 @@ function plagiarism_inspera_get_grade_capabilities(): array {
         'workshop' => 'mod/workshop:viewallsubmissions',
     ];
 }
+
+/**
+ * Fetches plugin settings for a specific module instance deterministically.
+ *
+ * @param int $cmid The course module ID.
+ * @return array Map of setting name to value.
+ */
+function plagiarism_inspera_get_cm_settings(int $cmid): array {
+    global $DB;
+    // We order by ID so that if duplicates exist, the newest entry (highest ID)
+    // consistently wins, making the behavior deterministic.
+    return $DB->get_records_menu(
+        'plagiarism_inspera_config',
+        ['cm' => $cmid],
+        'id ASC',
+        'id, name, value'
+    );
+}

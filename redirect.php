@@ -73,12 +73,7 @@ if (!$isgrader) {
     }
 
     // 2. The plugin settings for this specific activity must permit the student to view it right now.
-    $settings = $DB->get_records_menu(
-        'plagiarism_inspera_config',
-        ['cm' => (int)$record->cm],
-        '',
-        'name, value'
-    );
+    $settings = plagiarism_inspera_get_cm_settings((int)$record->cm);
 
     if (!plagiarism_inspera_should_show_report((int)$record->cm, (int)$USER->id, $settings ?: [], $record)) {
         throw new moodle_exception('nopermissions', 'error');
