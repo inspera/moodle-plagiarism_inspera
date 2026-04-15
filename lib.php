@@ -172,7 +172,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
      * @param array $linkarray - contains all relevant information for the plugin to generate a link.
      * @return string
      */
-    function get_links($linkarray) {
+    public function get_links($linkarray) {
         global $DB;
 
         // Use a static variable to cache the manager instance across multiple calls.
