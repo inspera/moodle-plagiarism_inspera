@@ -43,7 +43,7 @@ class display_manager {
     private $formatter;
 
     /** @var array Cache for plagiarism configuration values indexed by cmid. */
-    private static array $configcache = [];
+    private array $configcache = [];
 
     /**
      * Constructor for the display manager.
@@ -90,15 +90,15 @@ class display_manager {
         $cmid = (int)$linkarray['cmid'];
 
         // 2. Load plugin config (with static caching).
-        if (!isset(self::$configcache[$cmid])) {
-            self::$configcache[$cmid] = $this->db->get_records_menu(
+        if (!isset($this->configcache[$cmid])) {
+            $this->configcache[$cmid] = $this->db->get_records_menu(
                 'plagiarism_inspera_config',
                 ['cm' => $cmid],
                 '',
                 'name,value'
             );
         }
-        $plagiarismvalues = self::$configcache[$cmid];
+        $plagiarismvalues = $this->configcache[$cmid];
 
         // 3. Resolve the Course Module and determine the module type.
         $cm = get_coursemodule_from_id('', $cmid, 0, false, IGNORE_MISSING);
