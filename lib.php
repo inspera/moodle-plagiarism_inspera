@@ -172,11 +172,18 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
      * @param array $linkarray - contains all relevant information for the plugin to generate a link.
      * @return string
      */
-    public function get_links($linkarray) {
+    function plagiarism_inspera_get_links($linkarray) {
         global $DB;
 
-        // Instantiate the Display Manager to route the request.
-        $manager = new \plagiarism_inspera\services\display\display_manager($DB);
+        // Use a static variable to cache the manager instance across multiple calls.
+        // In the same page request. This ensures the display_manager's internal.
+        // Config cache is actually utilized, while still being safe for PHPUnit.
+        static $manager = null;
+
+        if ($manager === null) {
+            $manager = new \plagiarism_inspera\services\display\display_manager($DB);
+        }
+
         return $manager->generate_links($linkarray);
     }
 
