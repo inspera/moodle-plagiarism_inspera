@@ -17,6 +17,7 @@
 /**
  * Tests for the report formatter service.
  *
+ * @category   test
  * @package    plagiarism_inspera
  * @copyright  2026 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
