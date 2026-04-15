@@ -48,14 +48,26 @@ define(['core/ajax'], function(Ajax) {
         }
 
         try {
-            // 3. Fire exactly ONE HTTP Request containing all queries.
-            const responses = await Promise.all(Ajax.call(requests));
+            // 3. Fire exactly ONE HTTP Request. We use allSettled to ensure that one
+            // failing record (e.g. 403 error) doesn't block the updates for all others.
+            const results = await Promise.allSettled(Ajax.call(requests));
 
             // 4. Map the responses back to the correct HTML elements.
-            responses.forEach((response, index) => {
+            results.forEach((result, index) => {
                 const element = elements[index];
 
+                // If this specific request failed, log it and skip to the next.
+                if (result.status !== 'fulfilled') {
+                    window.console.warn(
+                        'Inspera: Polling request failed for record ID ' +
+                        (element.dataset.recordid || 'unknown'),
+                        result.reason
+                    );
+                    return;
+                }
+
                 // Compare the new status against the current DOM state.
+                const response = result.value;
                 const currentStatus = element.dataset.insperaStatus;
                 const statusChanged = response.status !== currentStatus;
 
@@ -75,6 +87,7 @@ define(['core/ajax'], function(Ajax) {
             });
 
         } catch (error) {
+            // This catch now only triggers if the entire Ajax infrastructure fails.
             window.console.warn('Inspera: Batch polling request failed.', error);
         }
 
