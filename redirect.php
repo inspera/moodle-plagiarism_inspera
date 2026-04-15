@@ -34,12 +34,16 @@ $id = required_param('id', PARAM_INT);
 $returnurlparam = optional_param('returnurl', '', PARAM_LOCALURL);
 global $DB, $USER;
 
-$record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], '*', MUST_EXIST);
+$record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], '*', IGNORE_MISSING);
 
 // 2. Load CM and Determine Module Type.
 // We pass false for the module name so Moodle loads it regardless of type (assign or quiz).
-$cm = get_coursemodule_from_id('', $record->cm, 0, false, MUST_EXIST);
-$course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
+$cm = $record ? get_coursemodule_from_id('', $record->cm, 0, false, IGNORE_MISSING) : false;
+$course = $cm ? $DB->get_record('course', ['id' => $cm->course], '*', IGNORE_MISSING) : false;
+
+if (!$record || !$cm || !$course) {
+    throw new moodle_exception('nopermissions', 'error');
+}
 
 // 3. Security & Context.
 $context = context_module::instance($cm->id);
