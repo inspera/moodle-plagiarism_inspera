@@ -611,11 +611,18 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
 
                 if (!empty($grades->items)) {
                     foreach ($grades->items as $item) {
-                        if (!empty($item->grades[$userid])) {
-                            $g = $item->grades[$userid];
-                            if ($g && $g->str_grade !== '-' && is_numeric($g->grade)) {
-                                return true;
-                            }
+                        if (empty($item->grades) || !is_array($item->grades)) {
+                            continue;
+                        }
+
+                        $g = $item->grades[$userid] ?? null;
+                        if (!$g) {
+                            continue;
+                        }
+
+                        // Show if there is a grade, or if it has been explicitly overridden in the gradebook.
+                        if (!empty($g->overridden) || ($g->str_grade !== '-' && $g->grade !== null)) {
+                            return true;
                         }
                     }
                 }

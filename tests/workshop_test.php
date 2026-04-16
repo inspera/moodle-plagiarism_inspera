@@ -167,4 +167,47 @@ final class workshop_test extends advanced_testcase {
             )
         );
     }
+
+    /**
+     * Test: Verify report visibility when a grade exists in the Gradebook.
+     * @covers ::plagiarism_inspera_should_show_report
+     */
+    public function test_should_show_report_workshop_gradebook_path(): void {
+        global $CFG;
+        require_once($CFG->libdir . '/gradelib.php');
+
+        $record = (object)[
+            'cm'     => $this->workshop->cmid,
+            'userid' => $this->student->id,
+            'status' => 'finished',
+        ];
+
+        $settings = ['originality_show_student_report' => 2];
+        $this->setUser($this->student);
+
+        // Simulate a grade being pushed to the gradebook.
+        $gradeitem = \grade_item::fetch([
+            'itemtype' => 'mod',
+            'itemmodule' => 'workshop',
+            'iteminstance' => $this->workshop->id,
+            'courseid' => $this->course->id,
+            'itemnumber' => 0,
+        ]);
+
+        if (!$gradeitem) {
+            $this->fail('Could not find the workshop submission grade item.');
+        }
+
+        $gradeitem->update_final_grade($this->student->id, 85.0);
+
+        $this->assertTrue(
+            plagiarism_inspera_should_show_report(
+                (int)$this->workshop->cmid,
+                (int)$this->student->id,
+                $settings,
+                $record
+            ),
+            'Report should be visible via the Gradebook path.'
+        );
+    }
 }
