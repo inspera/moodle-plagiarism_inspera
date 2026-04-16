@@ -150,6 +150,8 @@ class workshop_service {
         }
 
         // 1. HANDLE ONLINE TEXT.
+        // If restriction is 'Only Files' (1), we skip online text.
+        // Therefore, we ONLY run this if restriction is NOT PLAGIARISM_INSPERA_RESTRICTCONTENTFILES.
         // Moodle workshops store inline text directly in the submission content field.
         if (
             $restriction !== PLAGIARISM_INSPERA_RESTRICTCONTENTFILES &&
@@ -182,7 +184,8 @@ class workshop_service {
         }
 
         // 2. HANDLE UPLOADED FILES.
-        // submission_attachment: Physical files attached to the submission.
+        // If restriction is 'Only Text' (2), we skip files.
+        // Therefore, we ONLY run this if restriction is NOT PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT.
         if ($restriction !== PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT) {
             $fileareas = ['submission_attachment'];
 

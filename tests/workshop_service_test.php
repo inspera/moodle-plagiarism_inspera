@@ -164,7 +164,7 @@ final class workshop_service_test extends advanced_testcase {
         $cm = get_coursemodule_from_instance('workshop', $workshop->id);
         $workshopgenerator = $this->getDataGenerator()->get_plugin_generator('mod_workshop');
 
-        // Set restriction to Only Files (2).
+        // Set restriction to Only Files (1).
         $DB->insert_record('plagiarism_inspera_config', (object)[
             'cm' => $cm->id,
             'name' => 'originality_restrictcontent',
@@ -220,7 +220,7 @@ final class workshop_service_test extends advanced_testcase {
         $cm = get_coursemodule_from_instance('workshop', $workshop->id);
         $workshopgenerator = $this->getDataGenerator()->get_plugin_generator('mod_workshop');
 
-        // Set restriction to Only Text (1).
+        // Set restriction to Only Text (2).
         $DB->insert_record('plagiarism_inspera_config', (object)[
             'cm' => $cm->id,
             'name' => 'originality_restrictcontent',
