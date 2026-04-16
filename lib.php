@@ -1174,6 +1174,13 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
             $mform->hideIf('originality_restrictcontent', 'assignsubmission_file_enabled', 'notchecked');
             $mform->hideIf('originality_restrictcontent', 'assignsubmission_onlinetext_enabled', 'notchecked');
         }
+    } else if ($modulename == 'mod_workshop') {
+        // Workshop: Show setting but hide if either text or file submissions are disabled.
+        // This ensures the restriction setting only shows when 'Both' are theoretically possible.
+        if ($mform->elementExists('originality_restrictcontent')) {
+            $mform->hideIf('originality_restrictcontent', 'submissiontypetextavailable', 'notchecked');
+            $mform->hideIf('originality_restrictcontent', 'submissiontypefileavailable', 'notchecked');
+        }
     } else if (!in_array($modulename, ['mod_forum', 'mod_hsuforum', 'mod_quiz'])) {
         // For modules that TRULY do not support mixed content.
         // Remove the visual element entirely to prevent hideIf() JS conflicts.

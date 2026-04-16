@@ -69,6 +69,11 @@ class workshop_service {
         // Include the lib once for the entire batch of submissions.
         require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
+        $settings = \plagiarism_inspera_get_cm_settings($cmid);
+        $restriction = isset($settings['originality_restrictcontent'])
+            ? (int)$settings['originality_restrictcontent']
+            : PLAGIARISM_INSPERA_RESTRICTCONTENTNO;
+
         $submissions = $this->db->get_recordset(
             'workshop_submissions',
             ['workshopid' => $workshopid],
@@ -76,7 +81,7 @@ class workshop_service {
         );
         try {
             foreach ($submissions as $submission) {
-                $this->queue_submission_files($cmid, (int)$cm->course, $submission);
+                $this->queue_submission_files($cmid, (int)$cm->course, $submission, $restriction);
             }
         } finally {
             $submissions->close();
@@ -114,7 +119,13 @@ class workshop_service {
             return;
         }
 
-        $this->queue_submission_files($cmid, (int)$cm->course, $submission);
+        // Fetch restriction.
+        $settings = \plagiarism_inspera_get_cm_settings($cmid);
+        $restriction = isset($settings['originality_restrictcontent'])
+            ? (int)$settings['originality_restrictcontent']
+            : PLAGIARISM_INSPERA_RESTRICTCONTENTNO;
+
+        $this->queue_submission_files($cmid, (int)$cm->course, $submission, $restriction);
     }
 
     /**
@@ -123,12 +134,14 @@ class workshop_service {
      * @param int $cmid
      * @param int $courseid
      * @param \stdClass $submission
+     * @param int $restriction The content restriction setting (0=Both, 1=Files, 2=Text).
      * @return void
      */
     private function queue_submission_files(
         int $cmid,
         int $courseid,
-        \stdClass $submission
+        \stdClass $submission,
+        int $restriction
     ): void {
         $fs = get_file_storage();
 
@@ -138,8 +151,20 @@ class workshop_service {
         }
 
         // 1. HANDLE ONLINE TEXT.
+        // If restriction is 'Only Files' (1), we skip online text.
+        // Therefore, we ONLY run this if restriction is NOT PLAGIARISM_INSPERA_RESTRICTCONTENTFILES.
         // Moodle workshops store inline text directly in the submission content field.
-        if (!empty($submission->content) && !empty(trim(strip_tags($submission->content)))) {
+        if (
+            $restriction !== PLAGIARISM_INSPERA_RESTRICTCONTENTFILES &&
+            !empty($submission->content) &&
+            !empty(
+                trim(
+                    strip_tags(
+                        $submission->content
+                    )
+                )
+            )
+        ) {
             $tempfile = plagiarism_inspera_create_temp_file(
                 $cmid,
                 $courseid,
@@ -160,31 +185,34 @@ class workshop_service {
         }
 
         // 2. HANDLE UPLOADED FILES.
-        // submission_attachment: Physical files attached to the submission.
-        $fileareas = ['submission_attachment'];
+        // If restriction is 'Only Text' (2), we skip files.
+        // Therefore, we ONLY run this if restriction is NOT PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT.
+        if ($restriction !== PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT) {
+            $fileareas = ['submission_attachment'];
 
-        foreach ($fileareas as $filearea) {
-            $files = $fs->get_area_files(
-                $context->id,
-                'mod_workshop',
-                $filearea,
-                $submission->id,
-                'itemid, filepath, filename',
-                false
-            );
-
-            if (empty($files)) {
-                continue;
-            }
-
-            foreach ($files as $file) {
-                $this->queueservice->queue_file(
-                    $cmid,
-                    (int) $submission->authorid,
-                    $file,
-                    null,
-                    0
+            foreach ($fileareas as $filearea) {
+                $files = $fs->get_area_files(
+                    $context->id,
+                    'mod_workshop',
+                    $filearea,
+                    $submission->id,
+                    'itemid, filepath, filename',
+                    false
                 );
+
+                if (empty($files)) {
+                    continue;
+                }
+
+                foreach ($files as $file) {
+                    $this->queueservice->queue_file(
+                        $cmid,
+                        (int)$submission->authorid,
+                        $file,
+                        null,
+                        0
+                    );
+                }
             }
         }
     }

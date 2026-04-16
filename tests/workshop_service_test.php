@@ -25,9 +25,14 @@
 
 namespace plagiarism_inspera;
 
+defined('MOODLE_INTERNAL') || die();
+
 use advanced_testcase;
 use plagiarism_inspera\services\workshop_service;
 use plagiarism_inspera\services\queue_service;
+
+global $CFG;
+require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 /**
  * Unit tests for workshop_service.
@@ -146,5 +151,120 @@ final class workshop_service_test extends advanced_testcase {
         $service = new workshop_service($DB, $mockqueueservice);
         // Pass non-existent IDs.
         $service->process_late_submission(9999, 9999, 99999);
+    }
+
+    /**
+     * Test: Verify that when restricted to 'Only Attachments', online text is ignored.
+     */
+    public function test_process_phase_switch_respects_files_only_restriction(): void {
+        global $DB;
+
+        $course = $this->getDataGenerator()->create_course();
+        $workshop = $this->getDataGenerator()->create_module('workshop', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('workshop', $workshop->id);
+        $workshopgenerator = $this->getDataGenerator()->get_plugin_generator('mod_workshop');
+
+        // Set restriction to Only Files (1).
+        $DB->insert_record('plagiarism_inspera_config', (object)[
+            'cm' => $cm->id,
+            'name' => 'originality_restrictcontent',
+            'value' => PLAGIARISM_INSPERA_RESTRICTCONTENTFILES,
+        ]);
+
+        $user = $this->getDataGenerator()->create_user();
+        $subid = $workshopgenerator->create_submission($workshop->id, $user->id, [
+            'content' => 'This text should be ignored',
+            'contentformat' => FORMAT_HTML,
+        ]);
+
+        // Add an attachment.
+        $fs = get_file_storage();
+        $fs->create_file_from_string(
+            [
+                'contextid' => \context_module::instance($cm->id)->id,
+                'component' => 'mod_workshop',
+                'filearea'  => 'submission_attachment',
+                'itemid'    => $subid,
+                'filepath'  => '/',
+                'filename'  => 'scan_me.pdf',
+            ],
+            'PDF content'
+        );
+
+        // Mock: We expect exactly 1 call (for the file), and 0 calls for the text.
+        $mockqueueservice = $this->createMock(queue_service::class);
+        $mockqueueservice->expects($this->once())
+            ->method('queue_file')
+            ->with(
+                $this->equalTo($cm->id),
+                $this->equalTo($user->id),
+                $this->callback(function ($file) {
+                    return $file instanceof \stored_file && $file->get_filename() === 'scan_me.pdf';
+                }),
+                $this->anything(), // For the related user ID (null in this case).
+                $this->equalTo(0)  // For the submission ID.
+            );
+
+        $service = new workshop_service($DB, $mockqueueservice);
+        $service->process_phase_switch($workshop->id, $cm->id);
+    }
+
+    /**
+     * Test: Verify that when restricted to 'Only Online Text', files are ignored.
+     */
+    public function test_process_phase_switch_respects_text_only_restriction(): void {
+        global $DB;
+
+        $course = $this->getDataGenerator()->create_course();
+        $workshop = $this->getDataGenerator()->create_module('workshop', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('workshop', $workshop->id);
+        $workshopgenerator = $this->getDataGenerator()->get_plugin_generator('mod_workshop');
+
+        // Set restriction to Only Text (2).
+        $DB->insert_record('plagiarism_inspera_config', (object)[
+            'cm' => $cm->id,
+            'name' => 'originality_restrictcontent',
+            'value' => PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT,
+        ]);
+
+        $user = $this->getDataGenerator()->create_user();
+        $subid = $workshopgenerator->create_submission($workshop->id, $user->id, [
+            'content' => 'This text should be scanned',
+            'contentformat' => FORMAT_HTML,
+        ]);
+
+        // Add an attachment that should be ignored.
+        $fs = get_file_storage();
+        $fs->create_file_from_string(
+            [
+                'contextid' => \context_module::instance($cm->id)->id,
+                'component' => 'mod_workshop',
+                'filearea'  => 'submission_attachment',
+                'itemid'    => $subid,
+                'filepath'  => '/',
+                'filename'  => 'ignore_me.pdf',
+            ],
+            'PDF content'
+        );
+
+        // Mock: We expect exactly 1 call (for the text/temp-file), NOT the pdf.
+        $mockqueueservice = $this->createMock(queue_service::class);
+        $mockqueueservice->expects($this->once())
+            ->method('queue_file')
+            ->with(
+                $this->equalTo($cm->id),
+                $this->equalTo($user->id),
+                $this->callback(function ($file) {
+                    if (!is_object($file) || !isset($file->filepath)) {
+                        return false;
+                    }
+                    return strpos($file->filepath, 'plagiarism_inspera') !== false;
+                }),
+                $this->anything(), // For the related user ID (null in this case).
+                $this->equalTo(0)  // For the submission ID.
+            );
+
+        $service = new workshop_service($DB, $mockqueueservice);
+        $service->process_phase_switch($workshop->id, $cm->id);
     }
 }
