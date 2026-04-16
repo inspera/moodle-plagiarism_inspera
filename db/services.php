@@ -15,17 +15,22 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version details for the Inspera Originality plagiarism plugin.
+ * Service definitions for the Inspera plagiarism plugin.
  *
  * @package    plagiarism_inspera
- * @copyright  2025 Inspera AS
+ * @copyright  2026 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'plagiarism_inspera'; // Full name of the plugin in frankenstyle.
-$plugin->version   = 2026041500;              // Plugin version (YYYYMMDDXX).
-$plugin->requires  = 2024100700;               // Minimum Moodle version (e.g., 4.5 stable).
-$plugin->maturity  = MATURITY_STABLE;           // MATURITY_ALPHA, MATURITY_BETA, MATURITY_RC, MATURITY_STABLE.
-$plugin->release   = '2.0.0';                  // Human-readable version.
+$functions = [
+    'plagiarism_inspera_get_submission_status' => [
+        'classname'   => 'plagiarism_inspera\external\get_submission_status',
+        'methodname'  => 'execute',
+        'description' => 'Checks the status of a submission and returns a formatted ' .
+            'HTML fragment for the current status.',
+        'type'        => 'read',
+        'ajax'        => true, // Allow calling from Javascript.
+    ],
+];

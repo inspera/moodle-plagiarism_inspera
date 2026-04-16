@@ -28,22 +28,21 @@ defined('MOODLE_INTERNAL') || die();
  * Restore class for the Inspera Originality plagiarism plugin.
  */
 class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
-
     /**
      * Define the paths to be processed.
      */
     protected function define_module_plugin_structure() {
-        $paths = array();
+        $paths = [];
 
-        // 1. SETTINGS
-        // We use a clean name for the internal handler
+        // 1. SETTINGS.
+        // We use a clean name for the internal handler.
         $elename = 'insperaconfigmod';
 
-        // This MUST match the XML structure in backup_plagiarism_inspera_plugin.class.php
+        // This MUST match the XML structure in backup_plagiarism_inspera_plugin.class.php.
         $elepath = $this->get_pathfor('/inspera_configs/inspera_config');
         $paths[] = new restore_path_element($elename, $elepath);
 
-        // 2. SUBMISSIONS
+        // 2. SUBMISSIONS.
         if ($this->task->get_setting_value('userinfo')) {
             $elename = 'insperasubs';
             $elepath = $this->get_pathfor('/inspera_subs/inspera_sub');
@@ -66,12 +65,12 @@ class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
 
         $data->cm = $this->task->get_moduleid();
 
-        // Force Translations to OFF (0) and clear languages when an activity is restored or duplicated
+        // Force Translations to OFF (0) and clear languages when an activity is restored or duplicated.
         if ($data->name === 'originality_enable_translations') {
-            $data->value = '0'; // Force to No
+            $data->value = '0'; // Force to No.
         }
         if ($data->name === 'originality_translation_languages') {
-            $data->value = ''; // Clear out the previously selected languages
+            $data->value = ''; // Clear out the previously selected languages.
         }
 
         unset($data->id);
@@ -85,10 +84,10 @@ class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
         global $DB;
         $data = (object)$data;
 
-        // 1. Map Context
+        // 1. Map Context.
         $data->cm = $this->task->get_moduleid();
 
-        // 2. Map User
+        // 2. Map User.
         $data->userid = $this->get_mappingid('user', $data->userid);
 
         unset($data->id);

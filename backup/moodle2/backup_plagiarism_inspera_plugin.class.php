@@ -28,7 +28,6 @@ defined('MOODLE_INTERNAL') || die();
  * Backup class for the Inspera Originality plagiarism plugin.
  */
 class backup_plagiarism_inspera_plugin extends backup_plagiarism_plugin {
-
     /**
      * Define the structure for the module backup.
      */
@@ -40,21 +39,21 @@ class backup_plagiarism_inspera_plugin extends backup_plagiarism_plugin {
         $pluginwrapper = new backup_nested_element($this->get_recommended_name());
         $plugin->add_child($pluginwrapper);
 
-        // --- PART A: SETTINGS (Renamed to inspera_) ---
+        // PART A: SETTINGS.
         $insperaconfigs = new backup_nested_element('inspera_configs');
-        $insperaconfig  = new backup_nested_element('inspera_config', array('id'), array('name', 'value'));
+        $insperaconfig  = new backup_nested_element('inspera_config', ['id'], ['name', 'value']);
 
         $pluginwrapper->add_child($insperaconfigs);
         $insperaconfigs->add_child($insperaconfig);
 
-        $insperaconfig->set_source_table('plagiarism_inspera_config', array('cm' => backup::VAR_PARENTID));
+        $insperaconfig->set_source_table('plagiarism_inspera_config', ['cm' => backup::VAR_PARENTID]);
 
-        // --- PART B: SUBMISSIONS (Renamed to inspera_) ---
+        // PART B: SUBMISSIONS.
         if ($userinfo) {
             $insperasubs = new backup_nested_element('inspera_subs');
 
-            // Full column list
-            $insperasub  = new backup_nested_element('inspera_sub', array('id'), array(
+            // Full column list.
+            $insperasub  = new backup_nested_element('inspera_sub', ['id'], [
                 'userid',
                 'submissionid',
                 'storedfileid',
@@ -71,13 +70,13 @@ class backup_plagiarism_inspera_plugin extends backup_plagiarism_plugin {
                 'image_as_text',
                 'description',
                 'timecreated',
-                'timemodified'
-            ));
+                'timemodified',
+            ]);
 
             $pluginwrapper->add_child($insperasubs);
             $insperasubs->add_child($insperasub);
 
-            $insperasub->set_source_table('plagiarism_inspera_subs', array('cm' => backup::VAR_PARENTID));
+            $insperasub->set_source_table('plagiarism_inspera_subs', ['cm' => backup::VAR_PARENTID]);
         }
 
         return $plugin;

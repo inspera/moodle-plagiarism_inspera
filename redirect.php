@@ -34,33 +34,50 @@ $id = required_param('id', PARAM_INT);
 $returnurlparam = optional_param('returnurl', '', PARAM_LOCALURL);
 global $DB, $USER;
 
-$record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], '*', MUST_EXIST);
+$record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], '*', IGNORE_MISSING);
 
 // 2. Load CM and Determine Module Type.
 // We pass false for the module name so Moodle loads it regardless of type (assign or quiz).
-$cm = get_coursemodule_from_id('', $record->cm, 0, false, MUST_EXIST);
-$course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
+$cm = $record ? get_coursemodule_from_id('', $record->cm, 0, false, IGNORE_MISSING) : false;
+$course = $cm ? $DB->get_record('course', ['id' => $cm->course], '*', IGNORE_MISSING) : false;
+
+if (!$record || !$cm || !$course) {
+    throw new moodle_exception('nopermissions', 'error');
+}
 
 // 3. Security & Context.
 $context = context_module::instance($cm->id);
 require_login($course, true, $cm);
 
 // 4. Determine Capability based on Module.
-$isgrader = false;
 $modulename = $cm->modname;
+$isgrader = false;
 
-if ($modulename === 'quiz') {
-    $isgrader = has_capability('mod/quiz:grade', $context);
-} else if ($modulename === 'assign') {
-    $isgrader = has_capability('mod/assign:grade', $context);
+// Fetch the centralized secure capability map.
+$gradecapabilities = plagiarism_inspera_get_grade_capabilities();
+
+if (isset($gradecapabilities[$modulename])) {
+    $isgrader = has_capability($gradecapabilities[$modulename], $context);
 } else {
-    // SECURITY GUARD: Reject any unsupported module types immediately.
-    throw new moodle_exception('error', 'error', '', null, 'Unsupported module type: ' . s($modulename));
+    // SECURITY GUARD: Reject any unsupported module types.
+    // This endpoint is user-accessible via URL manipulation, so we fail with a standard.
+    // Permission error rather than a coding_exception to avoid leaking system details.
+    throw new moodle_exception('nopermissions', 'error');
 }
 
-// Access Control: You must be a grader OR the owner of the submission.
-if (!$isgrader && $record->userid != $USER->id) {
-    throw new moodle_exception('nopermission', 'plagiarism_inspera');
+// Access Control: Graders have unconditional access.
+if (!$isgrader) {
+    // 1. Non-graders MUST be the owner of the submission.
+    if ((int)$record->userid !== (int)$USER->id) {
+        throw new moodle_exception('nopermissions', 'error');
+    }
+
+    // 2. The plugin settings for this specific activity must permit the student to view it right now.
+    $settings = plagiarism_inspera_get_cm_settings((int)$record->cm);
+
+    if (!plagiarism_inspera_should_show_report((int)$record->cm, (int)$USER->id, $settings ?: [], $record)) {
+        throw new moodle_exception('nopermissions', 'error');
+    }
 }
 
 // Prepare page (used for graceful error rendering below).
@@ -76,19 +93,20 @@ if (!empty($returnurlparam)) {
     // Generate intelligent fallbacks based on module type.
     if ($modulename === 'quiz') {
         if ($isgrader) {
-            // Teacher: Go to Quiz Reports.
             $returnurl = new moodle_url('/mod/quiz/report.php', ['id' => $cm->id, 'mode' => 'overview']);
         } else {
-            // Student: Go to Quiz Summary.
             $returnurl = new moodle_url('/mod/quiz/view.php', ['id' => $cm->id]);
         }
-    } else {
-        // Assignment Logic.
+    } else if ($modulename === 'assign') {
         if ($isgrader) {
             $returnurl = new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'grading']);
         } else {
             $returnurl = new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'editsubmission']);
         }
+    } else if ($modulename === 'workshop') {
+        $returnurl = new moodle_url('/mod/workshop/view.php', ['id' => $cm->id]);
+    } else {
+        $returnurl = new moodle_url('/course/view.php', ['id' => $cm->course]);
     }
 }
 
