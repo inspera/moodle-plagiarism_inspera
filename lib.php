@@ -1183,6 +1183,13 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
             $mform->addElement('hidden', 'originality_restrictcontent', 0);
             $mform->setType('originality_restrictcontent', PARAM_INT);
         }
+    } else if ($modulename == 'mod_workshop') {
+        // Workshop: Show setting but hide if either text or file submissions are disabled.
+        // This ensures the restriction setting only shows when 'Both' are theoretically possible.
+        if ($mform->elementExists('originality_restrictcontent')) {
+            $mform->hideIf('originality_restrictcontent', 'submissiontypetextavailable', 'notchecked');
+            $mform->hideIf('originality_restrictcontent', 'submissiontypefileavailable', 'notchecked');
+        }
     }
 
     global $PAGE;
