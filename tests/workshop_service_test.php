@@ -201,8 +201,8 @@ final class workshop_service_test extends advanced_testcase {
                 $this->callback(function ($file) {
                     return $file instanceof \stored_file && $file->get_filename() === 'scan_me.pdf';
                 }),
-                $this->anything(), // For the 'null' identifier.
-                $this->equalTo(0)  // For the '0' group/priority.
+                $this->anything(), // For the related user ID (null in this case).
+                $this->equalTo(0)  // For the submission ID.
             );
 
         $service = new workshop_service($DB, $mockqueueservice);
@@ -260,8 +260,8 @@ final class workshop_service_test extends advanced_testcase {
                     }
                     return strpos($file->filepath, 'plagiarism_inspera') !== false;
                 }),
-                $this->anything(), // For the 'null' identifier.
-                $this->equalTo(0)  // For the '0' group/priority.
+                $this->anything(), // For the related user ID (null in this case).
+                $this->equalTo(0)  // For the submission ID.
             );
 
         $service = new workshop_service($DB, $mockqueueservice);
