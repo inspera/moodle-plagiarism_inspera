@@ -60,10 +60,11 @@ final class workshop_test extends advanced_testcase {
         $generator->enrol_user($this->student->id, $this->course->id, 'student');
         $generator->enrol_user($this->teacher->id, $this->course->id, 'editingteacher');
 
-        // Create a Workshop.
+        // Create a Workshop and move it to the Assessment phase so grading is logically possible.
         $this->workshop = $generator->create_module('workshop', [
             'course' => $this->course->id,
-            'phase'  => 20, // PHASE_SUBMISSION.
+            // PHASE_ASSESSMENT is 30.
+            'phase'  => \plagiarism_inspera\services\workshop_service::PHASE_ASSESSMENT,
         ]);
 
         $DB->insert_record('plagiarism_inspera_config', (object) [
