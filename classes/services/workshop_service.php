@@ -69,6 +69,11 @@ class workshop_service {
         // Include the lib once for the entire batch of submissions.
         require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
+        $settings = \plagiarism_inspera_get_cm_settings($cmid);
+        $restriction = isset($settings['originality_restrictcontent'])
+            ? (int)$settings['originality_restrictcontent']
+            : PLAGIARISM_INSPERA_RESTRICTCONTENTNO;
+
         $submissions = $this->db->get_recordset(
             'workshop_submissions',
             ['workshopid' => $workshopid],
@@ -76,7 +81,7 @@ class workshop_service {
         );
         try {
             foreach ($submissions as $submission) {
-                $this->queue_submission_files($cmid, (int)$cm->course, $submission);
+                $this->queue_submission_files($cmid, (int)$cm->course, $submission, $restriction);
             }
         } finally {
             $submissions->close();
@@ -114,7 +119,13 @@ class workshop_service {
             return;
         }
 
-        $this->queue_submission_files($cmid, (int)$cm->course, $submission);
+        // Fetch restriction.
+        $settings = \plagiarism_inspera_get_cm_settings($cmid);
+        $restriction = isset($settings['originality_restrictcontent'])
+            ? (int)$settings['originality_restrictcontent']
+            : PLAGIARISM_INSPERA_RESTRICTCONTENTNO;
+
+        $this->queue_submission_files($cmid, (int)$cm->course, $submission, $restriction);
     }
 
     /**
@@ -128,7 +139,8 @@ class workshop_service {
     private function queue_submission_files(
         int $cmid,
         int $courseid,
-        \stdClass $submission
+        \stdClass $submission,
+        int $restriction
     ): void {
         $fs = get_file_storage();
 
@@ -136,13 +148,6 @@ class workshop_service {
         if (!$context) {
             return; // Fail gracefully if the module was deleted mid-processing.
         }
-
-        // Get the restriction setting for this specific workshop instance.
-        $plugin = new \plagiarism_plugin_inspera();
-        $settings = \plagiarism_inspera_get_cm_settings($cmid);
-        $restriction = isset(
-            $settings['originality_restrictcontent']
-        ) ? (int)$settings['originality_restrictcontent'] : PLAGIARISM_INSPERA_RESTRICTCONTENTNO;
 
         // 1. HANDLE ONLINE TEXT.
         // Moodle workshops store inline text directly in the submission content field.
