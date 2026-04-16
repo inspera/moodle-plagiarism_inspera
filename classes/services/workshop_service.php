@@ -134,6 +134,7 @@ class workshop_service {
      * @param int $cmid
      * @param int $courseid
      * @param \stdClass $submission
+     * @param int $restriction The content restriction setting (0=Both, 1=Files, 2=Text).
      * @return void
      */
     private function queue_submission_files(
