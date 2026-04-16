@@ -82,15 +82,20 @@ final class workshop_test extends advanced_testcase {
         global $DB;
         $timenow = time();
 
-        // 1. Create a dummy submission directly in the DB (mimicking the 'authorid' quirk).
-        $subid = $DB->insert_record('workshop_submissions', [
-            'workshopid'   => $this->workshop->id,
-            'authorid'     => $this->student->id,
-            'timecreated'  => $timenow,
-            'timemodified' => $timenow,
-            'title'        => 'Test Submission',
-        ]);
+        // 1. Create a Workshop submission via the module generator.
+        /** @var mod_workshop_generator $workshopgenerator */
+        $workshopgenerator = $this->getDataGenerator()->get_plugin_generator('mod_workshop');
 
+        // Note: create_submission returns the ID (int) directly.
+        $subid = $workshopgenerator->create_submission(
+            $this->workshop->id,
+            $this->student->id,
+            [
+                'timecreated'  => $timenow,
+                'timemodified' => $timenow,
+                'title' => 'Test Submission',
+            ]
+        );
         // Mock the finished Plagiarism record.
         $record = (object)[
             'cm'     => $this->workshop->cmid,
