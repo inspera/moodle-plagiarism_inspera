@@ -603,6 +603,55 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
                     $sumgrades = $DB->get_field_sql($sql, [$record->storedfileid]);
                     return ($sumgrades !== false && $sumgrades !== null);
                 }
+            } else if ($cm->modname === 'workshop') {
+                // Logic for Workshop.
+                // 1. Try to get the final grade from the Gradebook first.
+                require_once($GLOBALS['CFG']->libdir . '/gradelib.php');
+                $grades = grade_get_grades($cm->course, 'mod', 'workshop', $cm->instance, $userid);
+
+                if (!empty($grades->items)) {
+                    foreach ($grades->items as $item) {
+                        if (empty($item->grades) || !is_array($item->grades)) {
+                            continue;
+                        }
+
+                        $g = $item->grades[$userid] ?? null;
+                        if (!$g) {
+                            continue;
+                        }
+
+                        // Show if there is a grade, or if it has been explicitly overridden in the gradebook.
+                        if (!empty($g->overridden) || ($g->str_grade !== '-' && $g->grade !== null)) {
+                            return true;
+                        }
+                    }
+                }
+
+                // 2. Fallback: Query internal workshop tables directly.
+                $submission = $DB->get_record(
+                    'workshop_submissions',
+                    ['workshopid' => $cm->instance, 'authorid' => $userid],
+                    'id, grade, gradeover',
+                    IGNORE_MISSING
+                );
+
+                if ($submission) {
+                    // Check if the submission has received a final aggregated or overridden grade.
+                    if (is_numeric($submission->grade) || is_numeric($submission->gradeover)) {
+                        return true;
+                    }
+
+                    // Check if a reviewer has actually filled out the rubric.
+                    if (
+                        $DB->record_exists_select(
+                            'workshop_assessments',
+                            'submissionid = ? AND timemodified > 0',
+                            [$submission->id]
+                        )
+                    ) {
+                        return true;
+                    }
+                }
             }
             return false;
         case 3: // Due date / Close date.
@@ -666,6 +715,13 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
                 $quiz = $DB->get_record('quiz', ['id' => $cm->instance], 'id, timeclose', IGNORE_MISSING);
                 if ($quiz && !empty($quiz->timeclose)) {
                     return $now >= (int)$quiz->timeclose;
+                }
+            } else if ($cm->modname === 'workshop') {
+                // Logic for Workshop: Check submissionend.
+                // Note: Workshops do not have user overrides or extensions in Moodle core.
+                $workshop = $DB->get_record('workshop', ['id' => $cm->instance], 'id, submissionend', IGNORE_MISSING);
+                if ($workshop && !empty($workshop->submissionend)) {
+                    return $now >= (int)$workshop->submissionend;
                 }
             }
             return false;
