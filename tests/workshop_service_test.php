@@ -195,9 +195,15 @@ final class workshop_service_test extends advanced_testcase {
         $mockqueueservice = $this->createMock(queue_service::class);
         $mockqueueservice->expects($this->once())
             ->method('queue_file')
-            ->with($this->equalTo($cm->id), $this->equalTo($user->id), $this->callback(function ($file) {
-                return $file instanceof \stored_file && $file->get_filename() === 'scan_me.pdf';
-            }));
+            ->with(
+                $this->equalTo($cm->id),
+                $this->equalTo($user->id),
+                $this->callback(function ($file) {
+                    return $file instanceof \stored_file && $file->get_filename() === 'scan_me.pdf';
+                }),
+                $this->anything(), // For the 'null' identifier.
+                $this->equalTo(0)  // For the '0' group/priority.
+            );
 
         $service = new workshop_service($DB, $mockqueueservice);
         $service->process_phase_switch($workshop->id, $cm->id);
@@ -245,13 +251,18 @@ final class workshop_service_test extends advanced_testcase {
         $mockqueueservice = $this->createMock(queue_service::class);
         $mockqueueservice->expects($this->once())
             ->method('queue_file')
-            ->with($this->equalTo($cm->id), $this->equalTo($user->id), $this->callback(function ($file) {
-                // The online text is passed as a stdClass object from plagiarism_inspera_create_temp_file.
-                if (!is_object($file) || !isset($file->filepath)) {
-                    return false;
-                }
-                return strpos($file->filepath, 'plagiarism_inspera') !== false;
-            }));
+            ->with(
+                $this->equalTo($cm->id),
+                $this->equalTo($user->id),
+                $this->callback(function ($file) {
+                    if (!is_object($file) || !isset($file->filepath)) {
+                        return false;
+                    }
+                    return strpos($file->filepath, 'plagiarism_inspera') !== false;
+                }),
+                $this->anything(), // For the 'null' identifier.
+                $this->equalTo(0)  // For the '0' group/priority.
+            );
 
         $service = new workshop_service($DB, $mockqueueservice);
         $service->process_phase_switch($workshop->id, $cm->id);
