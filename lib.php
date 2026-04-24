@@ -98,6 +98,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             'originality_exclude_urls'              => PARAM_TEXT,
             'originality_show_student_report'       => PARAM_INT,
             'originality_draft_submit'              => PARAM_INT,
+            'originality_excludecitations'          => PARAM_INT,
         ];
     }
 
@@ -158,6 +159,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             'originality_exclude_urls',
             'originality_show_student_report',
             'originality_draft_submit',
+            'originality_excludecitations',
         ];
         if ($adminsettings) {
             $options[] = 'originality_advanceditems';
@@ -1043,6 +1045,8 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
                 $mform->setDefault($element, 1); // Default to Yes.
             } else if ($element === 'originality_display_type') {
                 $mform->setDefault($element, 'originality');
+            } else if ($element === 'originality_excludecitations') {
+                $mform->setDefault($element, 0); // Default to No.
             }
         }
     }
@@ -1113,7 +1117,12 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         // RULE 1: HIDDEN ITEMS.
         if ($ishidden && !$isadmin) {
             // Determine coherent fallback value if it's a new assignment.
-            $fallback = ($name === 'originality_enable_translations') ? 0 : (($name === 'originality_allowallfile') ? 1 : '');
+            $fallback = ($name === 'originality_enable_translations') ? 0 : (($name === 'originality_allowallfile') ? 1 : 0);
+            if ($name === 'originality_display_type') {
+                $fallback = 'originality';
+            } else if ($name === 'originality_selectfiletypes' || $name === 'originality_translation_languages') {
+                $fallback = '';
+            }
 
             $value = $plagiarismvalues[$name] ?? $fallback;
 
@@ -1352,6 +1361,15 @@ function plagiarism_inspera_get_form_elements($mform, $modulename = '') {
     );
     $mform->addHelpButton('originality_archive', 'originality_archive', 'plagiarism_inspera');
     $mform->setType('originality_archive', PARAM_INT);
+
+    // Exclude Citations.
+    $mform->addElement(
+        'advcheckbox',
+        'originality_excludecitations',
+        get_string('originality_excludecitations', 'plagiarism_inspera')
+    );
+    $mform->addHelpButton('originality_excludecitations', 'originality_excludecitations', 'plagiarism_inspera');
+    $mform->setType('originality_excludecitations', PARAM_INT);
 
     // Contextual Similarity.
     $mform->addElement(

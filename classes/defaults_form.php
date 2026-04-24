@@ -139,6 +139,16 @@ class plagiarism_inspera_defaults_form extends moodleform {
             $mform->addHelpButton('originality_archive_' . $sm, 'originality_archive', 'plagiarism_inspera');
             $mform->setType('originality_archive_' . $sm, PARAM_INT);
 
+            // Exclude Citations.
+            $mform->addElement(
+                'select',
+                'originality_excludecitations_' . $sm,
+                get_string('originality_excludecitations', 'plagiarism_inspera'),
+                $ynoptions
+            );
+            $mform->addHelpButton('originality_excludecitations_' . $sm, 'originality_excludecitations', 'plagiarism_inspera');
+            $mform->setType('originality_excludecitations_' . $sm, PARAM_INT);
+
             // Contextual Similarity.
             $mform->addElement(
                 'select',
