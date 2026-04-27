@@ -67,8 +67,18 @@ $ufiltering = new \plagiarism_inspera\output\filtering($filters, $PAGE->url);
 // SMART TOGGLE LOGIC.
 $showall = optional_param('showall', 0, PARAM_INT);
 if ($showall !== 0) {
-    // Save preference: 1 = Show All, -1 = Show Errors Only.
+    require_sesskey();
+    // Save preference: 1 = Show All, any other non-zero value = Show Errors Only.
     set_user_preference('plagiarism_inspera_debug_showall', $showall == 1 ? 1 : 0);
+    // 1. Create a fresh URL object based on the current page.
+    $redirecturl = new moodle_url($PAGE->url);
+
+    // 2. Remove parameters one by one as strings.
+    $redirecturl->remove_params('showall');
+    $redirecturl->remove_params('sesskey');
+
+    // 3. Perform the redirect.
+    redirect($redirecturl);
 }
 // Read the user's saved preference (Defaults to 0 / Errors Only).
 $prefshowall = get_user_preferences('plagiarism_inspera_debug_showall', 0);
@@ -253,14 +263,14 @@ if (!$table->is_downloading()) {
     // RENDER THE SMART TOGGLE BUTTON.
     echo html_writer::start_div('mb-4');
     if ($prefshowall) {
-        $toggleurl = new moodle_url($PAGE->url, ['showall' => -1]);
+        $toggleurl = new moodle_url($PAGE->url, ['showall' => -1, 'sesskey' => sesskey()]);
         echo html_writer::link(
             $toggleurl,
             'Currently viewing: All Submissions (Click to show Errors only)',
             ['class' => 'btn btn-outline-danger']
         );
     } else {
-        $toggleurl = new moodle_url($PAGE->url, ['showall' => 1]);
+        $toggleurl = new moodle_url($PAGE->url, ['showall' => 1, 'sesskey' => sesskey()]);
         echo html_writer::link(
             $toggleurl,
             'Currently viewing: Errors Only (Click to show All Submissions)',
