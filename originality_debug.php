@@ -266,14 +266,14 @@ if (!$table->is_downloading()) {
         $toggleurl = new moodle_url($PAGE->url, ['showall' => -1, 'sesskey' => sesskey()]);
         echo html_writer::link(
             $toggleurl,
-            'Currently viewing: All Submissions (Click to show Errors only)',
+            get_string('toggleviewerrorsonly', 'plagiarism_inspera'),
             ['class' => 'btn btn-outline-danger']
         );
     } else {
         $toggleurl = new moodle_url($PAGE->url, ['showall' => 1, 'sesskey' => sesskey()]);
         echo html_writer::link(
             $toggleurl,
-            'Currently viewing: Errors Only (Click to show All Submissions)',
+            get_string('toggleviewallsubmissions', 'plagiarism_inspera'),
             ['class' => 'btn btn-outline-primary']
         );
     }
