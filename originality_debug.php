@@ -239,7 +239,7 @@ if (!empty($ufextrasql)) {
     $sqlwhere .= " AND " . $ufextrasql;
 }
 
-// Only load submissions that are 2 months old (from now) to keep the list manageable.
+// Only load submissions from the last 2 months to keep the list manageable.
 $twomonthscutoff = strtotime('-2 months');
 if ($twomonthscutoff === false) {
     // Fallback in the unlikely event strtotime fails; approx 2 months as 60 days.
