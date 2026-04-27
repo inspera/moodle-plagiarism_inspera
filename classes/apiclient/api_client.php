@@ -409,6 +409,12 @@ class api_client {
         if (!empty($settings['originality_enable_ai'])) {
             $payload['enableAIDetection'] = (bool)$settings['originality_enable_ai'];
         }
+
+        // Exclude Citations (Uses isset to explicitly send true or false).
+        if (isset($settings['originality_excludecitations'])) {
+            $payload['excludeCitations'] = (bool)$settings['originality_excludecitations'];
+        }
+
         if (!empty($settings['originality_enable_translations'])) {
             $payload['translationsEnabled'] = true;
             // Clean up array structure for API.
@@ -424,6 +430,29 @@ class api_client {
             $payload['sentenceThresholds'] = [
                 'contextualSimilaritiesThreshold' => (int)($settings['originality_context_threshold'] ?? 50),
             ];
+        }
+
+        // Exclude Source Threshold.
+        if (!empty($settings['originality_enable_exclude_source_criteria'])) {
+            if (isset($settings['originality_exclude_source_threshold'])) {
+                $payload['sourcesThreshold'] = (int)$settings['originality_exclude_source_threshold'];
+            }
+        }
+
+        // Whitelist Characters.
+        if (
+            !empty(
+                $settings['originality_enable_whitelist_characters']
+            ) &&
+            !empty(
+                trim($settings['originality_whitelist_characters'] ?? '')
+            )
+        ) {
+            $payload['whitelistCharacters'] = array_values(
+                array_filter(
+                    array_map('trim', explode(',', $settings['originality_whitelist_characters']))
+                )
+            );
         }
 
         // 4. Sources (Include/Exclude).

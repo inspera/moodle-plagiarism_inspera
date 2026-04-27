@@ -92,6 +92,8 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             'originality_translation_languages'     => PARAM_TAGLIST,
             'originality_enable_context_similarity' => PARAM_INT,
             'originality_context_threshold'         => PARAM_INT,
+            'originality_enable_exclude_source_criteria' => PARAM_INT,
+            'originality_exclude_source_threshold'  => PARAM_INT,
             'originality_enable_include_urls'       => PARAM_INT,
             'originality_include_urls'              => PARAM_TEXT,
             'originality_enable_exclude_urls'       => PARAM_INT,
@@ -99,6 +101,8 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             'originality_show_student_report'       => PARAM_INT,
             'originality_draft_submit'              => PARAM_INT,
             'originality_excludecitations'          => PARAM_INT,
+            'originality_enable_whitelist_characters' => PARAM_INT,
+            'originality_whitelist_characters' => PARAM_TAGLIST,
         ];
     }
 
@@ -153,6 +157,8 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             'originality_translation_languages',
             'originality_enable_context_similarity',
             'originality_context_threshold',
+            'originality_enable_exclude_source_criteria',
+            'originality_exclude_source_threshold',
             'originality_enable_include_urls',
             'originality_include_urls',
             'originality_enable_exclude_urls',
@@ -160,6 +166,8 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             'originality_show_student_report',
             'originality_draft_submit',
             'originality_excludecitations',
+            'originality_enable_whitelist_characters',
+            'originality_whitelist_characters',
         ];
         if ($adminsettings) {
             $options[] = 'originality_advanceditems';
@@ -944,6 +952,21 @@ function plagiarism_inspera_coursemodule_validation($formwrapper = null, $data =
         }
     }
 
+    // Exclude Source Criteria Validation (Refactored to match default_forms.php).
+    if (
+        !empty($data['originality_enable_exclude_source_criteria']) &&
+        $data['originality_enable_exclude_source_criteria'] == 1
+    ) {
+        $rawsource = trim((string)($data['originality_exclude_source_threshold'] ?? ''));
+
+        if (!preg_match('/^\d+$/', $rawsource) || (int)$rawsource < 1 || (int)$rawsource > 100) {
+            $errors['originality_exclude_source_threshold'] = get_string(
+                'errorexcludesourcethreshold',
+                'plagiarism_inspera'
+            );
+        }
+    }
+
     return $errors;
 }
 
@@ -998,21 +1021,21 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         plagiarism_inspera_get_form_elements($mform, $modulename);
 
         if (
-                !has_capability('plagiarism/inspera:resubmitonclose', $context) &&
-                $mform->elementExists('originality_resubmit_on_close')
+            !has_capability('plagiarism/inspera:resubmitonclose', $context) &&
+            $mform->elementExists('originality_resubmit_on_close')
         ) {
             $mform->removeElement('originality_resubmit_on_close');
         }
 
         // Disable sub-elements if the main 'use_originality' is set to 'No'.
         // Exclude child lists from this global loop to protect their 'Show More' CSS state.
-        $childelements = ['originality_translation_languages'];
+        $childelements = ['originality_translation_languages', 'originality_whitelist_characters'];
 
         foreach ($plagiarismelements as $element) {
             if (
-                    $element != 'use_originality' &&
-                    !in_array($element, $childelements, true) &&
-                    $mform->elementExists($element)
+                $element != 'use_originality' &&
+                !in_array($element, $childelements, true) &&
+                $mform->elementExists($element)
             ) {
                 $mform->hideIf($element, 'use_originality', 'eq', 0);
             }
@@ -1025,29 +1048,76 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         }
     }
 
-    // 4. Set Default Values (Cleaned up).
+    // 4. Set Default Values (Cleaned up and Array-safe).
     foreach ($plagiarismelements as $element) {
         $defaultelement = $element . '_' . str_replace('mod_', '', $modulename);
+        $val = null;
+
         if (isset($plagiarismvalues[$element])) {
-            $mform->setDefault($element, $plagiarismvalues[$element]);
+            $val = $plagiarismvalues[$element];
         } else if (isset($plagiarismdefaults[$defaultelement])) {
-            $mform->setDefault($element, $plagiarismdefaults[$defaultelement]);
+            $val = $plagiarismdefaults[$defaultelement];
         } else {
-            // If there is no saved value and no Admin default exists, provide safe initial states.
+            // Safe initial states for brand new activities.
             if ($element === 'originality_enable_translations') {
-                $mform->setDefault($element, 0); // Default to No.
+                $val = 0;
             } else if (
-                    $element === 'originality_translation_languages' ||
-                    $element === 'originality_selectfiletypes'
+                in_array(
+                    $element,
+                    [
+                        'originality_translation_languages',
+                        'originality_selectfiletypes',
+                        'originality_whitelist_characters',
+                    ]
+                )
             ) {
-                $mform->setDefault($element, '');
+                $val = '';
             } else if ($element === 'originality_allowallfile') {
-                $mform->setDefault($element, 1); // Default to Yes.
+                $val = 1;
             } else if ($element === 'originality_display_type') {
-                $mform->setDefault($element, 'originality');
-            } else if ($element === 'originality_excludecitations') {
-                $mform->setDefault($element, 0); // Default to No.
+                $val = 'originality';
+            } else if (
+                in_array(
+                    $element,
+                    [
+                        'originality_excludecitations',
+                        'originality_enable_exclude_source_criteria',
+                        'originality_enable_whitelist_characters',
+                    ]
+                )
+            ) {
+                $val = 0;
             }
+        }
+
+        // Convert strings to arrays for Multi-Selects and Autocomplete.
+        $arrayelements = [
+            'originality_translation_languages',
+            'originality_selectfiletypes',
+            'originality_whitelist_characters',
+        ];
+        if ($val !== null && in_array($element, $arrayelements)) {
+            if (is_string($val)) {
+                $trimmedval = trim((string)$val);
+                $val = $trimmedval === '' ? [] : explode(',', $trimmedval);
+            }
+
+            // Explicitly inject the saved tags as options so Moodle's UI renders the chips!
+            if (
+                $element === 'originality_whitelist_characters' &&
+                is_array($val) &&
+                !empty($val) &&
+                $mform->elementExists($element)
+            ) {
+                $formelement = $mform->getElement($element);
+                foreach ($val as $chip) {
+                    $formelement->addOption($chip, $chip);
+                }
+            }
+        }
+
+        if ($val !== null && $mform->elementExists($element)) {
+            $mform->setDefault($element, $val);
         }
     }
 
@@ -1113,14 +1183,35 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
             $islocked   = $islocked || isset($lockedmap['originality_allowallfile']);
             $isadvanced = $isadvanced || isset($advancedmap['originality_allowallfile']);
         }
+        if ($name === 'originality_exclude_source_threshold') {
+            $ishidden   = $ishidden || isset($hiddenmap['originality_enable_exclude_source_criteria']);
+            $islocked   = $islocked || isset($lockedmap['originality_enable_exclude_source_criteria']);
+            $isadvanced = $isadvanced || isset($advancedmap['originality_enable_exclude_source_criteria']);
+        }
+        // Cascade logic for the new Whitelist Characters input.
+        if ($name === 'originality_whitelist_characters') {
+            $ishidden   = $ishidden || isset($hiddenmap['originality_enable_whitelist_characters']);
+            $islocked   = $islocked || isset($lockedmap['originality_enable_whitelist_characters']);
+            $isadvanced = $isadvanced || isset($advancedmap['originality_enable_whitelist_characters']);
+        }
 
         // RULE 1: HIDDEN ITEMS.
         if ($ishidden && !$isadmin) {
             // Determine coherent fallback value if it's a new assignment.
-            $fallback = ($name === 'originality_enable_translations') ? 0 : (($name === 'originality_allowallfile') ? 1 : 0);
+            $fallback = ($name === 'originality_enable_translations') ? 0 :
+                (($name === 'originality_allowallfile') ? 1 : 0);
             if ($name === 'originality_display_type') {
                 $fallback = 'originality';
-            } else if ($name === 'originality_selectfiletypes' || $name === 'originality_translation_languages') {
+            } else if (
+                in_array(
+                    $name,
+                    [
+                        'originality_selectfiletypes',
+                        'originality_translation_languages',
+                        'originality_whitelist_characters',
+                    ]
+                )
+            ) {
                 $fallback = '';
             }
 
@@ -1157,6 +1248,27 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
                     if ($allowval == 1) {
                         $mform->removeElement($name);
                         $mform->addElement('hidden', $name, ''); // String, not array.
+                        $mform->setType($name, PARAM_TAGLIST);
+                        continue;
+                    }
+                }
+
+                if ($name === 'originality_exclude_source_threshold') {
+                    $sourceval = $plagiarismvalues['originality_enable_exclude_source_criteria'] ?? 0;
+                    if ($sourceval == 0) {
+                        $mform->removeElement($name);
+                        $mform->addElement('hidden', $name, 0); // Safe integer default.
+                        $mform->setType($name, PARAM_INT);
+                        continue;
+                    }
+                }
+
+                // ADDED: Hide whitelist chips if admin locks "Whitelist Characters" to NO (0).
+                if ($name === 'originality_whitelist_characters') {
+                    $whitelistval = $plagiarismvalues['originality_enable_whitelist_characters'] ?? 0;
+                    if ($whitelistval == 0) {
+                        $mform->removeElement($name);
+                        $mform->addElement('hidden', $name, ''); // Safe empty string default.
                         $mform->setType($name, PARAM_TAGLIST);
                         continue;
                     }
@@ -1362,14 +1474,89 @@ function plagiarism_inspera_get_form_elements($mform, $modulename = '') {
     $mform->addHelpButton('originality_archive', 'originality_archive', 'plagiarism_inspera');
     $mform->setType('originality_archive', PARAM_INT);
 
+    // Whitelist Characters.
+    $mform->addElement(
+        'select',
+        'originality_enable_whitelist_characters',
+        get_string('originality_enable_whitelist_characters', 'plagiarism_inspera'),
+        $ynoptions
+    );
+    $mform->addHelpButton(
+        'originality_enable_whitelist_characters',
+        'originality_enable_whitelist_characters',
+        'plagiarism_inspera'
+    );
+    $mform->setType('originality_enable_whitelist_characters', PARAM_INT);
+    $mform->setDefault('originality_enable_whitelist_characters', 0);
+
+    // The "Chips/Tags" input box.
+    $mform->addElement(
+        'autocomplete',
+        'originality_whitelist_characters',
+        get_string('originality_whitelist_characters', 'plagiarism_inspera'),
+        [],
+        [
+            'tags' => true,
+            'multiple' => true,
+            'placeholder' => 'Type 1-2 chars and press Enter',
+        ]
+    );
+    $mform->setType('originality_whitelist_characters', PARAM_TAGLIST);
+
+    $mform->hideIf(
+        'originality_whitelist_characters',
+        'originality_enable_whitelist_characters',
+        'eq',
+        0
+    );
+
     // Exclude Citations.
     $mform->addElement(
-        'advcheckbox',
+        'select',
         'originality_excludecitations',
-        get_string('originality_excludecitations', 'plagiarism_inspera')
+        get_string('originality_excludecitations', 'plagiarism_inspera'),
+        $ynoptions
     );
     $mform->addHelpButton('originality_excludecitations', 'originality_excludecitations', 'plagiarism_inspera');
     $mform->setType('originality_excludecitations', PARAM_INT);
+
+    // Exclude Source Criteria.
+    $mform->addElement(
+        'select',
+        'originality_enable_exclude_source_criteria',
+        get_string('originality_enable_exclude_source_criteria', 'plagiarism_inspera'),
+        $ynoptions
+    );
+    $mform->addHelpButton(
+        'originality_enable_exclude_source_criteria',
+        'originality_enable_exclude_source_criteria',
+        'plagiarism_inspera'
+    );
+    $mform->setType('originality_enable_exclude_source_criteria', PARAM_INT);
+    $mform->setDefault('originality_enable_exclude_source_criteria', 0);
+
+    $mform->addElement(
+        'text',
+        'originality_exclude_source_threshold',
+        get_string('originality_exclude_source_threshold', 'plagiarism_inspera'),
+        ['style' => 'width: 80px;']
+    );
+    $mform->setType('originality_exclude_source_threshold', PARAM_TEXT);
+    $mform->setDefault('originality_exclude_source_threshold', 5);
+    $mform->addHelpButton(
+        'originality_exclude_source_threshold',
+        'originality_exclude_source_threshold',
+        'plagiarism_inspera'
+    );
+
+    $mform->addRule(
+        'originality_exclude_source_threshold',
+        get_string('errorexcludesourcethreshold', 'plagiarism_inspera'),
+        'regex',
+        '/^(100|[1-9][0-9]?)$/'
+    );
+
+    $mform->hideIf('originality_exclude_source_threshold', 'originality_enable_exclude_source_criteria', 'eq', 0);
 
     // Contextual Similarity.
     $mform->addElement(
@@ -1398,16 +1585,14 @@ function plagiarism_inspera_get_form_elements($mform, $modulename = '') {
             'plagiarism_inspera'
         )
     );
-    $mform->setType('originality_context_threshold', PARAM_INT);
+    $mform->setType('originality_context_threshold', PARAM_TEXT);
     $mform->setDefault('originality_context_threshold', 50);
     $mform->addHelpButton('originality_context_threshold', 'originality_context_threshold', 'plagiarism_inspera');
     $mform->addRule(
         'originality_context_threshold',
         get_string('contextthresholdmin', 'plagiarism_inspera'),
-        'callback',
-        function ($value) {
-            return $value >= 50 && $value <= 100;
-        }
+        'regex',
+        '/^(100|[5-9][0-9])$/'
     );
     // Hide threshold unless select is set to yes.
     $mform->hideIf('originality_context_threshold', 'originality_enable_context_similarity', 'neq', 1);
