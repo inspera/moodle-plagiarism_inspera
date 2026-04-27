@@ -60,7 +60,7 @@ $exportfilename = 'OriginalityDebugOutput.csv';
 
 $limit = 50;
 // ADDED: 'status' => 0 brings the filter back to the UI dropdown.
-$filters = ['status' => 0, 'realname' => 0, 'timesubmitted' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0];
+$filters = ['status' => 0, 'realname' => 0, 'timecreated' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0];
 $ufiltering = new \plagiarism_inspera\output\filtering($filters, $PAGE->url);
 [$ufextrasql, $ufparams] = $ufiltering->get_sql_filter();
 
