@@ -83,13 +83,11 @@ if ($showall !== 0) {
 // Read the user's saved preference (Defaults to 0 / Errors Only).
 $prefshowall = get_user_preferences('plagiarism_inspera_debug_showall', 0);
 
-$defaultstatusapplied = false;
 // Apply the error filter ONLY if no custom filters are set AND the user hasn't toggled "Show All".
 if (empty($ufextrasql) && !$prefshowall) {
     $ufextrasql = "t.status IN (:defaultstatus1, :defaultstatus2)";
     $ufparams['defaultstatus1'] = 'error';
     $ufparams['defaultstatus2'] = 'external_error';
-    $defaultstatusapplied = true;
 }
 
 
