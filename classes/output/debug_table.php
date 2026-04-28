@@ -147,7 +147,7 @@ class debug_table extends \table_sql {
                 'resubmit',
                 't/reload', // Moodle reload icon.
                 'resubmit',
-                'resubmit_tooltip'
+                'resubmitcheck'
             );
             $output .= html_writer::span('|', 'mx-2 text-muted');
         }
