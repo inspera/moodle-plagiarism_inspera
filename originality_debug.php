@@ -100,9 +100,12 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
     // Step A: Collect IDs from the initial POSTed checkboxes or the hidden fileids field in the confirmation form.
     if (empty($fileidsparam)) {
         $selectedids = [];
-        foreach ($_POST as $key => $value) {
-            if (preg_match('/^item(\d+)$/', $key, $matches)) {
-                $selectedids[] = $matches[1];
+        $submitteddata = data_submitted();
+        if (!empty($submitteddata)) {
+            foreach ($submitteddata as $key => $value) {
+                if (preg_match('/^item(\d+)$/', $key, $matches)) {
+                    $selectedids[] = $matches[1];
+                }
             }
         }
     } else {
