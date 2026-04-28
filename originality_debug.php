@@ -257,29 +257,6 @@ $renderer = $PAGE->get_renderer('plagiarism_inspera');
 if (!$table->is_downloading()) {
     $renderable = new \plagiarism_inspera\output\debug_page($table, $ufiltering, $prefshowall, $limit);
 
-    // If we are in the middle of a bulk action that needs confirmation.
-    if (($deleteselected || $resubmitselected) && !$confirm && !empty($selectedids)) {
-        $params = [
-            'confirm' => 1,
-            'fileids' => implode(',', $selectedids),
-            'sesskey' => sesskey(),
-        ];
-
-        if ($deleteselected) {
-            $params['deleteselectedfiles'] = 1;
-            $msg = get_string('areyousurebulk', 'plagiarism_inspera', count($selectedids));
-        } else {
-            $params['resubmitselectedfiles'] = 1;
-            $msg = get_string('areyousurebulkresubmit', 'plagiarism_inspera', count($selectedids));
-        }
-
-        $continueurl = new moodle_url('/plagiarism/inspera/originality_debug.php', $params);
-        $cancelurl = new moodle_url('/plagiarism/inspera/originality_debug.php');
-
-        echo $renderer->render_bulk_confirmation($msg, $continueurl, $cancelurl);
-        exit;
-    }
-
     // Standard Page Render.
     echo $renderer->render_debug_page($renderable);
 } else {
