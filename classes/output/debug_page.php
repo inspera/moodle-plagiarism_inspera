@@ -100,13 +100,7 @@ class debug_page implements renderable, templatable {
         ob_end_clean();
 
         // 2. Toggle Button Logic.
-        $data->is_showing_all = $this->prefshowall;
-        $toggleparams = [
-            'showall' => $this->prefshowall ? -1 : 1,
-            'sesskey' => sesskey(),
-        ];
-        $toggleurl = new moodle_url($PAGE->url, $toggleparams);
-        $data->toggleurl = $toggleurl->out(false);
+        $data->showallvalue = $this->prefshowall ? -1 : 1;
 
         if ($this->prefshowall) {
             $data->togglelabel = get_string('toggleviewerrorsonly', 'plagiarism_inspera');
