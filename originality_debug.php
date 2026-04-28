@@ -59,17 +59,37 @@ require_capability('moodle/site:config', $context);
 $exportfilename = 'OriginalityDebugOutput.csv';
 
 $limit = 50;
-$filters = ['realname' => 0, 'timesubmitted' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0];
+// ADDED: 'status' => 0 brings the filter back to the UI dropdown.
+$filters = ['status' => 0, 'realname' => 0, 'timecreated' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0];
 $ufiltering = new \plagiarism_inspera\output\filtering($filters, $PAGE->url);
 [$ufextrasql, $ufparams] = $ufiltering->get_sql_filter();
 
-$defaultstatusapplied = false;
-if (empty($ufextrasql)) {
+// SMART TOGGLE LOGIC.
+$showall = optional_param('showall', 0, PARAM_INT);
+if ($showall !== 0) {
+    require_sesskey();
+    // Save preference: 1 = Show All, any other non-zero value = Show Errors Only.
+    set_user_preference('plagiarism_inspera_debug_showall', $showall == 1 ? 1 : 0);
+    // 1. Create a fresh URL object based on the current page.
+    $redirecturl = new moodle_url($PAGE->url);
+
+    // 2. Remove parameters one by one as strings.
+    $redirecturl->remove_params('showall');
+    $redirecturl->remove_params('sesskey');
+
+    // 3. Perform the redirect.
+    redirect($redirecturl);
+}
+// Read the user's saved preference (Defaults to 0 / Errors Only).
+$prefshowall = get_user_preferences('plagiarism_inspera_debug_showall', 0);
+
+// Apply the error filter ONLY if no custom filters are set AND the user hasn't toggled "Show All".
+if (empty($ufextrasql) && !$prefshowall) {
     $ufextrasql = "t.status IN (:defaultstatus1, :defaultstatus2)";
     $ufparams['defaultstatus1'] = 'error';
     $ufparams['defaultstatus2'] = 'external_error';
-    $defaultstatusapplied = true;
 }
+
 
 $plagiarismsettings = plagiarism_plugin_inspera::get_settings();
 
@@ -219,14 +239,14 @@ if (!empty($ufextrasql)) {
     $sqlwhere .= " AND " . $ufextrasql;
 }
 
-// Only load submissions that are 6 months old (from now).
-$sixmonthscutoff = strtotime('-6 months');
-if ($sixmonthscutoff === false) {
-    // Fallback in the unlikely event strtotime fails; approx 6 months as 182 days.
-    $sixmonthscutoff = time() - (182 * 24 * 60 * 60);
+// Only load submissions from the last 2 months to keep the list manageable.
+$twomonthscutoff = strtotime('-2 months');
+if ($twomonthscutoff === false) {
+    // Fallback in the unlikely event strtotime fails; approx 2 months as 60 days.
+    $twomonthscutoff = time() - (60 * 24 * 60 * 60);
 }
 $sqlwhere .= " AND t.timecreated >= :timesince";
-$ufparams['timesince'] = $sixmonthscutoff;
+$ufparams['timesince'] = $twomonthscutoff;
 
 $table->set_sql($sqlfields, $sqlfrom, $sqlwhere, $ufparams);
 
@@ -237,6 +257,25 @@ if (!$table->is_downloading()) {
     require_once('originality_tabs.php');
 
     echo $OUTPUT->heading(get_string('originalityfiles', 'plagiarism_inspera'));
+
+    // RENDER THE SMART TOGGLE BUTTON.
+    echo html_writer::start_div('mb-4');
+    if ($prefshowall) {
+        $toggleurl = new moodle_url($PAGE->url, ['showall' => -1, 'sesskey' => sesskey()]);
+        echo html_writer::link(
+            $toggleurl,
+            get_string('toggleviewerrorsonly', 'plagiarism_inspera'),
+            ['class' => 'btn btn-outline-danger']
+        );
+    } else {
+        $toggleurl = new moodle_url($PAGE->url, ['showall' => 1, 'sesskey' => sesskey()]);
+        echo html_writer::link(
+            $toggleurl,
+            get_string('toggleviewallsubmissions', 'plagiarism_inspera'),
+            ['class' => 'btn btn-outline-primary']
+        );
+    }
+    echo html_writer::end_div();
 
     $ufiltering->display_add();
     $ufiltering->display_active();
