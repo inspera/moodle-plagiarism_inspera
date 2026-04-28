@@ -152,7 +152,8 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
     // Step C: Execution Stage (After "Yes" is clicked).
     if ($deleteselected) {
         $DB->delete_records_list('plagiarism_inspera_subs', 'id', $selectedids);
-        \core\notification::success(get_string('recordsdeleted', 'plagiarism_inspera', count($selectedids)));
+        $deletedcount = count($selectedids);
+        \core\notification::success(get_string('recordsdeleted', 'plagiarism_inspera', $deletedcount));
     } else if ($resubmitselected) {
         // Use short array destructuring instead of list().
         [$insql, $inparams] = $DB->get_in_or_equal($selectedids, SQL_PARAMS_NAMED);
