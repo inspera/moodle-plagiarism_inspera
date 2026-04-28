@@ -85,3 +85,23 @@ div#fitem_id_originality_selectfiletypes.form-group select {
     display: block;
     word-wrap: break-word;
 }
+
+/**
+ * Clean up the Download row without the gray background.
+ */
+#debugform .submissions-table-container > div.d-flex.flex-wrap {
+    background-color: transparent !important; /* Back to white/transparent */
+    padding: 1rem 0 !important; /* vertical padding for breathing room, no horizontal */
+    border: none !important; /* Remove the side borders */
+    margin-top: 0 !important; /* Reset the "pull up" logic */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important; /* Keeps it aligned to the right */
+}
+
+/**
+ * Make the download button look a bit more modern.
+ */
+#debugform .btn-secondary {
+    box-shadow: none !important;
+}

@@ -128,34 +128,85 @@ class debug_table extends \table_sql {
     }
 
     /**
-     * Action buttons. Adapted for Originality status flow.
+     * Action buttons. Adapted for Originality status flow to use POST forms.
      *
      * @param \stdClass $row The row data.
      * @return string
      */
     public function col_action($row) {
-        $output = '';
+        if ($this->is_downloading()) {
+            return '';
+        }
+
+        $output = html_writer::start_div('d-flex justify-content-start align-items-center');
 
         // 1. Reset / Resubmit Button.
-        // If status is Error, or Finished, or stuck in Pending/Request for too long.
         if ($row->status == 'error' || $row->status == 'external_error') {
-            $url = new moodle_url(
-                '/plagiarism/inspera/originality_debug.php',
-                ['id' => $row->id, 'action' => 'resubmit', 'sesskey' => sesskey()]
+            $output .= $this->render_post_action(
+                $row->id,
+                'resubmit',
+                't/reload', // Moodle reload icon.
+                'resubmit',
+                'resubmit_tooltip'
             );
-            $tooltip = get_string('resubmit_tooltip', 'plagiarism_inspera');
-            $output .= html_writer::link($url, get_string('resubmit', 'plagiarism_inspera'), ['title' => $tooltip]);
-            $output .= ' | ';
+            $output .= html_writer::span('|', 'mx-2 text-muted');
         }
 
         // 2. Delete Button.
-        $url = new moodle_url(
-            '/plagiarism/inspera/originality_debug.php',
-            ['id' => $row->id, 'action' => 'delete', 'sesskey' => sesskey()]
+        $output .= $this->render_post_action(
+            $row->id,
+            'delete',
+            't/delete', // Moodle delete icon.
+            'delete',
+            'deletecheck'
         );
-        $output .= html_writer::link($url, get_string('delete'));
+
+        $output .= html_writer::end_div();
 
         return $output;
+    }
+
+    /**
+     * Helper to render a small POST form for row-level actions.
+     *
+     * @param int $id The record ID.
+     * @param string $action The action to perform (delete/resubmit).
+     * @param string $icon The Moodle pix icon key.
+     * @param string $labelstr The lang string key for the label/alt text.
+     * @param string $confirmstr The lang string key for the JS confirmation message.
+     * @return string HTML form.
+     */
+    protected function render_post_action($id, $action, $icon, $labelstr, $confirmstr = '') {
+        global $OUTPUT;
+
+        $formhtml = html_writer::start_tag('form', [
+            'action' => new moodle_url('/plagiarism/inspera/originality_debug.php'),
+            'method' => 'post',
+            'class' => 'm-0 p-0',
+        ]);
+
+        // Hidden fields for POST data.
+        $formhtml .= html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id', 'value' => $id]);
+        $formhtml .= html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'action', 'value' => $action]);
+        $formhtml .= html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+
+        $label = get_string($labelstr, 'plagiarism_inspera');
+        $attrs = [
+            'type' => 'submit',
+            'class' => 'btn btn-link p-0 m-0',
+            'title' => $label,
+        ];
+
+        // Add JS confirmation if a string key was provided.
+        if ($confirmstr) {
+            $confirmlabel = get_string($confirmstr, 'plagiarism_inspera');
+            $attrs['onclick'] = "return confirm('" . addslashes_js($confirmlabel) . "');";
+        }
+
+        $formhtml .= html_writer::tag('button', $OUTPUT->pix_icon($icon, $label), $attrs);
+        $formhtml .= html_writer::end_tag('form');
+
+        return $formhtml;
     }
 
     /**
