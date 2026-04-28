@@ -257,7 +257,7 @@ $table->set_sql($sqlfields, $sqlfrom, $sqlwhere, $ufparams);
 $renderer = $PAGE->get_renderer('plagiarism_inspera');
 
 if (!$table->is_downloading()) {
-    $renderable = new \plagiarism_inspera\output\debug_page($table, $ufiltering, $prefshowall);
+    $renderable = new \plagiarism_inspera\output\debug_page($table, $ufiltering, $prefshowall, $limit);
 
     // If we are in the middle of a bulk action that needs confirmation.
     if (($deleteselected || $resubmitselected) && !$confirm && !empty($selectedids)) {

@@ -61,16 +61,23 @@ class debug_page implements renderable, templatable {
     protected $currenttab = 'originalitydebug';
 
     /**
+     * @var int The number of items to display per page.
+     */
+    protected $pagesize;
+
+    /**
      * debug_page constructor.
      *
      * @param \plagiarism_inspera\output\debug_table $table
      * @param \plagiarism_inspera\output\filtering $filtering
      * @param bool $prefshowall
+     * @param int $pagesize The pagination limit
      */
-    public function __construct($table, $filtering, $prefshowall) {
+    public function __construct($table, $filtering, $prefshowall, $pagesize = 50) {
         $this->table = $table;
         $this->filtering = $filtering;
         $this->prefshowall = $prefshowall;
+        $this->pagesize = $pagesize;
     }
 
     /**
@@ -112,7 +119,7 @@ class debug_page implements renderable, templatable {
         // 3. Table UI.
         // Tablelib doesn't use mustache yet, so we capture its raw HTML.
         ob_start();
-        $this->table->out(50, false);
+        $this->table->out($this->pagesize, false);
         $data->tablehtml = ob_get_contents();
         ob_end_clean();
 
