@@ -203,7 +203,7 @@ if ($id && confirm_sesskey()) {
         $DB->update_record('plagiarism_inspera_subs', $record);
         \core\notification::success(get_string('fileresubmitted', 'plagiarism_inspera'));
         $executed = true;
-    } else if ($action === 'delete' || !empty($delete)) { // Support both legacy $delete param and new action.
+    } else if ($action === 'delete') {
         $DB->delete_records('plagiarism_inspera_subs', ['id' => $id]);
         \core\notification::success(get_string('filedeleted', 'plagiarism_inspera'));
         $executed = true;
