@@ -95,12 +95,6 @@ if (empty($ufextrasql) && !$prefshowall) {
 
 $plagiarismsettings = plagiarism_plugin_inspera::get_settings();
 
-// 1. PREPARE PARAMETERS.
-$deleteselected   = optional_param('deleteselectedfiles', false, PARAM_BOOL);
-$resubmitselected = optional_param('resubmitselectedfiles', false, PARAM_BOOL);
-$confirm          = optional_param('confirm', 0, PARAM_INT);
-$fileidsparam    = optional_param('fileids', '', PARAM_SEQUENCE); // Handles comma-separated IDs.
-
 // 2. HANDLE BULK ACTIONS.
 if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
     // Step A: Collect IDs if they aren't already in the URL (from the first button click).
