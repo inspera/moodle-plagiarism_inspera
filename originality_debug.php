@@ -97,7 +97,7 @@ $plagiarismsettings = plagiarism_plugin_inspera::get_settings();
 
 // 2. HANDLE BULK ACTIONS.
 if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
-    // Step A: Collect IDs if they aren't already in the URL (from the first button click).
+    // Step A: Collect IDs from the initial POSTed checkboxes or the hidden fileids field in the confirmation form.
     if (empty($fileidsparam)) {
         $selectedids = [];
         foreach ($_POST as $key => $value) {
