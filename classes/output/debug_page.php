@@ -98,7 +98,8 @@ class debug_page implements renderable, templatable {
             'showall' => $this->prefshowall ? -1 : 1,
             'sesskey' => sesskey(),
         ];
-        $data->toggleurl = new moodle_url($PAGE->url, $toggleparams);
+        $toggleurl = new moodle_url($PAGE->url, $toggleparams);
+        $data->toggleurl = $toggleurl->out(false);
 
         if ($this->prefshowall) {
             $data->togglelabel = get_string('toggleviewerrorsonly', 'plagiarism_inspera');
@@ -117,7 +118,8 @@ class debug_page implements renderable, templatable {
 
         // 4. Form Actions.
         $data->sesskey = sesskey();
-        $data->posturl = new moodle_url('/plagiarism/inspera/originality_debug.php');
+        $posturl = new moodle_url('/plagiarism/inspera/originality_debug.php');
+        $data->posturl = $posturl->out(false);
         $data->resubmitlabel = get_string('resubmitselectedfiles', 'plagiarism_inspera');
         $data->deletelabel = get_string('deleteselectedfiles', 'plagiarism_inspera');
 

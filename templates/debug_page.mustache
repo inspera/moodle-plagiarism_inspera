@@ -46,7 +46,7 @@
 <div class="plagiarism_inspera_debug_page">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="view-toggle">
-            <a href="{{{toggleurl}}}" class="btn {{toggleclass}}">{{togglelabel}}</a>
+            <a href="{{toggleurl}}" class="btn {{toggleclass}}">{{togglelabel}}</a>
         </div>
     </div>
 
@@ -54,7 +54,7 @@
         {{{filterhtml}}}
     </div>
 
-    <form action="{{{posturl}}}{{^posturl}}#{{/posturl}}" method="post" id="debugform">
+    <form action="{{posturl}}{{^posturl}}#{{/posturl}}" method="post" id="debugform">
         <input type="hidden" name="sesskey" value="{{sesskey}}">
 
         <div class="submissions-table-container">
