@@ -56,11 +56,6 @@ class debug_page implements renderable, templatable {
     protected $prefshowall;
 
     /**
-     * @var string The current active tab.
-     */
-    protected $currenttab = 'originalitydebug';
-
-    /**
      * @var int The number of items to display per page.
      */
     protected $pagesize;
