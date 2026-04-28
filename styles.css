@@ -87,21 +87,20 @@ div#fitem_id_originality_selectfiletypes.form-group select {
 }
 
 /**
- * Clean up the Download row without the gray background.
+ * Style the Download row without using !important.
+ * We use high specificity by chaining the plugin class and the form ID.
  */
-#debugform .submissions-table-container > div.d-flex.flex-wrap {
-    background-color: transparent !important; /* Back to white/transparent */
-    padding: 1rem 0 !important; /* vertical padding for breathing room, no horizontal */
-    border: none !important; /* Remove the side borders */
-    margin-top: 0 !important; /* Reset the "pull up" logic */
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-end !important; /* Keeps it aligned to the right */
+.plagiarism_inspera_debug_page #debugform .submissions-table-container > div.d-flex.flex-wrap {
+    background-color: transparent;
+    padding: 1rem 0;
+    border: none;
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
 }
 
-/**
- * Make the download button look a bit more modern.
- */
-#debugform .btn-secondary {
-    box-shadow: none !important;
+.plagiarism_inspera_debug_page #debugform label[for="downloadtype_download"] {
+    margin-bottom: 0;
+    margin-right: 10px;
 }

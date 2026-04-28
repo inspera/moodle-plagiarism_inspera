@@ -16,7 +16,32 @@
 }}
 {{!
     @template plagiarism_inspera/debug_page
-    Submissions Management Page Template.
+
+    Template for the Submissions Management debug page.
+
+    Context variables required for this template:
+    * toggleurl - The URL for the error/all toggle button.
+    * toggleclass - CSS class for the toggle button.
+    * togglelabel - Text for the toggle button.
+    * filterhtml - Rendered HTML for the filters.
+    * posturl - The target URL for the bulk action form.
+    * sesskey - User session key.
+    * deletelabel - Text for the delete button.
+    * resubmitlabel - Text for the resubmit button.
+    * tablehtml - The rendered HTML of the Moodle table.
+
+    @example
+    {
+        "toggleurl": "#",
+        "toggleclass": "btn-primary",
+        "togglelabel": "Show All",
+        "filterhtml": "<div>Filters here</div>",
+        "posturl": "originality_debug.php",
+        "sesskey": "12345",
+        "deletelabel": "Delete selected",
+        "resubmitlabel": "Resubmit selected",
+        "tablehtml": "<table>...</table>"
+    }
 }}
 <div class="plagiarism_inspera_debug_page">
 
@@ -32,7 +57,7 @@
     </div>
 
     {{! Main Form (Moodle will probably close this inside tablehtml, but that's OK now!) }}
-    <form action="{{{posturl}}}" method="post" id="debugform">
+    <form action="{{{posturl}}}{{^posturl}}#{{/posturl}}" method="post" id="debugform">
         <input type="hidden" name="sesskey" value="{{sesskey}}">
 
         <div class="submissions-table-container">
