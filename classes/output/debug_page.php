@@ -82,8 +82,6 @@ class debug_page implements renderable, templatable {
      * @return stdClass
      */
     public function export_for_template(renderer_base $output) {
-        global $PAGE;
-
         $data = new stdClass();
 
         // 1. Filter UI.
