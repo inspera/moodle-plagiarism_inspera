@@ -61,19 +61,4 @@ class renderer extends plugin_renderer_base {
 
         return $output;
     }
-
-    /**
-     * Render a standard Moodle confirmation screen for bulk actions.
-     *
-     * @param string $message The message to display.
-     * @param \moodle_url $continue The URL to continue.
-     * @param \moodle_url $cancel The URL to cancel.
-     * @return string The rendered HTML.
-     */
-    public function render_bulk_confirmation(string $message, \moodle_url $continue, \moodle_url $cancel): string {
-        $output = $this->header();
-        $output .= $this->confirm($message, $continue, $cancel);
-        $output .= $this->footer();
-        return $output;
-    }
 }
