@@ -1,0 +1,35 @@
+{{!
+    @template plagiarism_inspera/bulk_confirm
+
+    Bulk action confirmation page.
+
+    Context variables required for this template:
+    * message - The confirmation question to ask the user.
+    * posturl - The URL to submit the form to.
+    * sesskey - The user session key.
+    * fileids - Comma-separated list of IDs.
+    * actionparam - The specific action parameter (e.g., deleteselectedfiles).
+    * cancelurl - The URL to return to if canceled.
+
+    Example context (json):
+    {
+        "message": "Are you sure you want to resubmit 5 files?",
+        "posturl": "originality_debug.php",
+        "sesskey": "abcde12345",
+        "fileids": "1,2,3,4,5",
+        "actionparam": "resubmitselectedfiles",
+        "cancelurl": "originality_debug.php"
+    }
+}}
+<div class="generalbox text-center py-5">
+    <p class="lead">{{message}}</p>
+    <form action="{{posturl}}" method="post" class="mt-4">
+        <input type="hidden" name="sesskey" value="{{sesskey}}">
+        <input type="hidden" name="confirm" value="1">
+        <input type="hidden" name="fileids" value="{{fileids}}">
+        <input type="hidden" name="{{actionparam}}" value="1">
+
+        <button type="submit" class="btn btn-primary">{{#str}} continue {{/str}}</button>
+        <a href="{{cancelurl}}" class="btn btn-secondary ml-2">{{#str}} cancel {{/str}}</a>
+    </form>
+</div>

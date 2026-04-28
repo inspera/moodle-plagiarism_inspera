@@ -123,26 +123,30 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
     if (!$confirm) {
         echo $OUTPUT->header();
 
-        $params = [
-            'confirm' => 1,
-            'fileids' => implode(',', $selectedids),
-            'sesskey' => sesskey(),
-        ];
-
+        // 1. Determine message and action parameter.
         if ($deleteselected) {
-            $params['deleteselectedfiles'] = 1;
+            $actionparam = 'deleteselectedfiles';
             $message = get_string('areyousurebulk', 'plagiarism_inspera', count($selectedids));
         } else {
-            $params['resubmitselectedfiles'] = 1;
+            $actionparam = 'resubmitselectedfiles';
             $message = get_string('areyousurebulkresubmit', 'plagiarism_inspera', count($selectedids));
         }
 
-        $continueurl = new moodle_url('/plagiarism/inspera/originality_debug.php', $params);
-        $cancelurl = new moodle_url('/plagiarism/inspera/originality_debug.php');
+        // 2. Prepare context for the Mustache template.
+        $context = [
+            'message' => $message,
+            'posturl' => (new moodle_url('/plagiarism/inspera/originality_debug.php'))->out(false),
+            'sesskey' => sesskey(),
+            'fileids' => implode(',', $selectedids),
+            'actionparam' => $actionparam,
+            'cancelurl' => (new moodle_url('/plagiarism/inspera/originality_debug.php'))->out(false),
+        ];
 
-        echo $OUTPUT->confirm($message, $continueurl, $cancelurl);
+        // 3. Render the template.
+        echo $OUTPUT->render_from_template('plagiarism_inspera/bulk_confirm', $context);
+
         echo $OUTPUT->footer();
-        exit;
+        die();
     }
 
     // Step C: Execution Stage (After "Yes" is clicked).
