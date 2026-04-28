@@ -30,7 +30,7 @@
     * deletelabel - Text for the delete button.
     * resubmitlabel - Text for the resubmit button.
 
-    @example
+    Example context (json):
     {
         "toggleurl": "#",
         "toggleclass": "btn-primary",
@@ -44,8 +44,6 @@
     }
 }}
 <div class="plagiarism_inspera_debug_page">
-
-    {{! Header Area: Toggle and Filters }}
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="view-toggle">
             <a href="{{{toggleurl}}}" class="btn {{toggleclass}}">{{togglelabel}}</a>
@@ -56,7 +54,6 @@
         {{{filterhtml}}}
     </div>
 
-    {{! Main Form (Moodle will probably close this inside tablehtml, but that's OK now!) }}
     <form action="{{{posturl}}}{{^posturl}}#{{/posturl}}" method="post" id="debugform">
         <input type="hidden" name="sesskey" value="{{sesskey}}">
 
@@ -65,8 +62,6 @@
         </div>
     </form>
 
-    {{! BULK ACTIONS AT THE BOTTOM! }}
-    {{! Notice we are OUTSIDE the form tags here, but we link the buttons using form="debugform" }}
     <div class="p-3 mt-3 border-top d-flex align-items-center justify-content-between bg-white">
         <div class="text-muted small text-uppercase font-weight-bold">
             {{#str}} bulkactions, plagiarism_inspera {{/str}}
@@ -83,5 +78,4 @@
             </button>
         </div>
     </div>
-
 </div>
