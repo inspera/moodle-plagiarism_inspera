@@ -61,14 +61,34 @@ class debug_table extends \table_sql {
 
         // Add selector column if not downloading report.
         if (!$this->is_downloading()) {
+            global $PAGE;
+
+            // 1. Force Moodle to load the Select All javascript module.
+            $PAGE->requires->js_call_amd('core/checkbox-toggleall', 'init');
+
             $columns[] = 'selector';
-            $options = [
-                'id' => 'check-items',
+
+            // 2. Build the master checkbox.
+            $masterinput = \html_writer::empty_tag('input', [
+                'type' => 'checkbox',
                 'name' => 'check-items',
+                'id' => 'check-items',
                 'value' => 1,
-            ];
-            $mastercheckbox = new \core\output\checkbox_toggleall('items', true, $options);
-            $headers[] = $OUTPUT->render($mastercheckbox);
+                'data-action' => 'toggle',
+                'data-toggle' => 'master',
+                'data-togglegroup' => 'items',
+                'class' => 'form-check-input',
+                'form' => 'debugform',
+            ]);
+
+            // 3. Build the label text.
+            $masterlabel = \html_writer::tag('label', get_string('selectall'), [
+                'for' => 'check-items',
+                'class' => 'form-check-label ms-1',
+            ]);
+
+            // 4. Combine them for the header.
+            $headers[] = $masterinput . $masterlabel;
         }
 
         // Standard columns.
@@ -118,13 +138,18 @@ class debug_table extends \table_sql {
         if ($this->is_downloading()) {
             return '';
         }
-        $options = [
-            'id' => 'item' . $row->id,
+        // Use Moodle's html_writer to safely generate the tag with custom attributes.
+        return \html_writer::empty_tag('input', [
+            'type' => 'checkbox',
             'name' => 'item' . $row->id,
+            'id' => 'item' . $row->id,
             'value' => $row->id,
-        ];
-        $itemcheckbox = new \core\output\checkbox_toggleall('items', false, $options);
-        return $OUTPUT->render($itemcheckbox);
+            'data-action' => 'toggle',
+            'data-toggle' => 'slave',
+            'data-togglegroup' => 'items',
+            'class' => 'form-check-input',
+            'form' => 'debugform',
+        ]);
     }
 
     /**

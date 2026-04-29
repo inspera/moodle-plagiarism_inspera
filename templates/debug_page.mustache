@@ -59,11 +59,11 @@
     </div>
     <form action="{{posturl}}" method="post" id="debugform">
         <input type="hidden" name="sesskey" value="{{sesskey}}">
-
-        <div class="submissions-table-container">
-            {{{tablehtml}}}
-        </div>
     </form>
+
+    <div class="submissions-table-container">
+        {{{tablehtml}}}
+    </div>
 
     <div class="p-3 mt-3 border-top d-flex align-items-center justify-content-between bg-white">
         <div class="text-muted small text-uppercase fw-bold"> {{#str}} bulkactions, plagiarism_inspera {{/str}}
