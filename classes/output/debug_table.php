@@ -46,7 +46,7 @@ class debug_table extends \table_sql {
      * @param int $uniqueid All tables have to have a unique id.
      */
     public function __construct($uniqueid) {
-        global $OUTPUT, $PAGE;
+        global $PAGE;
         parent::__construct($uniqueid);
 
         $url = $PAGE->url;
@@ -61,8 +61,6 @@ class debug_table extends \table_sql {
 
         // Add selector column if not downloading report.
         if (!$this->is_downloading()) {
-            global $PAGE;
-
             // 1. Force Moodle to load the Select All javascript module.
             $PAGE->requires->js_call_amd('core/checkbox-toggleall', 'init');
 
@@ -134,7 +132,6 @@ class debug_table extends \table_sql {
      * @return string
      */
     public function col_selector($row) {
-        global $OUTPUT;
         if ($this->is_downloading()) {
             return '';
         }
