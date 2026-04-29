@@ -185,7 +185,8 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
 }
 
 // 3. HANDLE SINGLE ACTIONS (Row Links).
-if ($id && confirm_sesskey()) {
+if ($id && ($action === 'resubmit' || $action === 'delete')) {
+    require_sesskey();
     $executed = false;
     if ($action === 'resubmit') {
         // Reset single file.
