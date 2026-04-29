@@ -111,6 +111,8 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
     } else {
         $selectedids = explode(',', $fileidsparam);
     }
+    // Normalise IDs: Ensure they are unique, cleaned to integers, and re-indexed.
+    $selectedids = array_values(array_unique(array_map('intval', $selectedids)));
 
     // Error if nothing selected.
     if (empty($selectedids)) {
