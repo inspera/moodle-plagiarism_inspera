@@ -45,10 +45,20 @@
 
     {{#isrequested}}
         {{statustext}}
+        {{#js}}
+            require(['plagiarism_inspera/polling'], function(polling) {
+            polling.init();
+            });
+        {{/js}}
     {{/isrequested}}
 
     {{#ispending}}
         {{statustext}}
+        {{#js}}
+            require(['plagiarism_inspera/polling'], function(polling) {
+            polling.init();
+            });
+        {{/js}}
     {{/ispending}}
 
     {{#iserror}}
