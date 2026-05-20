@@ -431,10 +431,11 @@ final class api_client_test extends \advanced_testcase {
                 $this->callback(function ($payloadjson) {
                     $payload = json_decode($payloadjson, true);
 
-                    $this->assertArrayHasKey('whitelistCharacters', $payload);
-                    $this->assertIsArray($payload['whitelistCharacters']);
-                    $this->assertCount(3, $payload['whitelistCharacters']);
-                    $this->assertEquals(['a', 'aa', 'b'], $payload['whitelistCharacters']);
+                    // Updated to match the new IO API specification.
+                    $this->assertArrayHasKey('allowCharacterReplacementExceptions', $payload);
+                    $this->assertIsArray($payload['allowCharacterReplacementExceptions']);
+                    $this->assertCount(3, $payload['allowCharacterReplacementExceptions']);
+                    $this->assertEquals(['a', 'aa', 'b'], $payload['allowCharacterReplacementExceptions']);
 
                     return true;
                 }),
@@ -477,7 +478,7 @@ final class api_client_test extends \advanced_testcase {
                     $payload = json_decode($payloadjson, true);
 
                     // Should be entirely omitted when the toggle is 0.
-                    $this->assertArrayNotHasKey('whitelistCharacters', $payload);
+                    $this->assertArrayNotHasKey('allowCharacterReplacementExceptions', $payload);
 
                     return true;
                 }),

@@ -448,7 +448,7 @@ class api_client {
                 trim($settings['originality_whitelist_characters'] ?? '')
             )
         ) {
-            $payload['whitelistCharacters'] = array_values(
+            $payload['allowCharacterReplacementExceptions'] = array_values(
                 array_filter(
                     array_map('trim', explode(',', $settings['originality_whitelist_characters']))
                 )
