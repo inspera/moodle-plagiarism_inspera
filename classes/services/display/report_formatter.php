@@ -44,7 +44,7 @@ class report_formatter {
      * @return string HTML output
      */
     public function get_originality_status(\stdClass $record, string $displaytype = 'similarity'): string {
-        global $OUTPUT, $PAGE;
+        global $OUTPUT;
 
         // 1. Establish the base data context.
         $context = [
