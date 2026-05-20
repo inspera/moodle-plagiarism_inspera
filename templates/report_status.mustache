@@ -59,4 +59,12 @@
             </div>
         {{/hasdescription}}
     {{/iserror}}
+
+    {{#ispolling}}
+        {{#js}}
+            require(['plagiarism_inspera/polling'], function(polling) {
+                polling.init();
+            });
+        {{/js}}
+    {{/ispolling}}
 </div>

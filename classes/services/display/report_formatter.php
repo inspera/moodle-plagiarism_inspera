@@ -44,7 +44,7 @@ class report_formatter {
      * @return string HTML output
      */
     public function get_originality_status(\stdClass $record, string $displaytype = 'similarity'): string {
-        global $OUTPUT, $PAGE;
+        global $OUTPUT;
 
         // 1. Establish the base data context.
         $context = [
@@ -53,6 +53,7 @@ class report_formatter {
             'isrequested' => false,
             'ispending' => false,
             'iserror' => false,
+            'ispolling' => false,
             'id' => $record->id,
             'status' => $record->status,
             'displaytype' => $displaytype,
@@ -121,16 +122,7 @@ class report_formatter {
                 $context['statustext'] = get_string('status' .
                     ($record->status === 'pending' ? 'pending' : 'requested'), 'plagiarism_inspera');
 
-                // Guard: Only register page requirements when running in a standard page-rendering context.
-                // Do NOT register JS during AJAX or Web Service requests (like the polling request itself).
-                if (
-                    isset($PAGE) &&
-                    $PAGE instanceof \moodle_page &&
-                    !defined('AJAX_SCRIPT') &&
-                    !defined('WS_SERVER')
-                ) {
-                    $PAGE->requires->js_call_amd('plagiarism_inspera/polling', 'init');
-                }
+                $context['ispolling'] = true;
                 break;
 
             case 'error':
