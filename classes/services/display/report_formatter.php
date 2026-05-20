@@ -53,6 +53,7 @@ class report_formatter {
             'isrequested' => false,
             'ispending' => false,
             'iserror' => false,
+            'ispolling' => false,
             'id' => $record->id,
             'status' => $record->status,
             'displaytype' => $displaytype,
@@ -121,6 +122,7 @@ class report_formatter {
                 $context['statustext'] = get_string('status' .
                     ($record->status === 'pending' ? 'pending' : 'requested'), 'plagiarism_inspera');
 
+                $context['ispolling'] = true;
                 break;
 
             case 'error':
