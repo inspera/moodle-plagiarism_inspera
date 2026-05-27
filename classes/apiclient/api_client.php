@@ -450,7 +450,10 @@ class api_client {
         ) {
             $payload['allowCharacterReplacementExceptions'] = array_values(
                 array_filter(
-                    array_map('trim', explode(',', $settings['originality_whitelist_characters']))
+                    array_map('trim', explode(',', $settings['originality_whitelist_characters'])),
+                    function ($value) {
+                        return $value !== '';
+                    }
                 )
             );
         }
