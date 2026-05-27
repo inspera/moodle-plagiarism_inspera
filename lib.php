@@ -982,7 +982,7 @@ function plagiarism_inspera_coursemodule_validation($formwrapper = null, $data =
             $cleanedchar = trim($char);
             // Reject if any single chip exceeds 2 characters.
             if ($cleanedchar !== '' && core_text::strlen($cleanedchar) > 2) {
-                $errors['originality_whitelist_characters'] = get_string('errorwhitelistcharacters', 'plagiarism_inspera');
+                $errors['originality_whitelist_characters'] = get_string('originality_whitelist_error', 'plagiarism_inspera');
                 break; // Stop checking, one error is enough to block the save.
             }
         }
