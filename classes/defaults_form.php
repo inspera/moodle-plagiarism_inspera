@@ -452,9 +452,28 @@ class plagiarism_inspera_defaults_form extends moodleform {
                 $key = 'originality_whitelist_characters_' . $sm;
 
                 if (isset($data[$key]) && is_string($data[$key])) {
-                    // 1. Convert the DB string "a,aa,b" into a PHP array ['a', 'aa', 'b'].
+                    // 1. Convert the DB string "a,aa,b" into a clean PHP array ['a', 'aa', 'b'].
                     $val = trim($data[$key]);
-                    $arr = ($val === '') ? [] : explode(',', $val);
+
+                    $arr = [];
+                    if ($val !== '') {
+                        // Explode, trim whitespace, remove empty items, and re-index.
+                        $arr = array_values(
+                            array_filter(
+                                array_map(
+                                    'trim',
+                                    explode(
+                                        ',',
+                                        $val
+                                    )
+                                ),
+                                function ($c) {
+                                    return $c !== '';
+                                }
+                            )
+                        );
+                    }
+
                     $data[$key] = $arr;
 
                     // 2. Inject the array items as <option>s so Moodle renders them as chips.
