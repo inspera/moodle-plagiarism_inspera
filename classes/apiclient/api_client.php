@@ -444,9 +444,7 @@ class api_client {
             !empty(
                 $settings['originality_enable_whitelist_characters']
             ) &&
-            !empty(
-                trim($settings['originality_whitelist_characters'] ?? '')
-            )
+            trim($settings['originality_whitelist_characters'] ?? '') !== ''
         ) {
             $payload['allowCharacterReplacementExceptions'] = array_values(
                 array_filter(
@@ -461,20 +459,35 @@ class api_client {
         // 4. Sources (Include/Exclude).
         $includesources = [];
         $excludesources = [];
-        if (!empty($settings['originality_enable_include_urls']) && !empty(trim($settings['originality_include_urls']))) {
+
+        if (
+            !empty($settings['originality_enable_include_urls']) &&
+            trim($settings['originality_include_urls'] ?? '') !== ''
+        ) {
             $includesources = array_values(
                 array_filter(
-                    array_map('trim', explode(',', $settings['originality_include_urls']))
+                    array_map('trim', explode(',', $settings['originality_include_urls'])),
+                    function ($value) {
+                        return $value !== '';
+                    }
                 )
             );
         }
-        if (!empty($settings['originality_enable_exclude_urls']) && !empty(trim($settings['originality_exclude_urls']))) {
+
+        if (
+            !empty($settings['originality_enable_exclude_urls']) &&
+            trim($settings['originality_exclude_urls'] ?? '') !== ''
+        ) {
             $excludesources = array_values(
                 array_filter(
-                    array_map('trim', explode(',', $settings['originality_exclude_urls']))
+                    array_map('trim', explode(',', $settings['originality_exclude_urls'])),
+                    function ($value) {
+                        return $value !== '';
+                    }
                 )
             );
         }
+
         if (!empty($includesources) || !empty($excludesources)) {
             $payload['sources'] = [];
             if (!empty($excludesources)) {
