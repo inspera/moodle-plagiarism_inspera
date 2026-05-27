@@ -544,8 +544,8 @@ class plagiarism_inspera_defaults_form extends moodleform {
                 // Get raw string to prevent PHP type juggling.
                 $rawsource = trim((string)($data[$sourcethresholdkey] ?? ''));
 
-                // Must be purely digits AND between 1 and 100.
-                if (!preg_match('/^\d+$/', $rawsource) || (int)$rawsource < 1 || (int)$rawsource > 100) {
+                // Must match the form rule: integers from 1 to 100 inclusive (no leading zeros).
+                if (!preg_match('/^(100|[1-9][0-9]?)$/', $rawsource)) {
                     $errors[$sourcethresholdkey] = get_string('errorexcludesourcethreshold', 'plagiarism_inspera');
                 }
             }
