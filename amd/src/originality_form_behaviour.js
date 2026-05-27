@@ -151,6 +151,26 @@ const handleViewMode = (configDiv) => {
     }
 };
 
+// Restrict the Moodle autocomplete input for Whitelist Characters to 2 chars.
+const enforceWhitelistMaxLength = () => {
+    // Find the Moodle form container for the whitelist element.
+    const container = document.querySelector('#fitem_id_originality_whitelist_characters');
+    if (!container) {
+        return;
+    }
+
+    // Find the dynamically generated text input where the user actually types.
+    const typingInput = container.querySelector('input[type="text"]');
+
+    if (typingInput) {
+        typingInput.setAttribute('maxlength', '2');
+    } else {
+        // Moodle's AMD modules render the UI asynchronously.
+        // If it isn't in the DOM yet, check again in 200ms.
+        setTimeout(enforceWhitelistMaxLength, 200);
+    }
+};
+
 /**
  * Initialize the module.
  * Moodle automatically calls this after the DOM is ready when requested via js_call_amd.
@@ -165,6 +185,8 @@ export const init = () => {
 
     // Fallback for dynamically rendered elements.
     window.addEventListener('load', syncDraftSubmitOptions);
+
+    enforceWhitelistMaxLength();
 
     // Inspera.
     const config = document.getElementById('inspera-warning-config');

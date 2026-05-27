@@ -459,7 +459,7 @@ final class api_client_test extends \advanced_testcase {
 
         $settings = [
             'originality_enable_whitelist_characters' => 0,
-            'originality_whitelist_characters' => 'a,aa,b', // Exists in DB, but should be ignored!
+            'originality_whitelist_characters' => ' a, aa,,b', // Exists in DB, but should be ignored!
         ];
 
         $metadata = (object) [

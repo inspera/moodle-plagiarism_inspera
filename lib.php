@@ -1498,7 +1498,7 @@ function plagiarism_inspera_get_form_elements($mform, $modulename = '') {
         [
             'tags' => true,
             'multiple' => true,
-            'placeholder' => 'Type 1-2 chars and press Enter',
+            'placeholder' => get_string('originality_whitelist_placeholder', 'plagiarism_inspera'),
         ]
     );
     $mform->setType('originality_whitelist_characters', PARAM_TAGLIST);

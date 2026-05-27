@@ -163,7 +163,7 @@ class plagiarism_inspera_defaults_form extends moodleform {
                 [
                     'tags' => true,
                     'multiple' => true,
-                    'placeholder' => 'Type 1-2 chars and press Enter',
+                    'placeholder' => get_string('originality_whitelist_placeholder', 'plagiarism_inspera'),
                 ]
             );
             $mform->setType('originality_whitelist_characters_' . $sm, PARAM_TAGLIST);
@@ -548,7 +548,7 @@ class plagiarism_inspera_defaults_form extends moodleform {
                     $cleanedchar = trim($char);
                     // If the chip has more than 2 characters (and isn't just an empty artifact), throw an error!
                     if ($cleanedchar !== '' && core_text::strlen($cleanedchar) > 2) {
-                        $errors[$whitelistkey] = get_string('errorwhitelistcharacters', 'plagiarism_inspera');
+                        $errors[$whitelistkey] = get_string('originality_whitelist_error', 'plagiarism_inspera');
                         break; // Stop checking, one error is enough to block the save.
                     }
                 }
