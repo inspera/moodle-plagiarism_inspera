@@ -1099,7 +1099,19 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
         if ($val !== null && in_array($element, $arrayelements)) {
             if (is_string($val)) {
                 $trimmedval = trim((string)$val);
-                $val = $trimmedval === '' ? [] : explode(',', $trimmedval);
+                if ($trimmedval === '') {
+                    $val = [];
+                } else {
+                    // Explode, trim whitespace, remove empty artifacts, and re-index.
+                    $val = array_values(
+                        array_filter(
+                            array_map('trim', explode(',', $trimmedval)),
+                            function ($c) {
+                                return $c !== '';
+                            }
+                        )
+                    );
+                }
             }
 
             // Explicitly inject the saved tags as options so Moodle's UI renders the chips!
