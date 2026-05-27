@@ -988,6 +988,18 @@ function plagiarism_inspera_coursemodule_validation($formwrapper = null, $data =
         }
     }
 
+    if (
+        !empty($data['originality_enable_context_similarity']) &&
+        $data['originality_enable_context_similarity'] == 1
+    ) {
+        $rawcontext = trim((string)($data['originality_context_threshold'] ?? ''));
+
+        // Must match the form rule: integers from 50 to 100 inclusive.
+        if (!preg_match('/^(100|[5-9][0-9])$/', $rawcontext)) {
+            $errors['originality_context_threshold'] = get_string('contextthresholdmin', 'plagiarism_inspera');
+        }
+    }
+
     return $errors;
 }
 
