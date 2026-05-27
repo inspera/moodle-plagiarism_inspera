@@ -1502,6 +1502,46 @@ function plagiarism_inspera_get_form_elements($mform, $modulename = '') {
     );
     $mform->setType('originality_whitelist_characters', PARAM_TAGLIST);
 
+    // Add activity-level validation for the 2-character maximum limit.
+    $mform->addRule(
+        'originality_whitelist_characters',
+        get_string('originality_whitelist_error', 'plagiarism_inspera'),
+        'callback',
+        function ($value) use ($mform) {
+            // If the parent toggle is turned OFF, bypass validation entirely.
+            $enabletoggle = $mform->getSubmitValue('originality_enable_whitelist_characters');
+            if ($enabletoggle === null) {
+                $enabletoggle = $mform->getElementValue('originality_enable_whitelist_characters');
+            }
+            if (is_array($enabletoggle)) {
+                $enabletoggle = reset($enabletoggle);
+            }
+            if ((int)$enabletoggle !== 1) {
+                return true;
+            }
+
+            // Normalize the elements into an iterable array.
+            $characters = [];
+            if (is_array($value)) {
+                $characters = $value;
+            } else if (is_string($value)) {
+                $trimmed = trim($value);
+                if ($trimmed !== '') {
+                    $characters = strpos($trimmed, ',') !== false ? explode(',', $trimmed) : [$trimmed];
+                }
+            }
+
+            // Inspect each tag item.
+            foreach ($characters as $char) {
+                $cleanedchar = trim($char);
+                if ($cleanedchar !== '' && core_text::strlen($cleanedchar) > 2) {
+                    return false; // Reject the save if any single tag contains > 2 characters.
+                }
+            }
+            return true; // Clear for submission.
+        }
+    );
+
     $mform->hideIf(
         'originality_whitelist_characters',
         'originality_enable_whitelist_characters',
