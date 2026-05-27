@@ -152,22 +152,25 @@ const handleViewMode = (configDiv) => {
 };
 
 // Restrict the Moodle autocomplete input for Whitelist Characters to 2 chars.
-const enforceWhitelistMaxLength = () => {
-    // Find the Moodle form container for the whitelist element.
+const enforceWhitelistMaxLength = (attempts = 0) => {
+    // Max 10 attempts (2 seconds total). Stop trying if it never renders.
+    if (attempts >= 10) {
+        return;
+    }
+
     const container = document.querySelector('#fitem_id_originality_whitelist_characters');
     if (!container) {
         return;
     }
 
-    // Find the dynamically generated text input where the user actually types.
-    const typingInput = container.querySelector('input[type="text"]');
+    // Broadened selector to catch Moodle's dynamic input field safely
+    const typingInput = container.querySelector('input.form-autocomplete-original-text-fallback, input[type="text"]');
 
     if (typingInput) {
         typingInput.setAttribute('maxlength', '2');
     } else {
-        // Moodle's AMD modules render the UI asynchronously.
-        // If it isn't in the DOM yet, check again in 200ms.
-        setTimeout(enforceWhitelistMaxLength, 200);
+        // Not rendered yet, try again in 200ms
+        setTimeout(() => enforceWhitelistMaxLength(attempts + 1), 200);
     }
 };
 
