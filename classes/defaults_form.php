@@ -513,7 +513,8 @@ class plagiarism_inspera_defaults_form extends moodleform {
                 // Get raw string to prevent PHP type juggling.
                 $rawcontext = trim((string)($data[$thresholdkey] ?? ''));
                 // Must be purely digits AND >= 50.
-                if (!preg_match('/^\d+$/', $rawcontext) || (int)$rawcontext < 50) {
+                // Must match the form rule: integers from 50 to 100 inclusive.
+                if (!preg_match('/^(100|[5-9][0-9])$/', $rawcontext)) {
                     $errors[$thresholdkey] = get_string('contextthresholdmin', 'plagiarism_inspera');
                 }
             }
