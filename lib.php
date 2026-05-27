@@ -1197,22 +1197,21 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
 
         // RULE 1: HIDDEN ITEMS.
         if ($ishidden && !$isadmin) {
-            // Determine coherent fallback value if it's a new assignment.
-            $fallback = ($name === 'originality_enable_translations') ? 0 :
-                (($name === 'originality_allowallfile') ? 1 : 0);
-            if ($name === 'originality_display_type') {
+            // Determine coherent fallback value using the element's PARAM type.
+            $paramtype = $typesmap[$name] ?? PARAM_RAW;
+
+            // Base fallbacks: Empty string for text/tags, 0 for toggles/ints.
+            $fallback = in_array($paramtype, [PARAM_TEXT, PARAM_TAGLIST, PARAM_ALPHA]) ? '' : 0;
+
+            // Explicit overrides for fields that need non-zero or specific string defaults.
+            if ($name === 'originality_allowallfile') {
+                $fallback = 1;
+            } else if ($name === 'originality_display_type') {
                 $fallback = 'originality';
-            } else if (
-                in_array(
-                    $name,
-                    [
-                        'originality_selectfiletypes',
-                        'originality_translation_languages',
-                        'originality_whitelist_characters',
-                    ]
-                )
-            ) {
-                $fallback = '';
+            } else if ($name === 'originality_context_threshold') {
+                $fallback = 50;
+            } else if ($name === 'originality_exclude_source_threshold') {
+                $fallback = 5;
             }
 
             $value = $plagiarismvalues[$name] ?? $fallback;
@@ -1222,7 +1221,7 @@ function plagiarism_inspera_coursemodule_standard_elements($formwrapper, $mform)
 
             $mform->removeElement($name);
             $mform->addElement('hidden', $name, $hiddenval);
-            $mform->setType($name, $typesmap[$name] ?? PARAM_RAW);
+            $mform->setType($name, $paramtype);
             continue;
         }
 
