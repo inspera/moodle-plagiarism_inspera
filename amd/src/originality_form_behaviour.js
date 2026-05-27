@@ -160,6 +160,8 @@ const enforceWhitelistMaxLength = (attempts = 0) => {
 
     const container = document.querySelector('#fitem_id_originality_whitelist_characters');
     if (!container) {
+        // Container not rendered yet, try again in 200ms.
+        setTimeout(() => enforceWhitelistMaxLength(attempts + 1), 200);
         return;
     }
 
@@ -169,7 +171,7 @@ const enforceWhitelistMaxLength = (attempts = 0) => {
     if (typingInput) {
         typingInput.setAttribute('maxlength', '2');
     } else {
-        // Not rendered yet, try again in 200ms
+        // Container exists but input isn't rendered yet, try again.
         setTimeout(() => enforceWhitelistMaxLength(attempts + 1), 200);
     }
 };
