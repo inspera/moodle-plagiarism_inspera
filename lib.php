@@ -1962,38 +1962,36 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
             $settings['anonymous_submissions'] = true;
         }
 
-        // 1. Build educators list (teachers for this assignment).
+        // 1. Build educators list (teachers for this activity).
         $educators = [];
         try {
             $cm = get_coursemodule_from_id(null, $plagiarismfile->cm, 0, false, MUST_EXIST);
             $context = \context_module::instance($plagiarismfile->cm);
 
-            $users = [];
-            // Prefer assignment grading capability when module is assign.
-            if (!empty($cm->modname) && $cm->modname === 'assign') {
-                $users = get_enrolled_users($context, 'mod/assign:grade', 0);
-            }
-            // Fallback to course editing capability if none found or module is different.
-            if (empty($users)) {
-                $coursecontext = \context_course::instance($cm->course);
-                $users = get_enrolled_users($coursecontext, 'moodle/course:update', 0);
-            }
+            // Fetch dynamic grading capability based on module type.
+            $gradecapabilities = plagiarism_inspera_get_grade_capabilities();
+            $capability = $gradecapabilities[$cm->modname] ?? null;
 
-            if (!empty($users)) {
-                foreach ($users as $u) {
-                    // Ensure we have required fields.
-                    if (empty($u->id) || empty($u->email)) {
-                        continue;
+            // Only query if we have an explicit capability mapped for this module.
+            if ($capability !== null) {
+                $users = get_enrolled_users($context, $capability, 0, 'u.*', null, 0, 0, true);
+
+                if (!empty($users)) {
+                    foreach ($users as $u) {
+                        if (empty($u->id) || empty($u->email)) {
+                            continue;
+                        }
+                        $educators[] = [
+                            'id' => (string)$u->id,
+                            'name' => fullname($u),
+                            'email' => $u->email,
+                        ];
                     }
-                    $educators[] = [
-                        'id' => (string)$u->id,
-                        'name' => fullname($u),
-                        'email' => $u->email,
-                    ];
                 }
+            } else {
+                mtrace("Notice: No grading capability mapped for module '{$cm->modname}'. Sending empty educators list.");
             }
         } catch (\Throwable $e) {
-            // Non-fatal if educator fetching fails; proceed without educators.
             mtrace("Warning: Failed to fetch educators list for CM {$plagiarismfile->cm}. " . $e->getMessage());
         }
 
