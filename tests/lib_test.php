@@ -589,4 +589,65 @@ final class lib_test extends advanced_testcase {
             'Suspended teachers must be excluded from the payload.'
         );
     }
+
+    /**
+     * Test plagiarism_inspera_send_file sends an empty educators list and logs a notice
+     * when an unmapped module (e.g., forum) is processed.
+     *
+     * @covers ::plagiarism_inspera_send_file
+     */
+    public function test_plagiarism_inspera_send_file_sends_empty_educators_for_unmapped_modules(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        // 1. Setup data (Course, Users, and an UNMAPPED module like 'forum').
+        $course = $this->getDataGenerator()->create_course();
+        $student = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($student->id, $course->id, 'student');
+
+        // Create an editing teacher (who would normally be caught by the old fallback).
+        $teacher = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($teacher->id, $course->id, 'editingteacher');
+
+        // Create a Forum activity.
+        $forum = $this->getDataGenerator()->create_module('forum', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('forum', $forum->id);
+
+        // 2. Create the submission record.
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $student->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => null,
+            'timecreated' => time(),
+            'storedfileid' => null,
+            'identifier' => 'dummy-path',
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        // 3. Mock the API client.
+        $capturededucators = null;
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['create_submission'])
+            ->getMock();
+
+        $clientmock->expects($this->once())
+            ->method('create_submission')
+            ->willReturnCallback(function ($metadata, $settings, $educators, $students) use (&$capturededucators) {
+                $capturededucators = $educators;
+                throw new \Exception('Payload inspected successfully.');
+            });
+
+        // 4. Execute the function.
+        // We expect BOTH the unmapped notice and our mock abort exception.
+        $this->expectOutputRegex('/Notice: No grading capability mapped for module \'forum\'.*Payload inspected successfully/s');
+        \plagiarism_inspera_send_file($record, $clientmock);
+
+        // 5. Assert the educators array is strictly empty.
+        $this->assertIsArray($capturededucators);
+        $this->assertEmpty($capturededucators, 'Educators array must be empty for unmapped modules.');
+    }
 }
