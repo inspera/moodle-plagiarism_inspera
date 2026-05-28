@@ -1968,15 +1968,17 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
             $cm = get_coursemodule_from_id(null, $plagiarismfile->cm, 0, false, MUST_EXIST);
             $context = \context_module::instance($plagiarismfile->cm);
 
-            $users = [];
-            // Prefer assignment grading capability when module is assign.
-            if (!empty($cm->modname) && $cm->modname === 'assign') {
-                $users = get_enrolled_users($context, 'mod/assign:grade', 0);
-            }
-            // Fallback to course editing capability if none found or module is different.
+            // Fetch dynamic grading capability based on module type.
+            $gradecapabilities = plagiarism_inspera_get_grade_capabilities();
+            $capability = $gradecapabilities[$cm->modname] ?? 'moodle/course:update';
+
+            // Query strictly explicitly enrolled, ACTIVE users (8th parameter = true).
+            $users = get_enrolled_users($context, $capability, 0, 'u.*', null, 0, 0, true);
+
+            // Fallback to course editing capability if none found.
             if (empty($users)) {
                 $coursecontext = \context_course::instance($cm->course);
-                $users = get_enrolled_users($coursecontext, 'moodle/course:update', 0);
+                $users = get_enrolled_users($coursecontext, 'moodle/course:update', 0, 'u.*', null, 0, 0, true);
             }
 
             if (!empty($users)) {
