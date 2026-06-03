@@ -139,6 +139,94 @@ class plagiarism_inspera_defaults_form extends moodleform {
             $mform->addHelpButton('originality_archive_' . $sm, 'originality_archive', 'plagiarism_inspera');
             $mform->setType('originality_archive_' . $sm, PARAM_INT);
 
+            // Whitelist Characters.
+            $mform->addElement(
+                'select',
+                'originality_enable_whitelist_characters_' . $sm,
+                get_string('originality_enable_whitelist_characters', 'plagiarism_inspera'),
+                $ynoptions
+            );
+            $mform->addHelpButton(
+                'originality_enable_whitelist_characters_' . $sm,
+                'originality_enable_whitelist_characters',
+                'plagiarism_inspera'
+            );
+            $mform->setType('originality_enable_whitelist_characters_' . $sm, PARAM_INT);
+            $mform->setDefault('originality_enable_whitelist_characters_' . $sm, 0);
+
+            // The "Chips/Tags" input box.
+            $mform->addElement(
+                'autocomplete',
+                'originality_whitelist_characters_' . $sm,
+                get_string('originality_whitelist_characters', 'plagiarism_inspera'),
+                [],
+                [
+                    'tags' => true,
+                    'multiple' => true,
+                    'placeholder' => get_string('originality_whitelist_placeholder', 'plagiarism_inspera'),
+                ]
+            );
+            $mform->setType('originality_whitelist_characters_' . $sm, PARAM_TAGLIST);
+
+            $mform->hideIf(
+                'originality_whitelist_characters_' . $sm,
+                'originality_enable_whitelist_characters_' . $sm,
+                'eq',
+                0
+            );
+
+            // Exclude Citations.
+            $mform->addElement(
+                'select',
+                'originality_excludecitations_' . $sm,
+                get_string('originality_excludecitations', 'plagiarism_inspera'),
+                $ynoptions
+            );
+            $mform->addHelpButton('originality_excludecitations_' . $sm, 'originality_excludecitations', 'plagiarism_inspera');
+            $mform->setType('originality_excludecitations_' . $sm, PARAM_INT);
+
+            // Exclude Source Criteria.
+            $mform->addElement(
+                'select',
+                'originality_enable_exclude_source_criteria_' . $sm,
+                get_string('originality_enable_exclude_source_criteria', 'plagiarism_inspera'),
+                $ynoptions
+            );
+            $mform->addHelpButton(
+                'originality_enable_exclude_source_criteria_' . $sm,
+                'originality_enable_exclude_source_criteria',
+                'plagiarism_inspera'
+            );
+            $mform->setType('originality_enable_exclude_source_criteria_' . $sm, PARAM_INT);
+            $mform->setDefault('originality_enable_exclude_source_criteria_' . $sm, 0);
+
+            $mform->addElement(
+                'text',
+                'originality_exclude_source_threshold_' . $sm,
+                get_string('originality_exclude_source_threshold', 'plagiarism_inspera'),
+                ['style' => 'width: 80px;']
+            );
+            $mform->setType('originality_exclude_source_threshold_' . $sm, PARAM_TEXT);
+            $mform->setDefault('originality_exclude_source_threshold_' . $sm, 5);
+            $mform->addHelpButton(
+                'originality_exclude_source_threshold_' . $sm,
+                'originality_exclude_source_threshold',
+                'plagiarism_inspera'
+            );
+
+            $mform->addRule(
+                'originality_exclude_source_threshold_' . $sm,
+                get_string('errorexcludesourcethreshold', 'plagiarism_inspera'),
+                'regex',
+                '/^(100|[1-9][0-9]?)$/'
+            );
+            $mform->hideIf(
+                'originality_exclude_source_threshold_' . $sm,
+                'originality_enable_exclude_source_criteria_' . $sm,
+                'eq',
+                0
+            );
+
             // Contextual Similarity.
             $mform->addElement(
                 'select',
@@ -160,7 +248,7 @@ class plagiarism_inspera_defaults_form extends moodleform {
                 'originality_context_threshold_' . $sm,
                 get_string('originality_context_threshold', 'plagiarism_inspera')
             );
-            $mform->setType('originality_context_threshold_' . $sm, PARAM_INT);
+            $mform->setType('originality_context_threshold_' . $sm, PARAM_TEXT);
             $mform->setDefault('originality_context_threshold_' . $sm, 50);
             $mform->addHelpButton(
                 'originality_context_threshold_' . $sm,
@@ -168,6 +256,12 @@ class plagiarism_inspera_defaults_form extends moodleform {
                 'plagiarism_inspera'
             );
 
+            $mform->addRule(
+                'originality_context_threshold_' . $sm,
+                get_string('contextthresholdmin', 'plagiarism_inspera'),
+                'regex',
+                '/^(100|[5-9][0-9])$/'
+            );
             $mform->hideIf(
                 'originality_context_threshold_' . $sm,
                 'originality_enable_context_similarity_' . $sm,
@@ -346,6 +440,62 @@ class plagiarism_inspera_defaults_form extends moodleform {
     }
 
     /**
+     * Intercept form data to format comma-separated strings into arrays for Moodle's autocomplete elements.
+     */
+    public function set_data($defaultvalues) {
+        // Moodle can pass data as an array or an object. Convert to array for easy handling.
+        $isobject = is_object($defaultvalues);
+        $data = $isobject ? (array)$defaultvalues : $defaultvalues;
+
+        if (is_array($data)) {
+            foreach (plagiarism_inspera_supported_modules() as $sm) {
+                $key = 'originality_whitelist_characters_' . $sm;
+
+                if (isset($data[$key]) && is_string($data[$key])) {
+                    // 1. Convert the DB string "a,aa,b" into a clean PHP array ['a', 'aa', 'b'].
+                    $val = trim($data[$key]);
+
+                    $arr = [];
+                    if ($val !== '') {
+                        // Explode, trim whitespace, remove empty items, and re-index.
+                        $arr = array_values(
+                            array_filter(
+                                array_map(
+                                    'trim',
+                                    explode(
+                                        ',',
+                                        $val
+                                    )
+                                ),
+                                function ($c) {
+                                    return $c !== '';
+                                }
+                            )
+                        );
+                    }
+
+                    $data[$key] = $arr;
+
+                    // 2. Inject the array items as <option>s so Moodle renders them as chips.
+                    if ($this->_form->elementExists($key)) {
+                        $el = $this->_form->getElement($key);
+                        foreach ($arr as $c) {
+                            $el->addOption($c, $c);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Convert back to object if Moodle originally gave us an object.
+        if ($isobject) {
+            $data = (object)$data;
+        }
+
+        parent::set_data($data);
+    }
+
+    /**
      * Custom validation for the module defaults form.
      *
      * @param array $data The data submitted by the form.
@@ -360,8 +510,11 @@ class plagiarism_inspera_defaults_form extends moodleform {
             $thresholdkey = 'originality_context_threshold_' . $sm;
 
             if (!empty($data[$enablekey]) && $data[$enablekey] == 1) {
-                $threshold = (int)($data[$thresholdkey] ?? 0);
-                if ($threshold < 50) {
+                // Get raw string to prevent PHP type juggling.
+                $rawcontext = trim((string)($data[$thresholdkey] ?? ''));
+                // Must be purely digits AND >= 50.
+                // Must match the form rule: integers from 50 to 100 inclusive.
+                if (!preg_match('/^(100|[5-9][0-9])$/', $rawcontext)) {
                     $errors[$thresholdkey] = get_string('contextthresholdmin', 'plagiarism_inspera');
                 }
             }
@@ -380,6 +533,45 @@ class plagiarism_inspera_defaults_form extends moodleform {
                 empty(trim($data['originality_exclude_urls_' . $sm]))
             ) {
                 $errors['originality_exclude_urls_' . $sm] = get_string('errorexcludeurls', 'plagiarism_inspera');
+            }
+
+            // Exclude Source Criteria Validation.
+            if (
+                !empty($data['originality_enable_exclude_source_criteria_' . $sm]) &&
+                $data['originality_enable_exclude_source_criteria_' . $sm] == 1
+            ) {
+                $sourcethresholdkey = 'originality_exclude_source_threshold_' . $sm;
+                // Get raw string to prevent PHP type juggling.
+                $rawsource = trim((string)($data[$sourcethresholdkey] ?? ''));
+
+                // Must match the form rule: integers from 1 to 100 inclusive (no leading zeros).
+                if (!preg_match('/^(100|[1-9][0-9]?)$/', $rawsource)) {
+                    $errors[$sourcethresholdkey] = get_string('errorexcludesourcethreshold', 'plagiarism_inspera');
+                }
+            }
+
+            // Whitelist Characters Validation.
+            if (
+                !empty(
+                    $data['originality_enable_whitelist_characters_' . $sm]
+                ) &&
+                $data['originality_enable_whitelist_characters_' . $sm] == 1
+            ) {
+                $whitelistkey = 'originality_whitelist_characters_' . $sm;
+                $whitelistdata = $data[$whitelistkey] ?? '';
+
+                // Moodle autocomplete with multiple=true submits an array. PARAM_TAGLIST converts it to a comma string.
+                // Let's handle both just to be safe depending on where in the lifecycle validation fires.
+                $characters = is_array($whitelistdata) ? $whitelistdata : explode(',', (string)$whitelistdata);
+
+                foreach ($characters as $char) {
+                    $cleanedchar = trim($char);
+                    // If the chip has more than 2 characters (and isn't just an empty artifact), throw an error!
+                    if ($cleanedchar !== '' && core_text::strlen($cleanedchar) > 2) {
+                        $errors[$whitelistkey] = get_string('originality_whitelist_error', 'plagiarism_inspera');
+                        break; // Stop checking, one error is enough to block the save.
+                    }
+                }
             }
         }
 

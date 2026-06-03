@@ -302,4 +302,191 @@ final class api_client_test extends \advanced_testcase {
         $result = $this->clientmock->upload_to_presigned_url('https://s3.example.com/success', 'content', 'type');
         $this->assertTrue($result);
     }
+
+    /**
+     * Test submission payload construction with the new IO settings enabled.
+     *
+     * @covers \plagiarism_inspera\apiclient\api_client::create_submission
+     */
+    public function test_create_submission_with_new_io_settings_enabled(): void {
+        set_config('apitoken', 'payload_test_token_io', 'plagiarism_inspera');
+        set_config('apitoken_exp', time() + 3600, 'plagiarism_inspera');
+        set_config('apitoken_hash', $this->expectedhash, 'plagiarism_inspera');
+
+        $settings = [
+            'originality_excludecitations' => 1,
+            'originality_enable_exclude_source_criteria' => 1,
+            'originality_exclude_source_threshold' => 15,
+        ];
+
+        $metadata = (object) [
+            'title' => 'IO Settings Doc',
+            'author' => 'Author',
+            'email' => 'e@mail.com',
+            'doctype' => 'text/plain',
+            'assignmentid' => 'cmid-999',
+        ];
+
+        $this->clientmock->expects($this->once())
+            ->method('do_post_request')
+            ->with(
+                $this->stringContains('/create/submission'),
+                $this->callback(function ($payloadjson) {
+                    $payload = json_decode($payloadjson, true);
+                    $this->assertIsArray($payload);
+
+                    // Verify Exclude Citations is sent as explicitly TRUE.
+                    $this->assertArrayHasKey('excludeCitations', $payload);
+                    $this->assertTrue($payload['excludeCitations']);
+
+                    // Verify Source Threshold is included and cast to an integer.
+                    $this->assertArrayHasKey('sourcesThreshold', $payload);
+                    $this->assertSame(15, $payload['sourcesThreshold']);
+
+                    return true;
+                }),
+                $this->anything()
+            )
+            ->willReturn('{"documentId":"mockDocIdIO","presignedS3Url":"mockS3UrlIO"}');
+
+        $response = $this->clientmock->create_submission($metadata, $settings);
+        $this->assertEquals('mockDocIdIO', $response->documentId);
+    }
+
+    /**
+     * Test submission payload construction with the new IO settings disabled.
+     *
+     * @covers \plagiarism_inspera\apiclient\api_client::create_submission
+     */
+    public function test_create_submission_with_io_settings_disabled(): void {
+        set_config('apitoken', 'payload_test_token_io_off', 'plagiarism_inspera');
+        set_config('apitoken_exp', time() + 3600, 'plagiarism_inspera');
+        set_config('apitoken_hash', $this->expectedhash, 'plagiarism_inspera');
+
+        $settings = [
+            'originality_excludecitations' => 0, // Using isset(), should send as false.
+            'originality_enable_exclude_source_criteria' => 0, // Using !empty(), should omit threshold entirely.
+            'originality_exclude_source_threshold' => 15, // This should be ignored because the toggle is 0.
+        ];
+
+        $metadata = (object) [
+            'title' => 'IO Settings Doc Off',
+            'author' => 'Author',
+            'email' => 'e@mail.com',
+            'doctype' => 'text/plain',
+            'assignmentid' => 'cmid-999',
+        ];
+
+        $this->clientmock->expects($this->once())
+            ->method('do_post_request')
+            ->with(
+                $this->stringContains('/create/submission'),
+                $this->callback(function ($payloadjson) {
+                    $payload = json_decode($payloadjson, true);
+
+                    // Verify Exclude Citations is sent explicitly as FALSE.
+                    $this->assertArrayHasKey('excludeCitations', $payload);
+                    $this->assertFalse($payload['excludeCitations']);
+
+                    // Verify Source Threshold is entirely omitted from the JSON.
+                    $this->assertArrayNotHasKey('sourcesThreshold', $payload);
+
+                    return true;
+                }),
+                $this->anything()
+            )
+            ->willReturn('{"documentId":"mockDocIdIOOff","presignedS3Url":"mockS3UrlIOOff"}');
+
+        $response = $this->clientmock->create_submission($metadata, $settings);
+        $this->assertEquals('mockDocIdIOOff', $response->documentId);
+    }
+
+    /**
+     * Test submission payload construction with whitelist characters enabled.
+     *
+     * @covers \plagiarism_inspera\apiclient\api_client::create_submission
+     */
+    public function test_create_submission_with_whitelist_enabled(): void {
+        set_config('apitoken', 'payload_test_token_whitelist', 'plagiarism_inspera');
+        set_config('apitoken_exp', time() + 3600, 'plagiarism_inspera');
+        set_config('apitoken_hash', $this->expectedhash, 'plagiarism_inspera');
+
+        $settings = [
+            'originality_enable_whitelist_characters' => 1,
+            'originality_whitelist_characters' => 'a,aa,b',
+        ];
+
+        $metadata = (object) [
+            'title' => 'Whitelist Doc',
+            'author' => 'Author',
+            'email' => 'e@mail.com',
+            'doctype' => 'text/plain',
+            'assignmentid' => 'cmid-whitelist',
+        ];
+
+        $this->clientmock->expects($this->once())
+            ->method('do_post_request')
+            ->with(
+                $this->stringContains('/create/submission'),
+                $this->callback(function ($payloadjson) {
+                    $payload = json_decode($payloadjson, true);
+
+                    // Updated to match the new IO API specification.
+                    $this->assertArrayHasKey('allowCharacterReplacementExceptions', $payload);
+                    $this->assertIsArray($payload['allowCharacterReplacementExceptions']);
+                    $this->assertCount(3, $payload['allowCharacterReplacementExceptions']);
+                    $this->assertEquals(['a', 'aa', 'b'], $payload['allowCharacterReplacementExceptions']);
+
+                    return true;
+                }),
+                $this->anything()
+            )
+            ->willReturn('{"documentId":"mockDocIdWL","presignedS3Url":"mockS3UrlWL"}');
+
+        $response = $this->clientmock->create_submission($metadata, $settings);
+        $this->assertEquals('mockDocIdWL', $response->documentId);
+    }
+
+    /**
+     * Test submission payload construction with whitelist characters disabled.
+     *
+     * @covers \plagiarism_inspera\apiclient\api_client::create_submission
+     */
+    public function test_create_submission_with_whitelist_disabled(): void {
+        set_config('apitoken', 'payload_test_token_whitelist_off', 'plagiarism_inspera');
+        set_config('apitoken_exp', time() + 3600, 'plagiarism_inspera');
+        set_config('apitoken_hash', $this->expectedhash, 'plagiarism_inspera');
+
+        $settings = [
+            'originality_enable_whitelist_characters' => 0,
+            'originality_whitelist_characters' => ' a, aa,,b', // Exists in DB, but should be ignored!
+        ];
+
+        $metadata = (object) [
+            'title' => 'Whitelist Doc Off',
+            'author' => 'Author',
+            'email' => 'e@mail.com',
+            'doctype' => 'text/plain',
+            'assignmentid' => 'cmid-whitelist',
+        ];
+
+        $this->clientmock->expects($this->once())
+            ->method('do_post_request')
+            ->with(
+                $this->stringContains('/create/submission'),
+                $this->callback(function ($payloadjson) {
+                    $payload = json_decode($payloadjson, true);
+
+                    // Should be entirely omitted when the toggle is 0.
+                    $this->assertArrayNotHasKey('allowCharacterReplacementExceptions', $payload);
+
+                    return true;
+                }),
+                $this->anything()
+            )
+            ->willReturn('{"documentId":"mockDocIdWLOff","presignedS3Url":"mockS3UrlWLOff"}');
+
+        $response = $this->clientmock->create_submission($metadata, $settings);
+        $this->assertEquals('mockDocIdWLOff', $response->documentId);
+    }
 }

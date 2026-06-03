@@ -409,6 +409,12 @@ class api_client {
         if (!empty($settings['originality_enable_ai'])) {
             $payload['enableAIDetection'] = (bool)$settings['originality_enable_ai'];
         }
+
+        // Exclude Citations (Uses isset to explicitly send true or false).
+        if (isset($settings['originality_excludecitations'])) {
+            $payload['excludeCitations'] = (bool)$settings['originality_excludecitations'];
+        }
+
         if (!empty($settings['originality_enable_translations'])) {
             $payload['translationsEnabled'] = true;
             // Clean up array structure for API.
@@ -426,23 +432,62 @@ class api_client {
             ];
         }
 
+        // Exclude Source Threshold.
+        if (!empty($settings['originality_enable_exclude_source_criteria'])) {
+            if (isset($settings['originality_exclude_source_threshold'])) {
+                $payload['sourcesThreshold'] = (int)$settings['originality_exclude_source_threshold'];
+            }
+        }
+
+        // Whitelist Characters.
+        if (
+            !empty(
+                $settings['originality_enable_whitelist_characters']
+            ) &&
+            trim($settings['originality_whitelist_characters'] ?? '') !== ''
+        ) {
+            $payload['allowCharacterReplacementExceptions'] = array_values(
+                array_filter(
+                    array_map('trim', explode(',', $settings['originality_whitelist_characters'])),
+                    function ($value) {
+                        return $value !== '';
+                    }
+                )
+            );
+        }
+
         // 4. Sources (Include/Exclude).
         $includesources = [];
         $excludesources = [];
-        if (!empty($settings['originality_enable_include_urls']) && !empty(trim($settings['originality_include_urls']))) {
+
+        if (
+            !empty($settings['originality_enable_include_urls']) &&
+            trim($settings['originality_include_urls'] ?? '') !== ''
+        ) {
             $includesources = array_values(
                 array_filter(
-                    array_map('trim', explode(',', $settings['originality_include_urls']))
+                    array_map('trim', explode(',', $settings['originality_include_urls'])),
+                    function ($value) {
+                        return $value !== '';
+                    }
                 )
             );
         }
-        if (!empty($settings['originality_enable_exclude_urls']) && !empty(trim($settings['originality_exclude_urls']))) {
+
+        if (
+            !empty($settings['originality_enable_exclude_urls']) &&
+            trim($settings['originality_exclude_urls'] ?? '') !== ''
+        ) {
             $excludesources = array_values(
                 array_filter(
-                    array_map('trim', explode(',', $settings['originality_exclude_urls']))
+                    array_map('trim', explode(',', $settings['originality_exclude_urls'])),
+                    function ($value) {
+                        return $value !== '';
+                    }
                 )
             );
         }
+
         if (!empty($includesources) || !empty($excludesources)) {
             $payload['sources'] = [];
             if (!empty($excludesources)) {
