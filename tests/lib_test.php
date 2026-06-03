@@ -485,4 +485,169 @@ final class lib_test extends advanced_testcase {
 
         return $record;
     }
+
+    /**
+     * Test plagiarism_inspera_send_file dynamically fetches educators for Quizzes (Non-Editing Teachers included)
+     * and strictly filters out suspended users.
+     *
+     * @covers ::plagiarism_inspera_send_file
+     */
+    public function test_plagiarism_inspera_send_file_fetches_dynamic_active_educators(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        // 1. Setup data (Course, Users, and a Quiz module).
+        $course = $this->getDataGenerator()->create_course();
+
+        // Explicitly grab role IDs to ensure Moodle enrols them correctly in tests.
+        $editingteacherrole = $DB->get_field('role', 'id', ['shortname' => 'editingteacher']);
+        $teacherrole = $DB->get_field('role', 'id', ['shortname' => 'teacher']);
+        $studentrole = $DB->get_field('role', 'id', ['shortname' => 'student']);
+
+        // Create an active editing teacher.
+        $editingteacher = $this->getDataGenerator()->create_user(['firstname' => 'Active', 'lastname' => 'Editor']);
+        $this->getDataGenerator()->enrol_user($editingteacher->id, $course->id, $editingteacherrole);
+
+        // Create an active non-editing teacher.
+        $noneditingteacher = $this->getDataGenerator()->create_user(['firstname' => 'Active', 'lastname' => 'Grader']);
+        $this->getDataGenerator()->enrol_user($noneditingteacher->id, $course->id, $teacherrole);
+
+        // Create a SUSPENDED editing teacher.
+        $suspendedteacher = $this->getDataGenerator()->create_user(['firstname' => 'Suspended', 'lastname' => 'Teacher']);
+        $this->getDataGenerator()->enrol_user(
+            $suspendedteacher->id,
+            $course->id,
+            $editingteacherrole,
+            'manual',
+            0,
+            0,
+            ENROL_USER_SUSPENDED
+        );
+
+        // Create the student submitting the file.
+        $student = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($student->id, $course->id, $studentrole);
+
+        // Create a Quiz activity.
+        $quiz = $this->getDataGenerator()->create_module('quiz', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('quiz', $quiz->id);
+
+        // 2. Create the submission record for the test.
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $student->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => null,
+            'timecreated' => time(),
+            'storedfileid' => null,
+            'identifier' => 'dummy-path', // Bypasses file reading for this test.
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        // 3. Mock the API client.
+        $capturededucators = []; // Variable to extract the array outside the mock.
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['create_submission'])
+            ->getMock();
+
+        $clientmock->expects($this->once())
+            ->method('create_submission')
+            ->willReturnCallback(function ($metadata, $settings, $educators, $students) use (&$capturededucators) {
+                // Save the educators array by reference, then safely abort.
+                $capturededucators = $educators;
+                throw new \Exception('Payload inspected successfully.');
+            });
+
+        // 4. Execute the function.
+        $this->expectOutputRegex('/Payload inspected successfully/s');
+        \plagiarism_inspera_send_file($record, $clientmock);
+
+        // 5. RUN ASSERTIONS OUTSIDE THE CATCH BLOCK!
+        $this->assertIsArray($capturededucators);
+
+        $educatorids = array_map(function ($e) {
+            return (int)$e['id'];
+        }, $capturededucators);
+
+        // Assert the Active Editing Teacher is in the payload.
+        $this->assertContains((int)$editingteacher->id, $educatorids, 'Active Editing Teacher must be included.');
+
+        // Assert the Active Non-Editing Teacher is in the payload (Dynamic capability success).
+        $this->assertContains(
+            (int)$noneditingteacher->id,
+            $educatorids,
+            'Active Non-Editing Teacher must be included for quizzes.'
+        );
+
+        // Assert the Suspended Teacher is NOT in the payload (onlyactive = true success).
+        $this->assertNotContains(
+            (int)$suspendedteacher->id,
+            $educatorids,
+            'Suspended teachers must be excluded from the payload.'
+        );
+    }
+
+    /**
+     * Test plagiarism_inspera_send_file sends an empty educators list and logs a notice
+     * when an unmapped module (e.g., forum) is processed.
+     *
+     * @covers ::plagiarism_inspera_send_file
+     */
+    public function test_plagiarism_inspera_send_file_sends_empty_educators_for_unmapped_modules(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        // 1. Setup data (Course, Users, and an UNMAPPED module like 'forum').
+        $course = $this->getDataGenerator()->create_course();
+        $student = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($student->id, $course->id, 'student');
+
+        // Create an editing teacher (who would normally be caught by the old fallback).
+        $teacher = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($teacher->id, $course->id, 'editingteacher');
+
+        // Create a Forum activity.
+        $forum = $this->getDataGenerator()->create_module('forum', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('forum', $forum->id);
+
+        // 2. Create the submission record.
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $student->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => null,
+            'timecreated' => time(),
+            'storedfileid' => null,
+            'identifier' => 'dummy-path',
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        // 3. Mock the API client.
+        $capturededucators = null;
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['create_submission'])
+            ->getMock();
+
+        $clientmock->expects($this->once())
+            ->method('create_submission')
+            ->willReturnCallback(function ($metadata, $settings, $educators, $students) use (&$capturededucators) {
+                $capturededucators = $educators;
+                throw new \Exception('Payload inspected successfully.');
+            });
+
+        // 4. Execute the function.
+        // We expect BOTH the unmapped notice and our mock abort exception.
+        $this->expectOutputRegex('/Notice: No grading capability mapped for module \'forum\'.*Payload inspected successfully/s');
+        \plagiarism_inspera_send_file($record, $clientmock);
+
+        // 5. Assert the educators array is strictly empty.
+        $this->assertIsArray($capturededucators);
+        $this->assertEmpty($capturededucators, 'Educators array must be empty for unmapped modules.');
+    }
 }
