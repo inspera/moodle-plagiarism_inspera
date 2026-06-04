@@ -2207,7 +2207,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
                 "Preserving queue record as error because externalid {$plagiarismfile->externalid} already exists."
             );
             $plagiarismfile->status = 'error';
-            $plagiarismfile->description = "Source file missing: {$reason}";
+            $plagiarismfile->description = "Source file unavailable: {$reason}";
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
             return;
         }

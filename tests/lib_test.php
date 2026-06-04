@@ -284,7 +284,7 @@ final class lib_test extends advanced_testcase {
         $this->assertNotFalse($updated);
         $this->assertEquals('external-doc-999', $updated->externalid);
         $this->assertEquals('error', $updated->status);
-        $this->assertStringContainsString('Source file missing', $updated->description);
+        $this->assertStringContainsString('Source file unavailable', $updated->description);
     }
 
     /**
