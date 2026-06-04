@@ -144,6 +144,7 @@ final class lib_test extends advanced_testcase {
         $user = $this->getDataGenerator()->create_user();
         $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('assign', $assign->id);
+        $filepath = $this->create_online_text_temp_file('<p>online text</p>');
 
         $oldexternalid = 'stale-id';
         $record = (object) [
@@ -154,7 +155,7 @@ final class lib_test extends advanced_testcase {
             'externalid' => $oldexternalid,
             'timecreated' => time(),
             'storedfileid' => null,
-            'identifier' => 'online-text-fixture',
+            'identifier' => $filepath,
         ];
         $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
 
@@ -176,6 +177,247 @@ final class lib_test extends advanced_testcase {
         $this->assertNull($updatedrecord->externalid); // CRITICAL: ID should be cleared.
         $this->assertEquals('error', $updatedrecord->status);
         $this->assertStringContainsString('API Down', $updatedrecord->description);
+        $this->assertFalse(file_exists($filepath), 'Temporary online-text file should be deleted on API failure.');
+    }
+
+    /**
+     * Test plagiarism_inspera_send_file aborts before API call and deletes queue record when the source file is gone.
+     *
+     * @covers ::plagiarism_inspera_send_file
+     */
+    public function test_plagiarism_inspera_send_file_deletes_record_when_stored_file_missing_preflight(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $fs = get_file_storage();
+        $filerecord = [
+            'contextid' => \context_module::instance($cm->id)->id,
+            'component' => 'mod_assign',
+            'filearea' => 'submission_files',
+            'itemid' => 1,
+            'filepath' => '/',
+            'filename' => 'deleted-before-send.pdf',
+            'userid' => $user->id,
+        ];
+        $file = $fs->create_file_from_string($filerecord, 'test');
+
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => null,
+            'timecreated' => time(),
+            'storedfileid' => $file->get_id(),
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+        $file->delete();
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['create_submission'])
+            ->getMock();
+        $clientmock->expects($this->never())
+            ->method('create_submission');
+
+        $this->expectOutputRegex('/Skipping Inspera submission.*Deleting queue record/s');
+        \plagiarism_inspera_send_file($record, $clientmock);
+
+        $this->assertFalse($DB->record_exists('plagiarism_inspera_subs', ['id' => $record->id]));
+    }
+
+    /**
+     * Test plagiarism_inspera_send_file preserves queued row as error when source file is missing but externalid exists.
+     *
+     * @covers ::plagiarism_inspera_send_file
+     */
+    public function test_plagiarism_inspera_send_file_marks_error_when_missing_stored_file_and_externalid_exists(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $fs = get_file_storage();
+        $filerecord = [
+            'contextid' => \context_module::instance($cm->id)->id,
+            'component' => 'mod_assign',
+            'filearea' => 'submission_files',
+            'itemid' => 99,
+            'filepath' => '/',
+            'filename' => 'missing-after-externalid.pdf',
+            'userid' => $user->id,
+        ];
+        $file = $fs->create_file_from_string($filerecord, 'test');
+
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => 'external-doc-999',
+            'timecreated' => time(),
+            'storedfileid' => $file->get_id(),
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+        $file->delete();
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['create_submission'])
+            ->getMock();
+        $clientmock->expects($this->never())
+            ->method('create_submission');
+
+        $this->expectOutputRegex('/Preserving queue record as error because externalid/s');
+        \plagiarism_inspera_send_file($record, $clientmock);
+
+        $this->assertTrue($DB->record_exists('plagiarism_inspera_subs', ['id' => $record->id]));
+        $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertNotFalse($updated);
+        $this->assertEquals('external-doc-999', $updated->externalid);
+        $this->assertEquals('error', $updated->status);
+        $this->assertStringContainsString('Source file unavailable', $updated->description);
+    }
+
+    /**
+     * Test plagiarism_inspera_send_file rejects identifier paths outside the safe temp base.
+     *
+     * @covers ::plagiarism_inspera_send_file
+     */
+    public function test_plagiarism_inspera_send_file_rejects_identifier_outside_safe_base(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => null,
+            'timecreated' => time(),
+            'storedfileid' => null,
+            'identifier' => '/tmp/outside-inspera-temp.html',
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['create_submission'])
+            ->getMock();
+        $clientmock->expects($this->never())
+            ->method('create_submission');
+
+        $this->expectOutputRegex('/SECURITY FATAL: Unauthorized directory or traversal attempt/s');
+        \plagiarism_inspera_send_file($record, $clientmock);
+
+        $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertNotFalse($updated);
+        $this->assertEquals('error', $updated->status);
+        $this->assertEquals('Security violation: Invalid file path detected.', $updated->description);
+    }
+
+    /**
+     * Test plagiarism_inspera_send_file deletes an empty online-text temp file and queue record.
+     *
+     * @covers ::plagiarism_inspera_send_file
+     */
+    public function test_plagiarism_inspera_send_file_deletes_empty_online_text_temp_file(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+        $filepath = $this->create_online_text_temp_file('');
+
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => null,
+            'timecreated' => time(),
+            'storedfileid' => null,
+            'identifier' => $filepath,
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['create_submission'])
+            ->getMock();
+        $clientmock->expects($this->never())
+            ->method('create_submission');
+
+        $this->expectOutputRegex('/no content available to upload/s');
+        \plagiarism_inspera_send_file($record, $clientmock);
+
+        $this->assertFalse($DB->record_exists('plagiarism_inspera_subs', ['id' => $record->id]));
+        $this->assertFalse(file_exists($filepath), 'Empty online-text temp file should be deleted.');
+    }
+
+    /**
+     * Test plagiarism_inspera_send_file deletes online-text temp file when upload returns false.
+     *
+     * @covers ::plagiarism_inspera_send_file
+     */
+    public function test_plagiarism_inspera_send_file_deletes_temp_file_on_upload_false(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+        $filepath = $this->create_online_text_temp_file('<p>upload-failure cleanup test</p>');
+
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => null,
+            'timecreated' => time(),
+            'storedfileid' => null,
+            'identifier' => $filepath,
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['create_submission', 'upload_to_presigned_url'])
+            ->getMock();
+        $clientmock->expects($this->once())
+            ->method('create_submission')
+            ->willReturn((object) [
+                'documentId' => 'doc-upload-fail-1',
+                'presignedS3Url' => 'https://s3.example.com/upload',
+            ]);
+        $clientmock->expects($this->once())
+            ->method('upload_to_presigned_url')
+            ->willReturn(false);
+
+        $this->expectOutputRegex('/Upload to presigned URL returned failure|Failed to upload file content/s');
+        \plagiarism_inspera_send_file($record, $clientmock);
+
+        $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertEquals('error', $updatedrecord->status);
+        $this->assertEquals('Upload to presigned URL returned failure', $updatedrecord->description);
+        $this->assertFalse(file_exists($filepath), 'Online-text temp file should be deleted on upload false.');
     }
 
     /**
@@ -532,6 +774,7 @@ final class lib_test extends advanced_testcase {
         // Create a Quiz activity.
         $quiz = $this->getDataGenerator()->create_module('quiz', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('quiz', $quiz->id);
+        $filepath = $this->create_online_text_temp_file('<p>educator payload test</p>');
 
         // 2. Create the submission record for the test.
         $record = (object) [
@@ -542,7 +785,7 @@ final class lib_test extends advanced_testcase {
             'externalid' => null,
             'timecreated' => time(),
             'storedfileid' => null,
-            'identifier' => 'dummy-path', // Bypasses file reading for this test.
+            'identifier' => $filepath,
         ];
         $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
 
@@ -588,6 +831,8 @@ final class lib_test extends advanced_testcase {
             $educatorids,
             'Suspended teachers must be excluded from the payload.'
         );
+
+        @unlink($filepath);
     }
 
     /**
@@ -613,6 +858,7 @@ final class lib_test extends advanced_testcase {
         // Create a Forum activity.
         $forum = $this->getDataGenerator()->create_module('forum', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('forum', $forum->id);
+        $filepath = $this->create_online_text_temp_file('<p>unmapped module test</p>');
 
         // 2. Create the submission record.
         $record = (object) [
@@ -623,7 +869,7 @@ final class lib_test extends advanced_testcase {
             'externalid' => null,
             'timecreated' => time(),
             'storedfileid' => null,
-            'identifier' => 'dummy-path',
+            'identifier' => $filepath,
         ];
         $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
 
@@ -649,5 +895,20 @@ final class lib_test extends advanced_testcase {
         // 5. Assert the educators array is strictly empty.
         $this->assertIsArray($capturededucators);
         $this->assertEmpty($capturededucators, 'Educators array must be empty for unmapped modules.');
+
+        @unlink($filepath);
+    }
+
+    /**
+     * Creates an online-text temporary file under plagiarism_inspera temp directory.
+     *
+     * @param string $content HTML content to write.
+     * @return string
+     */
+    private function create_online_text_temp_file(string $content): string {
+        $tempdir = make_temp_directory('plagiarism_inspera');
+        $filepath = $tempdir . '/test_online_text_' . uniqid('', true) . '.html';
+        file_put_contents($filepath, $content);
+        return $filepath;
     }
 }

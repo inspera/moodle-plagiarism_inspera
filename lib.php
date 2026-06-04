@@ -2194,6 +2194,139 @@ function plagiarism_inspera_create_temp_file(
 function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apiclient\api_client $client) {
     global $DB;
 
+    // Pre-flight: Load content before creating a remote submission to avoid ghost documents.
+    $content = null;
+    $mimetype = 'text/html';
+    $filename = 'submission.html';
+    $tempfilepath = null;
+
+    $handlemissingfile = function (string $reason) use ($DB, $plagiarismfile) {
+        if (!empty($plagiarismfile->externalid)) {
+            mtrace(
+                "Skipping Inspera submission for fileid {$plagiarismfile->id}: {$reason}. " .
+                "Preserving queue record as error because externalid {$plagiarismfile->externalid} already exists."
+            );
+            $plagiarismfile->status = 'error';
+            $plagiarismfile->description = "Source file unavailable: {$reason}";
+            $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+            return;
+        }
+
+        mtrace(
+            "Skipping Inspera submission for fileid {$plagiarismfile->id}: {$reason}. " .
+            "Deleting queue record from plagiarism_inspera_subs."
+        );
+        $DB->delete_records('plagiarism_inspera_subs', ['id' => $plagiarismfile->id]);
+    };
+
+    if (!empty($plagiarismfile->storedfileid)) {
+        $fs = get_file_storage();
+        $file = $fs->get_file_by_id($plagiarismfile->storedfileid);
+
+        if (!$file) {
+            $handlemissingfile("stored file {$plagiarismfile->storedfileid} is missing");
+            return false;
+        }
+
+        $content = $file->get_content();
+        $mimetype = $file->get_mimetype();
+        $filename = $file->get_filename();
+    } else if (!empty($plagiarismfile->identifier)) {
+        // Check identifier field for temporary file path (online text).
+        $tempfilepath = $plagiarismfile->identifier;
+
+        // Validate target directory using resolved paths.
+        // Prevent Arbitrary File Read via malicious backup restoration (including symlink escapes).
+        $safebase = make_temp_directory('plagiarism_inspera');
+        $realbasepath = realpath($safebase);
+        if ($realbasepath === false) {
+            mtrace('SECURITY FATAL: Base temp directory could not be resolved for identifier validation.');
+            $plagiarismfile->status = 'error';
+            $plagiarismfile->description = 'Security violation: Invalid file path detected.';
+            $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+            return false;
+        }
+
+        $normalizedbase = str_replace('\\', '/', $realbasepath);
+        if (substr($normalizedbase, -1) !== '/') {
+            $normalizedbase .= '/';
+        }
+
+        // Ensure the resolved target directory remains inside the safe base.
+        $targetdir = dirname($tempfilepath);
+        $realtargetdir = realpath($targetdir);
+        $normalizedtargetdir = $realtargetdir !== false ? str_replace('\\', '/', $realtargetdir) : '';
+        if ($normalizedtargetdir !== '' && substr($normalizedtargetdir, -1) !== '/') {
+            $normalizedtargetdir .= '/';
+        }
+
+        $isunsafe = ($realtargetdir === false) ||
+            (strpos($normalizedtargetdir, $normalizedbase) !== 0);
+
+        if ($isunsafe) {
+            mtrace("SECURITY FATAL: Unauthorized directory or traversal attempt detected in identifier path: {$tempfilepath}");
+
+            // Mark the record as an error so cron stops trying to process it.
+            $plagiarismfile->status = 'error';
+            $plagiarismfile->description = 'Security violation: Invalid file path detected.';
+            $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+            return false;
+        }
+
+        // REHYDRATION LOGIC START.
+        // If the file is missing (e.g. deleted by cleanup), try to recreate it from DB.
+        if (!file_exists($tempfilepath)) {
+            mtrace("Temp file missing: {$tempfilepath}. Attempting rehydration...");
+
+            if (plagiarism_inspera_rehydrate_file($plagiarismfile, $tempfilepath)) {
+                mtrace("Rehydration successful: File recreated.");
+            } else {
+                mtrace("Rehydration failed: Could not retrieve content from database.");
+            }
+        }
+
+        if (file_exists($tempfilepath)) {
+            $realfilepath = realpath($tempfilepath);
+            $normalizedresolvedpath = $realfilepath !== false ? str_replace('\\', '/', $realfilepath) : '';
+            $isunsafe = ($realfilepath === false) ||
+                (strpos($normalizedresolvedpath, $normalizedbase) !== 0) ||
+                !is_file($realfilepath);
+
+            if ($isunsafe) {
+                mtrace("SECURITY FATAL: Unauthorized resolved identifier path detected: {$tempfilepath}");
+                $plagiarismfile->status = 'error';
+                $plagiarismfile->description = 'Security violation: Invalid file path detected.';
+                $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+                return false;
+            }
+
+            $tempfilepath = $realfilepath;
+        }
+
+        $content = @file_get_contents($tempfilepath);
+        if ($content === false) {
+            $handlemissingfile('temporary online-text file is unreadable');
+            if (!empty($tempfilepath) && file_exists($tempfilepath) && !unlink($tempfilepath)) {
+                mtrace("Warning: Failed to delete unreadable temporary file: {$tempfilepath}");
+            }
+            return false;
+        }
+        $mimetype = 'text/html';
+        mtrace("Loading online text from temp file: {$tempfilepath}");
+    } else {
+        $handlemissingfile('no stored file or online-text identifier is available');
+        return false;
+    }
+
+    if ($content === '' || $content === null) {
+        $handlemissingfile('no content available to upload');
+
+        if (!empty($tempfilepath) && file_exists($tempfilepath) && !unlink($tempfilepath)) {
+            mtrace("Warning: Failed to delete empty temporary file: {$tempfilepath}");
+        }
+        return false;
+    }
+
     // Step 1: Create submission if not already done, or if status is report_requested (to ensure fresh presigned URL).
     if (empty($plagiarismfile->externalid) || $plagiarismfile->status === 'report_requested') {
         $plagiarismfile->externalid = null; // Clear existing ID to ensure we don't use a stale one if creation fails.
@@ -2226,19 +2359,6 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         } catch (\Exception $e) {
             // Fallback: If cm lookup fails, stick to the default name or log it.
             mtrace("Warning: Failed to load CM for blind marking check (fileid: {$plagiarismfile->id}). " . $e->getMessage());
-        }
-
-        $filename = 'submission.html';
-        $mimetype = 'text/html';
-
-        // If we have a Moodle stored file, use its filename/mimetype.
-        if (!empty($plagiarismfile->storedfileid)) {
-            $fs = get_file_storage();
-            $file = $fs->get_file_by_id($plagiarismfile->storedfileid);
-            if ($file) {
-                $filename = $file->get_filename();
-                $mimetype = $file->get_mimetype();
-            }
         }
 
         // Get originality settings for the course module.
@@ -2341,6 +2461,11 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
             $plagiarismfile->status = 'error';
             $plagiarismfile->description = $e->getMessage();
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+
+            // Pre-flight may have created/rehydrated an online-text temp file; clean it on API failure.
+            if (!empty($tempfilepath) && file_exists($tempfilepath) && !unlink($tempfilepath)) {
+                mtrace("Warning: Failed to delete temporary file after create_submission failure: {$tempfilepath}");
+            }
             return false;
         }
 
@@ -2360,81 +2485,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
     $uploadurl = $plagiarismfile->presignedurl ?? null;
     unset($plagiarismfile->presignedurl);
 
-    // Step 2: Upload file content.
-    $content = null;
-    $mimetype = 'text/html';
-    $tempfilepath = null;
-
-    if (!empty($plagiarismfile->storedfileid)) {
-        // Regular file upload.
-        $fs = get_file_storage();
-        $file = $fs->get_file_by_id($plagiarismfile->storedfileid);
-
-        if (!$file) {
-            mtrace("File not found for storedfileid: {$plagiarismfile->storedfileid}");
-            $plagiarismfile->status = 'error';
-            $plagiarismfile->description = 'Stored file not found';
-            $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
-            return false;
-        }
-
-        $content = $file->get_content();
-        $mimetype = $file->get_mimetype();
-    } else if (!empty($plagiarismfile->identifier)) {
-        // Check identifier field for temporary file path (online text).
-        $tempfilepath = $plagiarismfile->identifier;
-
-        // Validate target directory.
-        // Prevent Arbitrary File Read via malicious backup restoration.
-        global $CFG;
-        $expectedbase = rtrim($CFG->tempdir, '/') . '/plagiarism_inspera/';
-
-        $normalizedfilepath = str_replace('\\', '/', $tempfilepath);
-        $normalizedbase     = str_replace('\\', '/', $expectedbase);
-
-        // 1. Block any directory traversal attempts ("../").
-        // 2. Enforce the base directory prefix.
-        if (strpos($normalizedfilepath, '..') !== false || strpos($normalizedfilepath, $normalizedbase) !== 0) {
-            mtrace("SECURITY FATAL: Unauthorized directory or traversal attempt detected in identifier path: {$tempfilepath}");
-
-            // Mark the record as an error so cron stops trying to process it.
-            $plagiarismfile->status = 'error';
-            $plagiarismfile->description = 'Security violation: Invalid file path detected.';
-            $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
-            return false;
-        }
-
-        // REHYDRATION LOGIC START.
-        // If the file is missing (e.g. deleted by cleanup), try to recreate it from DB.
-        if (!file_exists($tempfilepath)) {
-            mtrace("Temp file missing: {$tempfilepath}. Attempting rehydration...");
-
-            if (plagiarism_inspera_rehydrate_file($plagiarismfile, $tempfilepath)) {
-                mtrace("Rehydration successful: File recreated.");
-            } else {
-                mtrace("Rehydration failed: Could not retrieve content from database.");
-            }
-        }
-
-        $content = @file_get_contents($tempfilepath);
-        if ($content === false) {
-            mtrace("Failed to read temp file: {$tempfilepath}");
-            $plagiarismfile->status = 'error';
-            $plagiarismfile->description = 'Failed to read temporary file';
-            $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
-            return false;
-        }
-        $mimetype = 'text/html';
-        mtrace("Loading online text from temp file: {$tempfilepath}");
-    }
-
-    if (empty($content)) {
-        mtrace("No content found for fileid: {$plagiarismfile->id}");
-        $plagiarismfile->status = 'error';
-        $plagiarismfile->description = 'No content found to upload';
-        $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
-        return false;
-    }
+    // Step 2: Upload pre-flight validated content.
 
     try {
         $success = $client->upload_to_presigned_url($uploadurl, $content, $mimetype);
@@ -2458,6 +2509,10 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
             $plagiarismfile->status = 'error';
             $plagiarismfile->description = 'Upload to presigned URL returned failure';
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+
+            if (!empty($tempfilepath) && file_exists($tempfilepath) && !unlink($tempfilepath)) {
+                mtrace("Warning: Failed to delete temporary file after upload failure: {$tempfilepath}");
+            }
             return false;
         }
     } catch (\Throwable $e) {
