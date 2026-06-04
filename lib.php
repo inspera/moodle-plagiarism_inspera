@@ -2200,7 +2200,18 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
     $filename = 'submission.html';
     $tempfilepath = null;
 
-    $deleteorphanrecord = function (string $reason) use ($DB, $plagiarismfile) {
+    $handlemissingfile = function (string $reason) use ($DB, $plagiarismfile) {
+        if (!empty($plagiarismfile->externalid)) {
+            mtrace(
+                "Skipping Inspera submission for fileid {$plagiarismfile->id}: {$reason}. " .
+                "Preserving queue record as error because externalid {$plagiarismfile->externalid} already exists."
+            );
+            $plagiarismfile->status = 'error';
+            $plagiarismfile->description = "Source file missing: {$reason}";
+            $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+            return;
+        }
+
         mtrace(
             "Skipping Inspera submission for fileid {$plagiarismfile->id}: {$reason}. " .
             "Deleting queue record from plagiarism_inspera_subs."
@@ -2213,7 +2224,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         $file = $fs->get_file_by_id($plagiarismfile->storedfileid);
 
         if (!$file) {
-            $deleteorphanrecord("stored file {$plagiarismfile->storedfileid} is missing");
+            $handlemissingfile("stored file {$plagiarismfile->storedfileid} is missing");
             return false;
         }
 
@@ -2258,18 +2269,18 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
 
         $content = @file_get_contents($tempfilepath);
         if ($content === false) {
-            $deleteorphanrecord('temporary online-text file is unreadable');
+            $handlemissingfile('temporary online-text file is unreadable');
             return false;
         }
         $mimetype = 'text/html';
         mtrace("Loading online text from temp file: {$tempfilepath}");
     } else {
-        $deleteorphanrecord('no stored file or online-text identifier is available');
+        $handlemissingfile('no stored file or online-text identifier is available');
         return false;
     }
 
     if ($content === '' || $content === null) {
-        $deleteorphanrecord('no content available to upload');
+        $handlemissingfile('no content available to upload');
 
         if (!empty($tempfilepath) && file_exists($tempfilepath) && !unlink($tempfilepath)) {
             mtrace("Warning: Failed to delete empty temporary file: {$tempfilepath}");

@@ -232,6 +232,62 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Test plagiarism_inspera_send_file preserves queued row as error when source file is missing but externalid exists.
+     *
+     * @covers ::plagiarism_inspera_send_file
+     */
+    public function test_plagiarism_inspera_send_file_marks_error_when_missing_stored_file_and_externalid_exists(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $fs = get_file_storage();
+        $filerecord = [
+            'contextid' => \context_module::instance($cm->id)->id,
+            'component' => 'mod_assign',
+            'filearea' => 'submission_files',
+            'itemid' => 99,
+            'filepath' => '/',
+            'filename' => 'missing-after-externalid.pdf',
+            'userid' => $user->id,
+        ];
+        $file = $fs->create_file_from_string($filerecord, 'test');
+
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => 'external-doc-999',
+            'timecreated' => time(),
+            'storedfileid' => $file->get_id(),
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+        $file->delete();
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['create_submission'])
+            ->getMock();
+        $clientmock->expects($this->never())
+            ->method('create_submission');
+
+        $this->expectOutputRegex('/Preserving queue record as error because externalid/s');
+        \plagiarism_inspera_send_file($record, $clientmock);
+
+        $this->assertTrue($DB->record_exists('plagiarism_inspera_subs', ['id' => $record->id]));
+        $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertNotFalse($updated);
+        $this->assertEquals('external-doc-999', $updated->externalid);
+        $this->assertEquals('error', $updated->status);
+        $this->assertStringContainsString('Source file missing', $updated->description);
+    }
+
+    /**
      * Test plagiarism_inspera_send_file deletes an empty online-text temp file and queue record.
      *
      * @covers ::plagiarism_inspera_send_file
