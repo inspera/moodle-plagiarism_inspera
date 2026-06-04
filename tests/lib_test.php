@@ -144,7 +144,7 @@ final class lib_test extends advanced_testcase {
         $user = $this->getDataGenerator()->create_user();
         $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('assign', $assign->id);
-        $filepath = $this->create_online_text_tempfile('<p>online text</p>');
+        $filepath = $this->create_online_text_temp_file('<p>online text</p>');
 
         $oldexternalid = 'stale-id';
         $record = (object) [
@@ -343,7 +343,7 @@ final class lib_test extends advanced_testcase {
         $user = $this->getDataGenerator()->create_user();
         $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('assign', $assign->id);
-        $filepath = $this->create_online_text_tempfile('');
+        $filepath = $this->create_online_text_temp_file('');
 
         $record = (object) [
             'cm' => $cm->id,
@@ -384,7 +384,7 @@ final class lib_test extends advanced_testcase {
         $user = $this->getDataGenerator()->create_user();
         $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('assign', $assign->id);
-        $filepath = $this->create_online_text_tempfile('<p>upload-failure cleanup test</p>');
+        $filepath = $this->create_online_text_temp_file('<p>upload-failure cleanup test</p>');
 
         $record = (object) [
             'cm' => $cm->id,
@@ -774,7 +774,7 @@ final class lib_test extends advanced_testcase {
         // Create a Quiz activity.
         $quiz = $this->getDataGenerator()->create_module('quiz', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('quiz', $quiz->id);
-        $filepath = $this->create_online_text_tempfile('<p>educator payload test</p>');
+        $filepath = $this->create_online_text_temp_file('<p>educator payload test</p>');
 
         // 2. Create the submission record for the test.
         $record = (object) [
@@ -858,7 +858,7 @@ final class lib_test extends advanced_testcase {
         // Create a Forum activity.
         $forum = $this->getDataGenerator()->create_module('forum', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('forum', $forum->id);
-        $filepath = $this->create_online_text_tempfile('<p>unmapped module test</p>');
+        $filepath = $this->create_online_text_temp_file('<p>unmapped module test</p>');
 
         // 2. Create the submission record.
         $record = (object) [
@@ -905,7 +905,7 @@ final class lib_test extends advanced_testcase {
      * @param string $content HTML content to write.
      * @return string
      */
-    private function create_online_text_tempfile(string $content): string {
+    private function create_online_text_temp_file(string $content): string {
         $tempdir = make_temp_directory('plagiarism_inspera');
         $filepath = $tempdir . '/test_online_text_' . uniqid('', true) . '.html';
         file_put_contents($filepath, $content);
