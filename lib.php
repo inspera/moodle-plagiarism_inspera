@@ -2239,8 +2239,6 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         // Prevent Arbitrary File Read via malicious backup restoration (including symlink escapes).
         $safebase = make_temp_directory('plagiarism_inspera');
         $realbasepath = realpath($safebase);
-        $normalizedfilepath = str_replace('\\', '/', $tempfilepath);
-
         if ($realbasepath === false) {
             mtrace('SECURITY FATAL: Base temp directory could not be resolved for identifier validation.');
             $plagiarismfile->status = 'error';
@@ -2254,8 +2252,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
             $normalizedbase .= '/';
         }
 
-        // 1. Block obvious traversal in raw path.
-        // 2. Ensure the resolved target directory remains inside the safe base.
+        // Ensure the resolved target directory remains inside the safe base.
         $targetdir = dirname($tempfilepath);
         $realtargetdir = realpath($targetdir);
         $normalizedtargetdir = $realtargetdir !== false ? str_replace('\\', '/', $realtargetdir) : '';
@@ -2263,8 +2260,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
             $normalizedtargetdir .= '/';
         }
 
-        $isunsafe = (strpos($normalizedfilepath, '..') !== false) ||
-            ($realtargetdir === false) ||
+        $isunsafe = ($realtargetdir === false) ||
             (strpos($normalizedtargetdir, $normalizedbase) !== 0);
 
         if ($isunsafe) {
