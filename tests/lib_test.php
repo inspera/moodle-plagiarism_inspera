@@ -288,6 +288,48 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Test plagiarism_inspera_send_file rejects identifier paths outside the safe temp base.
+     *
+     * @covers ::plagiarism_inspera_send_file
+     */
+    public function test_plagiarism_inspera_send_file_rejects_identifier_outside_safe_base(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => null,
+            'timecreated' => time(),
+            'storedfileid' => null,
+            'identifier' => '/tmp/outside-inspera-temp.html',
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['create_submission'])
+            ->getMock();
+        $clientmock->expects($this->never())
+            ->method('create_submission');
+
+        $this->expectOutputRegex('/SECURITY FATAL: Unauthorized directory or traversal attempt/s');
+        \plagiarism_inspera_send_file($record, $clientmock);
+
+        $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertNotFalse($updated);
+        $this->assertEquals('error', $updated->status);
+        $this->assertEquals('Security violation: Invalid file path detected.', $updated->description);
+    }
+
+    /**
      * Test plagiarism_inspera_send_file deletes an empty online-text temp file and queue record.
      *
      * @covers ::plagiarism_inspera_send_file

@@ -2235,17 +2235,39 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         // Check identifier field for temporary file path (online text).
         $tempfilepath = $plagiarismfile->identifier;
 
-        // Validate target directory.
-        // Prevent Arbitrary File Read via malicious backup restoration.
-        global $CFG;
-        $expectedbase = rtrim($CFG->tempdir, '/') . '/plagiarism_inspera/';
-
+        // Validate target directory using resolved paths.
+        // Prevent Arbitrary File Read via malicious backup restoration (including symlink escapes).
+        $safebase = make_temp_directory('plagiarism_inspera');
+        $realbasepath = realpath($safebase);
         $normalizedfilepath = str_replace('\\', '/', $tempfilepath);
-        $normalizedbase     = str_replace('\\', '/', $expectedbase);
 
-        // 1. Block any directory traversal attempts ("../").
-        // 2. Enforce the base directory prefix.
-        if (strpos($normalizedfilepath, '..') !== false || strpos($normalizedfilepath, $normalizedbase) !== 0) {
+        if ($realbasepath === false) {
+            mtrace('SECURITY FATAL: Base temp directory could not be resolved for identifier validation.');
+            $plagiarismfile->status = 'error';
+            $plagiarismfile->description = 'Security violation: Invalid file path detected.';
+            $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+            return false;
+        }
+
+        $normalizedbase = str_replace('\\', '/', $realbasepath);
+        if (substr($normalizedbase, -1) !== '/') {
+            $normalizedbase .= '/';
+        }
+
+        // 1. Block obvious traversal in raw path.
+        // 2. Ensure the resolved target directory remains inside the safe base.
+        $targetdir = dirname($tempfilepath);
+        $realtargetdir = realpath($targetdir);
+        $normalizedtargetdir = $realtargetdir !== false ? str_replace('\\', '/', $realtargetdir) : '';
+        if ($normalizedtargetdir !== '' && substr($normalizedtargetdir, -1) !== '/') {
+            $normalizedtargetdir .= '/';
+        }
+
+        $isunsafe = (strpos($normalizedfilepath, '..') !== false) ||
+            ($realtargetdir === false) ||
+            (strpos($normalizedtargetdir, $normalizedbase) !== 0);
+
+        if ($isunsafe) {
             mtrace("SECURITY FATAL: Unauthorized directory or traversal attempt detected in identifier path: {$tempfilepath}");
 
             // Mark the record as an error so cron stops trying to process it.
@@ -2265,6 +2287,24 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
             } else {
                 mtrace("Rehydration failed: Could not retrieve content from database.");
             }
+        }
+
+        if (file_exists($tempfilepath)) {
+            $realfilepath = realpath($tempfilepath);
+            $normalizedresolvedpath = $realfilepath !== false ? str_replace('\\', '/', $realfilepath) : '';
+            $isunsafe = ($realfilepath === false) ||
+                (strpos($normalizedresolvedpath, $normalizedbase) !== 0) ||
+                !is_file($realfilepath);
+
+            if ($isunsafe) {
+                mtrace("SECURITY FATAL: Unauthorized resolved identifier path detected: {$tempfilepath}");
+                $plagiarismfile->status = 'error';
+                $plagiarismfile->description = 'Security violation: Invalid file path detected.';
+                $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+                return false;
+            }
+
+            $tempfilepath = $realfilepath;
         }
 
         $content = @file_get_contents($tempfilepath);
