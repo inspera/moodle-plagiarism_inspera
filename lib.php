@@ -2306,6 +2306,9 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         $content = @file_get_contents($tempfilepath);
         if ($content === false) {
             $handlemissingfile('temporary online-text file is unreadable');
+            if (!empty($tempfilepath) && file_exists($tempfilepath) && !unlink($tempfilepath)) {
+                mtrace("Warning: Failed to delete unreadable temporary file: {$tempfilepath}");
+            }
             return false;
         }
         $mimetype = 'text/html';
