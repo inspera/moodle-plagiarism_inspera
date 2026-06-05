@@ -239,8 +239,8 @@ class queue_service {
 
             // SCENARIO 2: ONLINE TEXT (Mutable).
             if ($identifier) {
-                // If the text actually changed (identifier mismatch), OR if we are explicitly.
-                // re-queuing a pending/finished record, we must supersede the old one.
+                // If the text actually changed (identifier mismatch),
+                // or if we are explicitly re-queuing a pending/finished record, we must supersede the old one.
                 if ($existingrecord->identifier !== $identifier || in_array($status, ['pending', 'finished'])) {
                     $existingrecord->status = 'superseded';
                     $existingrecord->timemodified = $currenttime;
