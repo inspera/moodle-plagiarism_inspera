@@ -288,4 +288,68 @@ final class workshop_service_test extends advanced_testcase {
         $service = new workshop_service($DB, $mockqueueservice);
         $service->process_phase_switch($workshop->id, $cm->id);
     }
+
+    /**
+     * Data provider for testing the online text deduplication state machine.
+     *
+     * @return array
+     */
+    public static function deduplication_state_provider(): array {
+        return [
+            'Active record (report_requested) prevents queueing' => ['report_requested', 0],
+            'Active record (pending) prevents queueing'          => ['pending', 0],
+            'Active record (finished) prevents queueing'         => ['finished', 0],
+            'Failed record (error) triggers retry queueing'      => ['error', 1],
+            'Failed record (external_error) triggers retry'      => ['external_error', 1],
+            'Reverted record (superseded) triggers queueing'     => ['superseded', 1],
+        ];
+    }
+
+    /**
+     * Test that the online text deduplication strictly respects historical statuses.
+     *
+     * @dataProvider deduplication_state_provider
+     * @param string $historicalstatus The status of the existing DB record.
+     * @param int $expectedcalls How many times queue_file should be called.
+     */
+    public function test_online_text_deduplication_states(string $historicalstatus, int $expectedcalls): void {
+        global $DB;
+
+        // 1. Setup course and workshop.
+        $course = $this->getDataGenerator()->create_course();
+        $workshop = $this->getDataGenerator()->create_module('workshop', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('workshop', $workshop->id);
+        $workshopgenerator = $this->getDataGenerator()->get_plugin_generator('mod_workshop');
+
+        // 2. Setup a submission with predictable text.
+        $user = $this->getDataGenerator()->create_user();
+        $content = 'This is the exact same text.';
+        $subid = $workshopgenerator->create_submission($workshop->id, $user->id, [
+            'content' => $content,
+            'contentformat' => FORMAT_HTML,
+        ]);
+
+        // 3. Inject a historical record into the database to mimic a previous run.
+        $contenthash = md5(trim(strip_tags($content)));
+        $identifier = "/fake/temp/path/onlinetext_{$cm->id}_{$user->id}_{$subid}_{$contenthash}.html";
+
+        $DB->insert_record('plagiarism_inspera_subs', (object)[
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => $subid,
+            'identifier' => $identifier,
+            'status' => $historicalstatus,
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ]);
+
+        // 4. Mock the queue_service to assert the exact number of expected calls.
+        $mockqueueservice = $this->createMock(queue_service::class);
+        $mockqueueservice->expects($this->exactly($expectedcalls))
+            ->method('queue_file');
+
+        // 5. Execute phase switch.
+        $service = new workshop_service($DB, $mockqueueservice);
+        $service->process_phase_switch($workshop->id, $cm->id);
+    }
 }
