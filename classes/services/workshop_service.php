@@ -160,17 +160,28 @@ class workshop_service {
             $contenthash = md5(trim(strip_tags($submission->content)));
             $uniquefilename = "onlinetext_{$cmid}_{$submission->authorid}_{$submission->id}_{$contenthash}.html";
 
-            // Check if this exact text version has already been queued.
+            // Properly escape the filename to neutralize '_' wildcards in SQL LIKE.
+            $escapedfilename = $this->db->sql_like_escape('/' . $uniquefilename);
+            $likepattern = '%' . $escapedfilename;
+            $likesql = $this->db->sql_like('identifier', '?');
+
+            // Check if this exact text version is already queued/finished.
+            // We EXCLUDE error states so failed submissions are properly re-queued and retried.
             $sql = "SELECT id FROM {plagiarism_inspera_subs}
-                     WHERE cm = ? AND userid = ? AND storedfileid IS NULL AND identifier LIKE ?";
+                     WHERE cm = ?
+                       AND userid = ?
+                       AND submissionid = ?
+                       AND storedfileid IS NULL
+                       AND status NOT IN ('error', 'external_error')
+                       AND {$likesql}";
 
             $existing = $this->db->get_record_sql(
                 $sql,
-                [$cmid, $submission->authorid, '%/' . $uniquefilename],
+                [$cmid, $submission->authorid, $submission->id, $likepattern],
                 IGNORE_MULTIPLE
             );
 
-            // If we don't have a record for this hash, it's new/modified text.
+            // If we don't have an active/successful record for this hash, generate and queue it.
             if (!$existing) {
                 $tempfile = plagiarism_inspera_create_temp_file(
                     $cmid,
