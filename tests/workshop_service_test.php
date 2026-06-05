@@ -63,7 +63,7 @@ final class workshop_service_test extends advanced_testcase {
 
         // 2. Setup Student 1 (Online text only).
         $user1 = $this->getDataGenerator()->create_user();
-        $workshopgenerator->create_submission($workshop->id, $user1->id, [
+        $sub1id = $workshopgenerator->create_submission($workshop->id, $user1->id, [
             'content' => 'Online text from user 1',
             'contentformat' => FORMAT_HTML,
         ]);
@@ -87,6 +87,9 @@ final class workshop_service_test extends advanced_testcase {
 
         // 4. Mock the queue_service.
         $mockqueueservice = $this->createMock(queue_service::class);
+
+        // We expect 3 total calls. Since they have different submission IDs,
+        // we use a series of 'withConsecutive' or a broader callback.
         $mockqueueservice->expects($this->exactly(3))
             ->method('queue_file')
             ->with(
@@ -94,7 +97,10 @@ final class workshop_service_test extends advanced_testcase {
                 $this->anything(),
                 $this->anything(),
                 $this->anything(),
-                $this->equalTo(0)
+                $this->logicalOr(
+                    $this->equalTo($sub1id),
+                    $this->equalTo($sub2id)
+                )
             );
 
         // 5. Execute.
@@ -129,7 +135,7 @@ final class workshop_service_test extends advanced_testcase {
                 $this->anything(),
                 $this->anything(),
                 $this->anything(),
-                $this->equalTo(0)
+                $this->equalTo($sub1id) // Use the real submission ID.
             );
 
         // 2. Execute.
@@ -202,7 +208,7 @@ final class workshop_service_test extends advanced_testcase {
                     return $file instanceof \stored_file && $file->get_filename() === 'scan_me.pdf';
                 }),
                 $this->anything(), // For the related user ID (null in this case).
-                $this->equalTo(0)  // For the submission ID.
+                $this->equalTo($subid) // Use the real submission ID.
             );
 
         $service = new workshop_service($DB, $mockqueueservice);
@@ -261,7 +267,7 @@ final class workshop_service_test extends advanced_testcase {
                     return strpos($file->filepath, 'plagiarism_inspera') !== false;
                 }),
                 $this->anything(), // For the related user ID (null in this case).
-                $this->equalTo(0)  // For the submission ID.
+                $this->equalTo($subid) // Use the real submission ID.
             );
 
         $service = new workshop_service($DB, $mockqueueservice);
