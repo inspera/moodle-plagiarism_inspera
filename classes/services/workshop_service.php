@@ -172,7 +172,7 @@ class workshop_service {
                        AND userid = ?
                        AND submissionid = ?
                        AND storedfileid IS NULL
-                       AND status NOT IN ('error', 'external_error')
+                       AND status NOT IN ('error', 'external_error', 'superseded')
                        AND {$likesql}";
 
             $existing = $this->db->get_record_sql(
