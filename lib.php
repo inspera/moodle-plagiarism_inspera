@@ -245,6 +245,57 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             return true;
         }
 
+        // FORUM & HSUFORUM EVENT HANDLING.
+        if ($eventdata['eventtype'] === 'forum_file_uploaded' || $eventdata['eventtype'] === 'hsuforum_file_uploaded') {
+            // Ensure the specific forum module is globally enabled in plugin settings.
+            $modcheck = ($eventdata['eventtype'] === 'forum_file_uploaded') ? 'enable_mod_forum' : 'enable_mod_hsuforum';
+            if (empty($plagiarismsettings[$modcheck])) {
+                return true;
+            }
+
+            $cmid = $eventdata['contextinstanceid'];
+            $userid = $eventdata['userid'];
+            $postid = isset($eventdata['objectid']) ? $eventdata['objectid'] : null;
+            $charcount = plagiarism_inspera_charcount();
+
+            // 1. Process Inline Text.
+            // Moodle passes the HTML body of the forum post in the 'content' field.
+            if (
+                !empty($eventdata['other']['content']) &&
+                \core_text::strlen(strip_tags($eventdata['other']['content'])) >= $charcount
+            ) {
+                // Create the physical temp file for the Pre-Flight architecture.
+                // We pass $postid in place of $submissionid so we can track the exact reply.
+                $file = plagiarism_inspera_create_temp_file(
+                    $cmid,
+                    $courseid,
+                    $userid,
+                    $eventdata['other']['content'],
+                    $postid
+                );
+
+                // Insert the online text into the queue table.
+                plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, $postid);
+            }
+
+            // 2. Process Attached Files.
+            // Moodle passes an array of file hashes for any PDFs/Docs attached to the post.
+            if (!empty($eventdata['other']['pathnamehashes'])) {
+                $fs = get_file_storage();
+                foreach ($eventdata['other']['pathnamehashes'] as $hash) {
+                    $efile = $fs->get_file_by_hash($hash);
+
+                    // Ignore directories or empty references.
+                    if ($efile && $efile->get_filename() !== '.') {
+                        plagiarism_inspera_queue_file($cmid, $userid, $efile, $relateduserid, $postid);
+                    }
+                }
+            }
+
+            // Return early so we don't accidentally hit the Assignment-specific logic below.
+            return true;
+        }
+
         $submissionid = isset($eventdata['objectid']) ? $eventdata['objectid'] : null;
 
         // Check to see if restrictcontent is in use.
@@ -662,6 +713,23 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
                         return true;
                     }
                 }
+            } else if ($cm->modname === 'forum' || $cm->modname === 'hsuforum') {
+                // FORUM GRADING LOGIC (Whole Forum Grading or Ratings).
+                require_once($GLOBALS['CFG']->libdir . '/gradelib.php');
+                $grades = grade_get_grades($cm->course, 'mod', $cm->modname, $cm->instance, $userid);
+
+                if (!empty($grades->items)) {
+                    foreach ($grades->items as $item) {
+                        if (empty($item->grades) || !is_array($item->grades)) {
+                            continue;
+                        }
+                        $g = $item->grades[$userid] ?? null;
+                        // Show if a grade/rating exists and is not null.
+                        if ($g && ($g->str_grade !== '-' && $g->grade !== null)) {
+                            return true;
+                        }
+                    }
+                }
             }
             return false;
         case 3: // Due date / Close date.
@@ -733,6 +801,13 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
                 if ($workshop && !empty($workshop->submissionend)) {
                     return $now >= (int)$workshop->submissionend;
                 }
+            } else if ($cm->modname === 'forum' || $cm->modname === 'hsuforum') {
+                // FORUM DUE DATE LOGIC.
+                // Forums use a strict 'duedate' column on the forum table.
+                $forum = $DB->get_record($cm->modname, ['id' => $cm->instance], 'id, duedate', IGNORE_MISSING);
+                if ($forum && !empty($forum->duedate)) {
+                    return $now >= (int)$forum->duedate;
+                }
             }
             return false;
         default:
@@ -758,7 +833,14 @@ function plagiarism_inspera_supported_qtypes() {
  * @return string[] An array of module names (e.g., 'assign', 'quiz').
  */
 function plagiarism_inspera_supported_modules() {
-    $supportedmodules = ['assign', 'quiz', 'workshop'];
+    global $CFG;
+    $supportedmodules = ['assign', 'workshop', 'quiz', 'forum'];
+
+    // Add third-party Advanced Forum if installed.
+    if (file_exists($CFG->dirroot . '/mod/hsuforum/version.php')) {
+        $supportedmodules[] = 'hsuforum';
+    }
+
     return $supportedmodules;
 }
 
@@ -2815,6 +2897,8 @@ function plagiarism_inspera_get_grade_capabilities(): array {
         'assign'   => 'mod/assign:grade',
         'quiz'     => 'mod/quiz:grade',
         'workshop' => 'mod/workshop:viewallsubmissions',
+        'forum'    => 'mod/forum:grade',
+        'hsuforum' => 'mod/hsuforum:grade',
     ];
 }
 
