@@ -182,6 +182,8 @@ class queue_service {
                 $existingrecord = $this->db->get_record(
                     'plagiarism_inspera_subs',
                     [
+                        'cm' => $cmid,
+                        'userid' => $userid,
                         'submissionid' => $submissionid,
                         'storedfileid' => $storedfileid,
                     ]
@@ -199,11 +201,11 @@ class queue_service {
         } else if ($identifier) {
             if ($submissionid > 0) {
                 $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                         WHERE submissionid = ? AND storedfileid IS NULL
+                         WHERE cm = ? AND userid = ? AND submissionid = ? AND storedfileid IS NULL
                       ORDER BY timecreated DESC, id DESC";
                 $existingrecord = $this->db->get_record_sql(
                     $sql,
-                    [$submissionid],
+                    [$cmid, $userid, $submissionid],
                     IGNORE_MULTIPLE
                 );
             } else {
