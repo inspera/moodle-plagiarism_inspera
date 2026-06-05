@@ -163,21 +163,26 @@ class workshop_service {
             // Properly escape the filename to neutralize '_' wildcards in SQL LIKE.
             $escapedfilename = $this->db->sql_like_escape('/' . $uniquefilename);
             $likepattern = '%' . $escapedfilename;
-            $likesql = $this->db->sql_like('identifier', '?');
+            $likesql = $this->db->sql_like('identifier', ':identifier', false);
 
             // Check if this exact text version is already queued/finished.
             // We EXCLUDE error states so failed submissions are properly re-queued and retried.
             $sql = "SELECT id FROM {plagiarism_inspera_subs}
-                     WHERE cm = ?
-                       AND userid = ?
-                       AND submissionid = ?
+                     WHERE cm = :cm
+                       AND userid = :userid
+                       AND submissionid = :submissionid
                        AND storedfileid IS NULL
                        AND status NOT IN ('error', 'external_error', 'superseded')
                        AND {$likesql}";
 
             $existing = $this->db->get_record_sql(
                 $sql,
-                [$cmid, $submission->authorid, $submission->id, $likepattern],
+                [
+                    'cm' => $cmid,
+                    'userid' => (int) $submission->authorid,
+                    'submissionid' => (int) $submission->id,
+                    'identifier' => $likepattern,
+                ],
                 IGNORE_MULTIPLE
             );
 
