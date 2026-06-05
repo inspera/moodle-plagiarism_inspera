@@ -18,7 +18,7 @@
  * Originality upgrade tasks.
  *
  * @package    plagiarism_inspera
- * @copyright  2025 Inspera AS
+ * @copyright  2026 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -67,6 +67,31 @@ function xmldb_plagiarism_inspera_upgrade($oldversion) {
 
         // Plagiarism savepoint reached.
         upgrade_plugin_savepoint(true, 2026031601, 'plagiarism', 'inspera');
+    }
+
+    // REPLACE STRICT FOREIGN KEY WITH INDEX FOR SUBMISSIONID.
+    // This allows submissionid to safely store Forum Post IDs and Quiz Attempt IDs
+    // without triggering database constraint errors against the assign_submission table.
+    if ($oldversion < 2026060501) {
+        $table = new xmldb_table('plagiarism_inspera_subs');
+
+        // 1. Define the old strict foreign key so Moodle can find it.
+        $key = new xmldb_key('submissionid', XMLDB_KEY_FOREIGN, ['submissionid'], 'assign_submission', ['id']);
+
+        // Moodle requires find_key_name() to check if a key exists!
+        if ($dbman->find_key_name($table, $key)) {
+            $dbman->drop_key($table, $key);
+        }
+
+        // 2. Define the new flexible index for fast searching.
+        $index = new xmldb_index('submissionid', XMLDB_INDEX_NOTUNIQUE, ['submissionid']);
+
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        // Plagiarism savepoint reached.
+        upgrade_plugin_savepoint(true, 2026060501, 'plagiarism', 'inspera');
     }
 
     return true;

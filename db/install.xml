@@ -27,13 +27,13 @@
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
                 <KEY NAME="cm" TYPE="foreign" FIELDS="cm" REFTABLE="course_modules" REFFIELDS="id"/>
                 <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
-                <KEY NAME="submissionid" TYPE="foreign" FIELDS="submissionid" REFTABLE="assign_submission" REFFIELDS="id"/>
             </KEYS>
             <INDEXES>
                 <INDEX NAME="submission_file" UNIQUE="false" FIELDS="submissionid, storedfileid" COMMENT="Fast lookup for group reports"/>
                 <INDEX NAME="cm_userid_storedfile" UNIQUE="false" FIELDS="cm, userid, storedfileid" COMMENT="Legacy Find records by cm, user, and file"/>
                 <INDEX NAME="cm_userid_identifier" UNIQUE="false" FIELDS="cm, userid, identifier" COMMENT="Legacy Find records by cm, user, and identifier"/>
                 <INDEX NAME="status" UNIQUE="false" FIELDS="status" COMMENT="Query by status"/>
+                <INDEX NAME="submissionid" UNIQUE="false" FIELDS="submissionid"/>
             </INDEXES>
         </TABLE>
 
