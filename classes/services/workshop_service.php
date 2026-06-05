@@ -228,11 +228,6 @@ class workshop_service {
                 }
 
                 foreach ($files as $file) {
-                    // Ignore directories or empty references.
-                    if ($file->is_directory() || $file->get_filename() === '.') {
-                        continue;
-                    }
-
                     $this->queueservice->queue_file(
                         $cmid,
                         (int)$submission->authorid,
