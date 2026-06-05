@@ -239,28 +239,29 @@ class queue_service {
 
             // SCENARIO 2: ONLINE TEXT (Mutable).
             if ($identifier) {
-                // If it's already queued but not yet sent, update the timestamp.
-                // This ensures the cron knows the content may have been refreshed on disk.
-                if ($status === 'report_requested') {
-                    $existingrecord->timemodified = $currenttime;
-                    $this->db->update_record('plagiarism_inspera_subs', $existingrecord);
-                    return;
-                }
-
-                if (in_array($status, ['error', 'external_error'])) {
-                    $existingrecord->status = 'report_requested';
-                    $existingrecord->description = '';
-                    $existingrecord->externalid = '';
-                    $existingrecord->timemodified = $currenttime;
-                    $this->db->update_record('plagiarism_inspera_subs', $existingrecord);
-                    return;
-                }
-
-                if (in_array($status, ['pending', 'finished'])) {
+                // If the text actually changed (identifier mismatch), OR if we are explicitly.
+                // re-queuing a pending/finished record, we must supersede the old one.
+                if ($existingrecord->identifier !== $identifier || in_array($status, ['pending', 'finished'])) {
                     $existingrecord->status = 'superseded';
                     $existingrecord->timemodified = $currenttime;
                     $this->db->update_record('plagiarism_inspera_subs', $existingrecord);
-                    // Fall through to create NEW record.
+                    // Fall through to create a NEW record.
+                } else {
+                    // The text is identical to the existing record.
+                    if ($status === 'report_requested') {
+                        $existingrecord->timemodified = $currenttime;
+                        $this->db->update_record('plagiarism_inspera_subs', $existingrecord);
+                        return;
+                    }
+
+                    if (in_array($status, ['error', 'external_error'])) {
+                        $existingrecord->status = 'report_requested';
+                        $existingrecord->description = '';
+                        $existingrecord->externalid = '';
+                        $existingrecord->timemodified = $currenttime;
+                        $this->db->update_record('plagiarism_inspera_subs', $existingrecord);
+                        return;
+                    }
                 }
             }
         }
