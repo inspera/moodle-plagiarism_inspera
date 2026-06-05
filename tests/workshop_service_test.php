@@ -88,19 +88,34 @@ final class workshop_service_test extends advanced_testcase {
         // 4. Mock the queue_service.
         $mockqueueservice = $this->createMock(queue_service::class);
 
-        // We expect 3 total calls. Since they have different submission IDs,
-        // we use a series of 'withConsecutive' or a broader callback.
+        // Assert the exact sequence of calls to ensure IDs are not crossed.
         $mockqueueservice->expects($this->exactly(3))
             ->method('queue_file')
-            ->with(
-                $this->equalTo($cm->id),
-                $this->anything(),
-                $this->anything(),
-                $this->anything(),
-                $this->logicalOr(
+            ->withConsecutive(
+            // Call 1: User 1's Online Text.
+                [
+                    $this->equalTo($cm->id),
+                    $this->equalTo($user1->id),
+                    $this->anything(),
+                    $this->anything(),
                     $this->equalTo($sub1id),
-                    $this->equalTo($sub2id)
-                )
+                ],
+                // Call 2: User 2's Online Text.
+                [
+                    $this->equalTo($cm->id),
+                    $this->equalTo($user2->id),
+                    $this->anything(),
+                    $this->anything(),
+                    $this->equalTo($sub2id),
+                ],
+                // Call 3: User 2's File Attachment.
+                [
+                    $this->equalTo($cm->id),
+                    $this->equalTo($user2->id),
+                    $this->anything(),
+                    $this->anything(),
+                    $this->equalTo($sub2id),
+                ]
             );
 
         // 5. Execute.
