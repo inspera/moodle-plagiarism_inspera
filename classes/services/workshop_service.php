@@ -151,42 +151,65 @@ class workshop_service {
         }
 
         // 1. HANDLE ONLINE TEXT.
-        // If restriction is 'Only Files' (1), we skip online text.
-        // Therefore, we ONLY run this if restriction is NOT PLAGIARISM_INSPERA_RESTRICTCONTENTFILES.
-        // Moodle workshops store inline text directly in the submission content field.
         if (
             $restriction !== PLAGIARISM_INSPERA_RESTRICTCONTENTFILES &&
             !empty($submission->content) &&
-            !empty(
-                trim(
-                    strip_tags(
-                        $submission->content
-                    )
-                )
-            )
+            !empty(trim(strip_tags($submission->content)))
         ) {
-            $tempfile = plagiarism_inspera_create_temp_file(
-                $cmid,
-                $courseid,
-                (int) $submission->authorid,
-                $submission->content,
-                (int) $submission->id
+            // Generate a unique fingerprint for this specific text state.
+            $contenthash = md5(trim(strip_tags($submission->content)));
+            $uniquefilename = "onlinetext_{$cmid}_{$submission->authorid}_{$submission->id}_{$contenthash}.html";
+
+            // Properly escape the filename to neutralize '_' wildcards in SQL LIKE.
+            $escapedfilename = $this->db->sql_like_escape('/' . $uniquefilename);
+            $likepattern = '%' . $escapedfilename;
+            $likesql = $this->db->sql_like('identifier', ':identifier', false);
+
+            // Check if this exact text version is already queued/finished.
+            // We EXCLUDE error states so failed submissions are properly re-queued and retried.
+            $sql = "SELECT id FROM {plagiarism_inspera_subs}
+                     WHERE cm = :cm
+                       AND userid = :userid
+                       AND submissionid = :submissionid
+                       AND storedfileid IS NULL
+                       AND status NOT IN ('error', 'external_error', 'superseded')
+                       AND {$likesql}";
+
+            $existing = $this->db->get_record_sql(
+                $sql,
+                [
+                    'cm' => $cmid,
+                    'userid' => (int) $submission->authorid,
+                    'submissionid' => (int) $submission->id,
+                    'identifier' => $likepattern,
+                ],
+                IGNORE_MULTIPLE
             );
 
-            if ($tempfile) {
-                $this->queueservice->queue_file(
+            // If we don't have an active/successful record for this hash, generate and queue it.
+            if (!$existing) {
+                $tempfile = plagiarism_inspera_create_temp_file(
                     $cmid,
+                    $courseid,
                     (int) $submission->authorid,
-                    $tempfile,
-                    null,
-                    0
+                    $submission->content,
+                    (int) $submission->id,
+                    $uniquefilename
                 );
+
+                if ($tempfile) {
+                    $this->queueservice->queue_file(
+                        $cmid,
+                        (int) $submission->authorid,
+                        $tempfile,
+                        null,
+                        (int) $submission->id
+                    );
+                }
             }
         }
 
         // 2. HANDLE UPLOADED FILES.
-        // If restriction is 'Only Text' (2), we skip files.
-        // Therefore, we ONLY run this if restriction is NOT PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT.
         if ($restriction !== PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT) {
             $fileareas = ['submission_attachment'];
 
@@ -210,7 +233,7 @@ class workshop_service {
                         (int)$submission->authorid,
                         $file,
                         null,
-                        0
+                        (int) $submission->id
                     );
                 }
             }
