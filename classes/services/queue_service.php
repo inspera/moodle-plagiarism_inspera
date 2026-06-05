@@ -183,7 +183,6 @@ class queue_service {
                     'plagiarism_inspera_subs',
                     [
                         'cm' => $cmid,
-                        'userid' => $userid,
                         'submissionid' => $submissionid,
                         'storedfileid' => $storedfileid,
                     ]
