@@ -61,14 +61,6 @@ class forum_handler implements handler_interface {
         global $USER, $PAGE;
         $output = '';
 
-        // Safely check if any post is pending or requested in the payload loop.
-        // We inject the AMD tracking file into Moodle's actual page requirements.
-        static $pollingloaded = false;
-        if (!$pollingloaded) {
-            $PAGE->requires->js_call_amd('plagiarism_inspera/polling', 'init');
-            $pollingloaded = true;
-        }
-
         $cmid   = (int)($linkarray['cmid'] ?? 0);
         $userid = isset($linkarray['userid']) ? (int)$linkarray['userid'] : (int)$USER->id;
         $displaytype = $plagiarismvalues['originality_display_type'] ?? 'similarity';
