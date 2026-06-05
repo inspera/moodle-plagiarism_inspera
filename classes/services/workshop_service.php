@@ -151,42 +151,49 @@ class workshop_service {
         }
 
         // 1. HANDLE ONLINE TEXT.
-        // If restriction is 'Only Files' (1), we skip online text.
-        // Therefore, we ONLY run this if restriction is NOT PLAGIARISM_INSPERA_RESTRICTCONTENTFILES.
-        // Moodle workshops store inline text directly in the submission content field.
         if (
             $restriction !== PLAGIARISM_INSPERA_RESTRICTCONTENTFILES &&
             !empty($submission->content) &&
-            !empty(
-                trim(
-                    strip_tags(
-                        $submission->content
-                    )
-                )
-            )
+            !empty(trim(strip_tags($submission->content)))
         ) {
-            $tempfile = plagiarism_inspera_create_temp_file(
-                $cmid,
-                $courseid,
-                (int) $submission->authorid,
-                $submission->content,
-                (int) $submission->id
+            // Generate a unique fingerprint for this specific text state.
+            $contenthash = md5(trim(strip_tags($submission->content)));
+            $uniquefilename = "onlinetext_{$cmid}_{$submission->authorid}_{$submission->id}_{$contenthash}.html";
+
+            // Check if this exact text version has already been queued.
+            $sql = "SELECT id FROM {plagiarism_inspera_subs}
+                     WHERE cm = ? AND userid = ? AND storedfileid IS NULL AND identifier LIKE ?";
+
+            $existing = $this->db->get_record_sql(
+                $sql,
+                [$cmid, $submission->authorid, '%/' . $uniquefilename],
+                IGNORE_MULTIPLE
             );
 
-            if ($tempfile) {
-                $this->queueservice->queue_file(
+            // If we don't have a record for this hash, it's new/modified text.
+            if (!$existing) {
+                $tempfile = plagiarism_inspera_create_temp_file(
                     $cmid,
+                    $courseid,
                     (int) $submission->authorid,
-                    $tempfile,
-                    null,
-                    0
+                    $submission->content,
+                    (int) $submission->id,
+                    $uniquefilename
                 );
+
+                if ($tempfile) {
+                    $this->queueservice->queue_file(
+                        $cmid,
+                        (int) $submission->authorid,
+                        $tempfile,
+                        null,
+                        (int) $submission->id
+                    );
+                }
             }
         }
 
         // 2. HANDLE UPLOADED FILES.
-        // If restriction is 'Only Text' (2), we skip files.
-        // Therefore, we ONLY run this if restriction is NOT PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT.
         if ($restriction !== PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT) {
             $fileareas = ['submission_attachment'];
 
@@ -205,12 +212,17 @@ class workshop_service {
                 }
 
                 foreach ($files as $file) {
+                    // Ignore directories or empty references.
+                    if ($file->is_directory() || $file->get_filename() === '.') {
+                        continue;
+                    }
+
                     $this->queueservice->queue_file(
                         $cmid,
                         (int)$submission->authorid,
                         $file,
                         null,
-                        0
+                        (int) $submission->id
                     );
                 }
             }
