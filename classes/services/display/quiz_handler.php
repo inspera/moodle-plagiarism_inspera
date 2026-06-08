@@ -112,14 +112,15 @@ class quiz_handler implements handler_interface {
 
                 $identifierlike = $this->db->sql_like('identifier', ':identifier', false);
                 $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                         WHERE cm = :cm AND userid = :userid AND storedfileid IS NULL
-                           AND {$identifierlike} AND status != 'superseded'
+                         WHERE cm = :cm AND userid = :userid AND submissionid = :submissionid 
+                           AND storedfileid IS NULL AND {$identifierlike} AND status != 'superseded'
                       ORDER BY timecreated DESC, id DESC";
 
                 $params = [
-                    'cm'         => $cmid,
-                    'userid'     => (int)$userid,
-                    'identifier' => '%' . $this->db->sql_like_escape($expectedfilename),
+                    'cm'           => $cmid,
+                    'userid'       => (int)$userid,
+                    'submissionid' => 0, // Force the database to use our new composite index!
+                    'identifier'   => '%' . $this->db->sql_like_escape($expectedfilename),
                 ];
 
                 $textrecord = $this->db->get_record_sql($sql, $params, IGNORE_MULTIPLE);
