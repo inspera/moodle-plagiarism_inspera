@@ -127,10 +127,13 @@ final class assign_handler_test extends advanced_testcase {
         $submission->timemodified = time();
         $submissionid = $DB->insert_record('assign_submission', $submission);
 
-        // 2. CRITICAL: Insert a colliding record belonging to a completely different CMID (e.g., a Forum post).
+        // 2. CRITICAL: Insert a colliding record belonging to a different existing CMID (e.g., a Forum post).
         // It shares the exact same submissionid numeric value, but is a different module instance.
+        $forum = $generator->create_module('forum', ['course' => $course->id]);
+        $forumcm = get_coursemodule_from_instance('forum', $forum->id);
+
         $collidingrecord = new \stdClass();
-        $collidingrecord->cm = $cm->id + 999; // Different CM context!
+        $collidingrecord->cm = $forumcm->id; // Valid foreign key!
         $collidingrecord->userid = $student->id;
         $collidingrecord->submissionid = $submissionid; // Exact match collision!
         $collidingrecord->storedfileid = null;
