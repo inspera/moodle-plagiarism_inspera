@@ -159,19 +159,29 @@ class provider implements metadata_provider, plagiarism_provider, plagiarism_use
      * @param array $records Array of plagiarism_inspera_subs records containing 'identifier'.
      */
     private static function cleanup_temp_files(array $records) {
-        global $CFG;
+        $tempdir = make_temp_directory('plagiarism_inspera');
+        $realbase = realpath($tempdir);
 
-        $expectedbase = rtrim($CFG->tempdir, '/') . '/plagiarism_inspera/';
-        $normalizedbase = str_replace('\\', '/', $expectedbase);
+        if (!$realbase) {
+            return;
+        }
+
+        // Enforce a trailing slash to prevent partial sibling directory name matches.
+        $realbase = str_replace('\\', '/', $realbase) . '/';
 
         foreach ($records as $record) {
             if (!empty($record->identifier)) {
-                $normalizedfilepath = str_replace('\\', '/', $record->identifier);
+                // Fully resolve the targets path state to neutralize symlinks or relative modifiers.
+                $realfile = realpath($record->identifier);
 
-                // Security Guard: Prevent directory traversal and enforce base dir prefix.
-                if (strpos($normalizedfilepath, '..') === false && strpos($normalizedfilepath, $normalizedbase) === 0) {
-                    if (file_exists($record->identifier) && is_file($record->identifier)) {
-                        @unlink($record->identifier);
+                if ($realfile) {
+                    $realfile = str_replace('\\', '/', $realfile);
+
+                    // Secure Containment: Verify the file path strictly begins inside our base folder context.
+                    if (strpos($realfile, $realbase) === 0) {
+                        if (is_file($realfile)) {
+                            @unlink($realfile);
+                        }
                     }
                 }
             }

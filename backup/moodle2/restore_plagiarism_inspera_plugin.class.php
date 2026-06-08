@@ -96,15 +96,15 @@ class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
         if ($data->submissionid > 0) {
             $mappingname = '';
 
-            // Determine Moodle's core mapping target based on the current module context.
             if ($modname === 'assign') {
                 $mappingname = 'assign_submission';
-            } else if ($modname === 'forum' || $modname === 'hsuforum') {
+            } else if ($modname === 'forum') {
                 $mappingname = 'forum_post';
+            } else if ($modname === 'hsuforum') {
+                $mappingname = 'hsuforum_post';
             } else if ($modname === 'workshop') {
                 $mappingname = 'workshop_submission';
             }
-            // Note: Quizzes safely bypass this because their text submissionid is forced to 0.
 
             if (!empty($mappingname)) {
                 $newsubid = $this->get_mappingid($mappingname, $data->submissionid);
@@ -117,7 +117,20 @@ class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
             }
         }
 
-        // 3. Rebuild the Identifier (Temp Path) to prevent cross-course collisions.
+        // 3. FIX: Map Stored File ID.
+        if (!empty($data->storedfileid)) {
+            $newfileid = $this->get_mappingid('file', (int)$data->storedfileid);
+            if ($newfileid) {
+                $data->storedfileid = $newfileid;
+            } else {
+                // The underlying core file attachment wasn't restored; discard orphaned record.
+                return;
+            }
+        } else {
+            $data->storedfileid = null;
+        }
+
+        // 4. Rebuild the Identifier (Temp Path) to prevent cross-course collisions.
         if (!empty($data->identifier)) {
             $filename = basename($data->identifier);
             $newfilename = $filename;
@@ -127,22 +140,13 @@ class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
                 $hash = $matches[1];
                 $newfilename = "onlinetext_{$data->cm}_{$data->userid}_{$data->submissionid}_{$hash}.html";
             } else if (preg_match('/^quiz_\d+_\d+_(\d+)\.html$/', $filename, $matches)) {
-                // Handle Quizzes (quiz_cmid_userid_qaid.html).
                 $oldqaid = $matches[1];
                 $newqaid = $this->get_mappingid('question_attempt', $oldqaid) ?: $oldqaid;
                 $newfilename = "quiz_{$data->cm}_{$data->userid}_{$newqaid}.html";
             }
 
-            // Replace the old filename with the dynamically mapped new filename.
             $data->identifier = str_replace($filename, $newfilename, $data->identifier);
         }
-
-        // 4. Stored File ID Warning
-        // Moodle core does *not* provide an ID mapping for `storedfileid` during restore, because
-        // files are extracted and assigned totally random new IDs. If this is a file row, the old
-        // file ID is preserved here, but the originality score will likely need to be re-run or
-        // synced manually via the Cron task because the display handler won't find the old ID.
-        // This is a standard limitation across all Moodle plagiarism plugins.
 
         unset($data->id);
         $DB->insert_record('plagiarism_inspera_subs', $data);
