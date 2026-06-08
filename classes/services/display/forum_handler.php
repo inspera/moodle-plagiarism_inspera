@@ -58,7 +58,7 @@ class forum_handler implements handler_interface {
      * @return string HTML output containing the originality badge/link.
      */
     public function get_links(array $linkarray, array $plagiarismvalues, bool $isgrader): string {
-        global $USER, $PAGE;
+        global $USER;
         $output = '';
 
         $cmid   = (int)($linkarray['cmid'] ?? 0);
@@ -102,16 +102,31 @@ class forum_handler implements handler_interface {
                 );
                 $posttable = ($modname === 'hsuforum') ? 'hsuforum_posts' : 'forum_posts';
 
-                // 3. Connect the Moodle text payload back to our database record.
+                // 3. Connect the Moodle text payload back to our database record in-memory.
+                $postids = [];
                 foreach ($records as $record) {
-                    $postid = $record->submissionid;
+                    if ($record->submissionid > 0) {
+                        $postids[] = (int)$record->submissionid;
+                    }
+                }
+                $postids = array_unique($postids);
 
-                    if ($postid > 0) {
-                        // Fetch the raw post text directly from Moodle's core database using the Post ID.
-                        $postmessage = $this->db->get_field($posttable, 'message', ['id' => $postid]);
+                $postmessages = [];
+                if (!empty($postids)) {
+                    $fetchedposts = $this->db->get_records_list($posttable, 'id', $postids, '', 'id, message');
+                    foreach ($fetchedposts as $fetchedpost) {
+                        $postmessages[$fetchedpost->id] = $fetchedpost->message;
+                    }
+                }
+
+                foreach ($records as $record) {
+                    $postid = (int)$record->submissionid;
+
+                    if ($postid > 0 && isset($postmessages[$postid])) {
+                        $postmessage = $postmessages[$postid];
 
                         // If Moodle's core database text matches the text passed in the hook, we found the exact match!
-                        if ($postmessage !== false && $postmessage === $linkarray['content']) {
+                        if ($postmessage === $linkarray['content']) {
                             if (
                                 $isgrader ||
                                 plagiarism_inspera_should_show_report($cmid, $userid, $plagiarismvalues, $record)
