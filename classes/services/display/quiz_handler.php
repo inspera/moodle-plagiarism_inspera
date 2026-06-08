@@ -112,7 +112,7 @@ class quiz_handler implements handler_interface {
 
                 $identifierlike = $this->db->sql_like('identifier', ':identifier', false);
                 $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                         WHERE cm = :cm AND userid = :userid AND submissionid = :submissionid 
+                         WHERE cm = :cm AND userid = :userid AND submissionid = :submissionid
                            AND storedfileid IS NULL AND {$identifierlike} AND status != 'superseded'
                       ORDER BY timecreated DESC, id DESC";
 

@@ -2841,23 +2841,21 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
         );
 
         if ($modname === 'assign') {
-            // Assignment joins course_modules -> assign -> assign_submission -> assignsubmission_onlinetext
-            $sql = "SELECT ot.onlinetext FROM {assignsubmission_onlinetext} ot 
+            // Assignment joins course_modules -> assign -> assign_submission -> assignsubmission_onlinetext.
+            $sql = "SELECT ot.onlinetext FROM {assignsubmission_onlinetext} ot
                     JOIN {assign_submission} s ON ot.submission = s.id
                     JOIN {assign} a ON s.assignment = a.id
                     JOIN {course_modules} cm ON cm.instance = a.id
                     WHERE ot.submission = ? AND cm.id = ?";
             $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
-        }
-        else if ($modname === 'forum') {
+        } else if ($modname === 'forum') {
             $sql = "SELECT p.message FROM {forum_posts} p
                     JOIN {forum_discussions} d ON p.discussion = d.id
                     JOIN {forum} f ON d.forum = f.id
                     JOIN {course_modules} cm ON cm.instance = f.id
                     WHERE p.id = ? AND cm.id = ?";
             $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
-        }
-        else if ($modname === 'workshop') {
+        } else if ($modname === 'workshop') {
             $sql = "SELECT sub.content FROM {workshop_submissions} sub
                     JOIN {workshop} w ON sub.workshopid = w.id
                     JOIN {course_modules} cm ON cm.instance = w.id
