@@ -2208,7 +2208,7 @@ function plagiarism_inspera_create_temp_file(
     $submissionid = 0,
     $specificname = null
 ) {
-    // Use the specific name if provided (Quizzes), otherwise use default (Assignments).
+    // Use the specific name if provided (Quizzes), otherwise use default (Assignments, Forums, Workshops).
     if ($specificname) {
         // Strip all path separators and illegal characters to prevent Arbitrary File Write.
         $filename = clean_param($specificname, PARAM_FILE);
@@ -2218,7 +2218,9 @@ function plagiarism_inspera_create_temp_file(
             throw new \coding_exception('Invalid specificname provided to plagiarism_inspera_create_temp_file');
         }
     } else {
-        $filename = "onlinetext_{$cmid}_{$userid}_{$submissionid}.html";
+        // Generate a unique fingerprint for this specific text state to prevent edit-overwrites.
+        $contenthash = md5(trim(strip_tags($content)));
+        $filename = "onlinetext_{$cmid}_{$userid}_{$submissionid}_{$contenthash}.html";
     }
 
     // Use Moodle's core temporary directory helper.
@@ -2832,18 +2834,29 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
             mtrace("Error rehydrating Quiz text: " . $e->getMessage());
             return false;
         }
-    } else if ($submissionid > 0) {
-        // CASE B: ASSIGNMENT SUBMISSION.
-        // We detect Assignments if there is a valid submissionid.
-        // Get the online text from the assignment tables.
-        $onlinetext = $DB->get_record(
-            'assignsubmission_onlinetext',
-            ['submission' => $record->submissionid],
-            'onlinetext',
-            IGNORE_MISSING
+    } else if ($submissionid > 0 && !empty($record->cm)) {
+        // Dynamically determine which Moodle module this record belongs to.
+        $modname = $DB->get_field_sql(
+            "SELECT m.name FROM {modules} m JOIN {course_modules} cm ON cm.module = m.id WHERE cm.id = ?",
+            [$record->cm]
         );
-        if ($onlinetext) {
-            $content = $onlinetext->onlinetext;
+
+        if ($modname === 'assign') {
+            $onlinetext = $DB->get_record(
+                'assignsubmission_onlinetext',
+                ['submission' => $submissionid],
+                'onlinetext',
+                IGNORE_MISSING
+            );
+            if ($onlinetext) {
+                $content = $onlinetext->onlinetext;
+            }
+        } else if ($modname === 'forum') {
+            $content = $DB->get_field('forum_posts', 'message', ['id' => $submissionid]);
+        } else if ($modname === 'hsuforum') {
+            $content = $DB->get_field('hsuforum_posts', 'message', ['id' => $submissionid]);
+        } else if ($modname === 'workshop') {
+            $content = $DB->get_field('workshop_submissions', 'content', ['id' => $submissionid]);
         }
     }
 
@@ -2851,7 +2864,7 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
     if (!empty($content)) {
         // Match the formatting and sanitization rules from create_temp_file exactly.
         $cleanedcontent = format_text($content, FORMAT_HTML, [
-            'context' => context_system::instance(),
+            'context' => \context_system::instance(),
             'filter' => false, // Don't apply filters, just clean.
             'noclean' => false, // DO apply cleaning.
         ]);

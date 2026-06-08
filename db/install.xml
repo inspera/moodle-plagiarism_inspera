@@ -34,6 +34,7 @@
                 <INDEX NAME="cm_userid_identifier" UNIQUE="false" FIELDS="cm, userid, identifier" COMMENT="Legacy Find records by cm, user, and identifier"/>
                 <INDEX NAME="status" UNIQUE="false" FIELDS="status" COMMENT="Query by status"/>
                 <INDEX NAME="submissionid" UNIQUE="false" FIELDS="submissionid"/>
+                <INDEX NAME="cm_userid_sub_stored_ix" UNIQUE="false" FIELDS="cm, userid, submissionid, storedfileid"/>
             </INDEXES>
         </TABLE>
 

@@ -94,5 +94,23 @@ function xmldb_plagiarism_inspera_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026060501, 'plagiarism', 'inspera');
     }
 
+    if ($oldversion < 2026060800) {
+        // Define index cm_userid_sub_stored_ix to be added to plagiarism_inspera_subs.
+        $table = new xmldb_table('plagiarism_inspera_subs');
+        $index = new xmldb_index(
+            'cm_userid_sub_stored_ix',
+            XMLDB_INDEX_NOTUNIQUE,
+            ['cm', 'userid', 'submissionid', 'storedfileid']
+        );
+
+        // Conditionally launch add index cm_userid_sub_stored_ix.
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        // Inspera savepoint reached.
+        upgrade_plugin_savepoint(true, 2026060800, 'plagiarism', 'inspera');
+    }
+
     return true;
 }

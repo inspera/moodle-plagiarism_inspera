@@ -99,4 +99,61 @@ final class assign_handler_test extends advanced_testcase {
         $this->assertStringContainsString('92', $html);
         $this->assertStringContainsString('high', $html); // Should be red/high risk.
     }
+
+    /**
+     * Tests that the assignment handler strictly ignores records with matching
+     * submissionids if they belong to a different course module context (Polymorphic safety test).
+     *
+     * @covers \plagiarism_inspera\services\display\assign_handler::get_links
+     */
+    public function test_get_links_ignores_polymorphic_collisions(): void {
+        global $DB;
+        $this->setAdminUser();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $student = $generator->create_user();
+
+        $assign = $generator->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        // 1. Create a fake Moodle Assignment Submission.
+        $submission = new \stdClass();
+        $submission->assignment = $assign->id;
+        $submission->userid = $student->id;
+        $submission->status = 'submitted';
+        $submission->latest = 1;
+        $submission->timecreated = time();
+        $submission->timemodified = time();
+        $submissionid = $DB->insert_record('assign_submission', $submission);
+
+        // 2. CRITICAL: Insert a colliding record belonging to a completely different CMID (e.g., a Forum post).
+        // It shares the exact same submissionid numeric value, but is a different module instance.
+        $collidingrecord = new \stdClass();
+        $collidingrecord->cm = $cm->id + 999; // Different CM context!
+        $collidingrecord->userid = $student->id;
+        $collidingrecord->submissionid = $submissionid; // Exact match collision!
+        $collidingrecord->storedfileid = null;
+        $collidingrecord->status = 'finished';
+        $collidingrecord->similarity = 45;
+        $collidingrecord->timecreated = time();
+        $DB->insert_record('plagiarism_inspera_subs', $collidingrecord);
+
+        // 3. Execute the Handler using the valid Assignment configuration.
+        $formatter = new report_formatter();
+        $handler = new assign_handler($DB, $formatter);
+
+        $linkarray = [
+            'cmid' => $cm->id, // This is the assignment CM, not the forum one!
+            'userid' => $student->id,
+            'content' => '<p>My assignment text</p>',
+        ];
+        $plagiarismvalues = ['originality_display_type' => 'similarity'];
+
+        $html = $handler->get_links($linkarray, $plagiarismvalues, true);
+
+        // 4. Assertions: Because of our fix, the handler should NOT find the record
+        // due to the CM mismatch, returning an empty string instead of the colliding data.
+        $this->assertEmpty($html);
+    }
 }
