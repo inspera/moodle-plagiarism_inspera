@@ -27,12 +27,11 @@ namespace plagiarism_inspera\privacy;
 
 use core_privacy\tests\provider_testcase;
 use context_module;
-use context_user;
 
 /**
  * Privacy Provider testcase for plagiarism_inspera.
  */
-final class provider_test extends \core_privacy\tests\provider_testcase {
+final class provider_test extends provider_testcase {
     /**
      * Test getting the metadata.
      * @covers \plagiarism_inspera\privacy\provider::get_metadata
@@ -59,7 +58,9 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         $course = $this->getDataGenerator()->create_course();
         $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('assign', $assign->id);
-        $context = \context_module::instance($cm->id);
+
+        // Utilized the imported context_module class here.
+        $context = context_module::instance($cm->id);
 
         // 2. Setup Dummy File.
         $tempdir = make_temp_directory('plagiarism_inspera');
@@ -100,7 +101,9 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         $course = $this->getDataGenerator()->create_course();
         $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('assign', $assign->id);
-        $context = \context_module::instance($cm->id);
+
+        // Utilized the imported context_module class here.
+        $context = context_module::instance($cm->id);
 
         // 2. Setup Dummy File.
         $tempdir = make_temp_directory('plagiarism_inspera');
