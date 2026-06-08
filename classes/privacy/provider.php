@@ -45,22 +45,22 @@ class provider implements metadata_provider, plagiarism_provider, plagiarism_use
         $collection->add_database_table(
             'plagiarism_inspera_subs',
             [
-                'userid'            => 'privacy:metadata:plagiarism_inspera_subs:userid',
-                'submissionid'      => 'privacy:metadata:plagiarism_inspera_subs:submissionid',
-                'externalid'        => 'privacy:metadata:plagiarism_inspera_subs:externalid',
-                'similarity'        => 'privacy:metadata:plagiarism_inspera_subs:similarity',
-                'originality_score' => 'privacy:metadata:plagiarism_inspera_subs:originality_score',
-                'translation_sim'   => 'privacy:metadata:plagiarism_inspera_subs:translation_similarity',
-                'ai_index'          => 'privacy:metadata:plagiarism_inspera_subs:ai_index',
-                'status'            => 'privacy:metadata:plagiarism_inspera_subs:status',
-                'description'       => 'privacy:metadata:plagiarism_inspera_subs:description',
-                'timecreated'       => 'privacy:metadata:plagiarism_inspera_subs:timecreated',
-                'timemodified'      => 'privacy:metadata:plagiarism_inspera_subs:timemodified',
+                'userid'                 => 'privacy:metadata:plagiarism_inspera_subs:userid',
+                'submissionid'           => 'privacy:metadata:plagiarism_inspera_subs:submissionid',
+                'externalid'             => 'privacy:metadata:plagiarism_inspera_subs:externalid',
+                'similarity'             => 'privacy:metadata:plagiarism_inspera_subs:similarity',
+                'originality_score'      => 'privacy:metadata:plagiarism_inspera_subs:originality_score',
+                'translation_similarity' => 'privacy:metadata:plagiarism_inspera_subs:translation_similarity',
+                'ai_index'               => 'privacy:metadata:plagiarism_inspera_subs:ai_index',
+                'status'                 => 'privacy:metadata:plagiarism_inspera_subs:status',
+                'description'            => 'privacy:metadata:plagiarism_inspera_subs:description',
+                'timecreated'            => 'privacy:metadata:plagiarism_inspera_subs:timecreated',
+                'timemodified'           => 'privacy:metadata:plagiarism_inspera_subs:timemodified',
             ],
             'privacy:metadata:plagiarism_inspera_subs'
         );
 
-        // Describe data sent to Inspera API (Satisfies Issue #3).
+        // Describe data sent to Inspera API.
         $collection->link_external_location('inspera', [
             'filename' => 'privacy:metadata:inspera:filename',
             'fullname' => 'privacy:metadata:inspera:fullname',
@@ -108,6 +108,10 @@ class provider implements metadata_provider, plagiarism_provider, plagiarism_use
     public static function delete_plagiarism_for_context(\context $context) {
         global $DB;
         if ($context instanceof \context_module) {
+            // Fetch rows and cleanup orphaned files first.
+            $records = $DB->get_records('plagiarism_inspera_subs', ['cm' => $context->instanceid], '', 'id, identifier');
+            self::cleanup_temp_files($records);
+
             $DB->delete_records('plagiarism_inspera_subs', ['cm' => $context->instanceid]);
         }
     }
@@ -117,15 +121,18 @@ class provider implements metadata_provider, plagiarism_provider, plagiarism_use
      */
     public static function delete_plagiarism_for_user(int $userid, \context $context) {
         global $DB;
-        $DB->delete_records('plagiarism_inspera_subs', [
-            'userid' => $userid,
-            'cm'     => $context->instanceid,
-        ]);
+
+        $params = ['userid' => $userid, 'cm' => $context->instanceid];
+
+        // FIX 2: Fetch rows and cleanup orphaned files first.
+        $records = $DB->get_records('plagiarism_inspera_subs', $params, '', 'id, identifier');
+        self::cleanup_temp_files($records);
+
+        $DB->delete_records('plagiarism_inspera_subs', $params);
     }
 
     /**
      * Delete multiple users within a single context.
-     * Required by \core_plagiarism\privacy\plagiarism_user_provider.
      */
     public static function delete_plagiarism_for_users(array $userids, \context $context) {
         global $DB;
@@ -136,10 +143,38 @@ class provider implements metadata_provider, plagiarism_provider, plagiarism_use
         [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
         $inparams['cm'] = $context->instanceid;
 
-        $DB->delete_records_select(
-            'plagiarism_inspera_subs',
-            "cm = :cm AND userid $insql",
-            $inparams
-        );
+        $select = "cm = :cm AND userid $insql";
+
+        // FIX 2: Fetch rows and cleanup orphaned files first.
+        $records = $DB->get_records_select('plagiarism_inspera_subs', $select, $inparams, '', 'id, identifier');
+        self::cleanup_temp_files($records);
+
+        $DB->delete_records_select('plagiarism_inspera_subs', $select, $inparams);
+    }
+
+    /**
+     * Helper function to safely delete temporary MD5 text files from the disk
+     * before their corresponding database records are permanently deleted.
+     *
+     * @param array $records Array of plagiarism_inspera_subs records containing 'identifier'.
+     */
+    private static function cleanup_temp_files(array $records) {
+        global $CFG;
+
+        $expectedbase = rtrim($CFG->tempdir, '/') . '/plagiarism_inspera/';
+        $normalizedbase = str_replace('\\', '/', $expectedbase);
+
+        foreach ($records as $record) {
+            if (!empty($record->identifier)) {
+                $normalizedfilepath = str_replace('\\', '/', $record->identifier);
+
+                // Security Guard: Prevent directory traversal and enforce base dir prefix.
+                if (strpos($normalizedfilepath, '..') === false && strpos($normalizedfilepath, $normalizedbase) === 0) {
+                    if (file_exists($record->identifier) && is_file($record->identifier)) {
+                        @unlink($record->identifier);
+                    }
+                }
+            }
+        }
     }
 }
