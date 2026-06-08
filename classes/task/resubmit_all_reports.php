@@ -191,7 +191,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
         } else if ($modname === 'workshop') {
             // Fetch all tracked submissions for this Workshop.
             $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                    WHERE cm = ? AND status != 'superseded'.
+                    WHERE cm = ? AND status != 'superseded'
                     ORDER BY timecreated DESC, id DESC";
             $records = $DB->get_records_sql($sql, [$cmid]);
 

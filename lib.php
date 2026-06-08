@@ -2835,28 +2835,34 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
             return false;
         }
     } else if ($submissionid > 0 && !empty($record->cm)) {
-        // Dynamically determine which Moodle module this record belongs to.
         $modname = $DB->get_field_sql(
             "SELECT m.name FROM {modules} m JOIN {course_modules} cm ON cm.module = m.id WHERE cm.id = ?",
             [$record->cm]
         );
 
         if ($modname === 'assign') {
-            $onlinetext = $DB->get_record(
-                'assignsubmission_onlinetext',
-                ['submission' => $submissionid],
-                'onlinetext',
-                IGNORE_MISSING
-            );
-            if ($onlinetext) {
-                $content = $onlinetext->onlinetext;
-            }
-        } else if ($modname === 'forum') {
-            $content = $DB->get_field('forum_posts', 'message', ['id' => $submissionid]);
-        } else if ($modname === 'hsuforum') {
-            $content = $DB->get_field('hsuforum_posts', 'message', ['id' => $submissionid]);
-        } else if ($modname === 'workshop') {
-            $content = $DB->get_field('workshop_submissions', 'content', ['id' => $submissionid]);
+            // Assignment joins course_modules -> assign -> assign_submission -> assignsubmission_onlinetext
+            $sql = "SELECT ot.onlinetext FROM {assignsubmission_onlinetext} ot 
+                    JOIN {assign_submission} s ON ot.submission = s.id
+                    JOIN {assign} a ON s.assignment = a.id
+                    JOIN {course_modules} cm ON cm.instance = a.id
+                    WHERE ot.submission = ? AND cm.id = ?";
+            $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+        }
+        else if ($modname === 'forum') {
+            $sql = "SELECT p.message FROM {forum_posts} p
+                    JOIN {forum_discussions} d ON p.discussion = d.id
+                    JOIN {forum} f ON d.forum = f.id
+                    JOIN {course_modules} cm ON cm.instance = f.id
+                    WHERE p.id = ? AND cm.id = ?";
+            $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+        }
+        else if ($modname === 'workshop') {
+            $sql = "SELECT sub.content FROM {workshop_submissions} sub
+                    JOIN {workshop} w ON sub.workshopid = w.id
+                    JOIN {course_modules} cm ON cm.instance = w.id
+                    WHERE sub.id = ? AND cm.id = ?";
+            $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
         }
     }
 

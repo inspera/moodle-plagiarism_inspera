@@ -91,8 +91,6 @@ class queue_service {
                 'mod_forum',
                 'mod_hsuforum',
                 'mod_workshop',
-                'mod_quiz',
-                'question',
             ];
 
             if (in_array($comp, $supportedcomponents)) {
