@@ -2228,7 +2228,7 @@ function plagiarism_inspera_create_temp_file(
         }
     } else {
         // Generate a unique fingerprint for this specific text state to prevent edit-overwrites.
-        $contenthash = md5(trim(strip_tags($content)));
+        $contenthash = md5(trim((string)$content));
         $filename = "onlinetext_{$cmid}_{$userid}_{$submissionid}_{$contenthash}.html";
     }
 
