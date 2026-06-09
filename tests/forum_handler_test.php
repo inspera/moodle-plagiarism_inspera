@@ -250,4 +250,78 @@ final class forum_handler_test extends advanced_testcase {
         // it should ignore the colliding assign record and return an empty string.
         $this->assertEmpty($html);
     }
+
+    /**
+     * Tests that the forum handler enforces privacy by hiding reports from peers.
+     *
+     * @covers \plagiarism_inspera\services\display\forum_handler::get_links
+     */
+    public function test_get_links_hides_report_from_peers(): void {
+        global $DB;
+
+        // 1. Setup Data Generator and users.
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $studentauthor = $generator->create_user();
+        $studentviewer = $generator->create_user();
+
+        // 2. Log in as the VIEWER (not the author, and not an admin/grader).
+        $this->setUser($studentviewer);
+
+        $forum = $generator->create_module('forum', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('forum', $forum->id);
+
+        $posttext = '<p>This is a post written by the author.</p>';
+
+        // 3. Create the parent discussion.
+        $discussionid = $DB->insert_record('forum_discussions', (object)[
+            'course' => $course->id,
+            'forum' => $forum->id,
+            'name' => 'Privacy Test Discussion',
+            'firstpost' => 0,
+            'userid' => $studentauthor->id,
+            'groupid' => 0,
+            'assessed' => 0,
+            'timemodified' => time(),
+            'usermodified' => 0,
+        ]);
+
+        // 4. Create the post authored by the $studentauthor.
+        $post = new \stdClass();
+        $post->discussion = $discussionid;
+        $post->userid = $studentauthor->id;
+        $post->created = time();
+        $post->modified = time();
+        $post->subject = 'Privacy Test';
+        $post->message = $posttext;
+        $postid = $DB->insert_record('forum_posts', $post);
+
+        // 5. Insert our plugin's text record for the author.
+        $record = new \stdClass();
+        $record->cm = $cm->id;
+        $record->userid = $studentauthor->id;
+        $record->submissionid = $postid;
+        $record->storedfileid = null;
+        $record->status = 'finished';
+        $record->similarity = 50;
+        $record->timecreated = time();
+        $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        // 6. Execute the Handler as the viewer.
+        $formatter = new report_formatter();
+        $handler = new forum_handler($DB, $formatter);
+
+        $linkarray = [
+            'cmid' => $cm->id,
+            'userid' => $studentauthor->id, // The hook passes the AUTHOR's ID.
+            'content' => $posttext,
+        ];
+        $plagiarismvalues = ['originality_display_type' => 'similarity'];
+
+        // Execute with $isgrader = false.
+        $html = $handler->get_links($linkarray, $plagiarismvalues, false);
+
+        // 7. Assertion: The privacy gatekeeper should abort and return an empty string.
+        $this->assertEmpty($html);
+    }
 }

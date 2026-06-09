@@ -65,6 +65,12 @@ class forum_handler implements handler_interface {
         $userid = isset($linkarray['userid']) ? (int)$linkarray['userid'] : (int)$USER->id;
         $displaytype = $plagiarismvalues['originality_display_type'] ?? 'similarity';
 
+        // If the viewer is not a grader, they can only see reports for their own posts.
+        // If they are looking at another student's post, abort immediately.
+        if (!$isgrader && (int)$USER->id !== $userid) {
+            return $output;
+        }
+
         // SCENARIO 1: ATTACHMENTS (Moodle passes the file object).
         if (!empty($linkarray['file'])) {
             $file = $linkarray['file'];
