@@ -79,7 +79,10 @@ function xmldb_plagiarism_inspera_upgrade($oldversion) {
         $key = new xmldb_key('submissionid', XMLDB_KEY_FOREIGN, ['submissionid'], 'assign_submission', ['id']);
 
         // Moodle requires find_key_name() to check if a key exists!
-        if ($dbman->find_key_name($table, $key)) {
+        // Capture the actual physical name of the constraint to handle schema drift safely.
+        $keyname = $dbman->find_key_name($table, $key);
+        if ($keyname) {
+            $key->setName($keyname);
             $dbman->drop_key($table, $key);
         }
 
