@@ -158,7 +158,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
                     // 1. Handle Inline Text Resubmission.
                     if (empty($record->storedfileid)) {
-                        $message = $DB->get_field($posttable, 'message', ['id' => $postid]);
+                        $message = $DB->get_field($posttable, 'message', ['id' => $postid], IGNORE_MISSING);
                         if ($message !== false) {
                             mtrace("Queuing Forum Online Text for Post ID: " . $postid);
                             $tempfileobject = plagiarism_inspera_create_temp_file(
@@ -207,7 +207,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                     // 1. Handle Inline Text Resubmission.
                     if (empty($record->storedfileid)) {
                         // Workshop stores online text in the 'content' column of the 'workshop_submissions' table.
-                        $content = $DB->get_field('workshop_submissions', 'content', ['id' => $submissionid]);
+                        $content = $DB->get_field('workshop_submissions', 'content', ['id' => $submissionid], IGNORE_MISSING);
                         if ($content !== false && trim(strip_tags($content)) !== '') {
                             mtrace("Queuing Workshop Online Text for Submission ID: " . $submissionid);
                             $tempfileobject = plagiarism_inspera_create_temp_file(
