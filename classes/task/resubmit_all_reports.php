@@ -157,7 +157,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                     $postid = $record->submissionid;
 
                     // 1. Handle Inline Text Resubmission.
-                    if (empty($record->storedfileid)) {
+                    if ($record->storedfileid === null) {
                         $message = $DB->get_field($posttable, 'message', ['id' => $postid], IGNORE_MISSING);
                         if ($message !== false) {
                             mtrace("Queuing Forum Online Text for Post ID: " . $postid);
