@@ -2864,6 +2864,13 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
                     JOIN {course_modules} cm ON cm.instance = f.id
                     WHERE p.id = ? AND cm.id = ?";
             $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+        } else if ($modname === 'hsuforum') {
+            $sql = "SELECT p.message FROM {hsuforum_posts} p
+                     JOIN {hsuforum_discussions} d ON p.discussion = d.id
+                     JOIN {hsuforum} f ON d.forum = f.id
+                     JOIN {course_modules} cm ON cm.instance = f.id
+                     WHERE p.id = ? AND cm.id = ?";
+            $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
         } else if ($modname === 'workshop') {
             $sql = "SELECT sub.content FROM {workshop_submissions} sub
                     JOIN {workshop} w ON sub.workshopid = w.id
