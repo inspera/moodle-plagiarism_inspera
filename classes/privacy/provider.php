@@ -122,9 +122,15 @@ class provider implements metadata_provider, plagiarism_provider, plagiarism_use
     public static function delete_plagiarism_for_user(int $userid, \context $context) {
         global $DB;
 
+        // GUARD: Only process deletions for module-level contexts.
+        // If it's a course or block context, $context->instanceid means something else entirely!
+        if (!$context instanceof \context_module) {
+            return;
+        }
+
         $params = ['userid' => $userid, 'cm' => $context->instanceid];
 
-        // FIX 2: Fetch rows and cleanup orphaned files first.
+        // Fetch rows and cleanup orphaned files first.
         $records = $DB->get_records('plagiarism_inspera_subs', $params, '', 'id, identifier');
         self::cleanup_temp_files($records);
 
