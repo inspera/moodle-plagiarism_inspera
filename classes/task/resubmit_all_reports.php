@@ -42,7 +42,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
         global $DB;
 
         $data = $this->get_custom_data();
-        $cmid = $data->cmid;
+        $cmid = (int)$data->cmid;
 
         // Save the 'last_resubmit_run' timestamp.
         $params = ['cm' => $cmid, 'name' => 'last_resubmit_run'];
@@ -61,78 +61,191 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
         mtrace("Starting Resubmit All for CMID: " . $cmid);
 
-        $cm = get_coursemodule_from_id('assign', $cmid, 0, false, MUST_EXIST);
-        $context = \context_module::instance($cmid);
-        $assigninstance = $DB->get_record('assign', ['id' => $cm->instance], '*', MUST_EXIST);
-
-        // PART A: PROCESS FILES (Individual & Group).
-        $fs = get_file_storage();
-        $files = $fs->get_area_files(
-            $context->id,
-            'assignsubmission_file',
-            'submission_files',
-            false,
-            'timemodified',
-            false
+        // Dynamic Module Identification to protect polymorphic execution.
+        $modname = $DB->get_field_sql(
+            "SELECT m.name FROM {modules} m JOIN {course_modules} cm ON cm.module = m.id WHERE cm.id = ?",
+            [$cmid]
         );
 
-        mtrace("Found " . count($files) . " candidate files.");
-
-        foreach ($files as $file) {
-            if ($file->get_filename() === '.') {
-                continue;
-            }
-
-            $storedfileid = $file->get_id();
-            $itemid = $file->get_itemid(); // The Submission ID (shared by group members).
-
-            // Fetch latest record for this file.
-            $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                    WHERE storedfileid = ?
-                    ORDER BY timecreated DESC, id DESC";
-            $record = $DB->get_record_sql($sql, [$storedfileid], IGNORE_MULTIPLE);
-
-            if ($this->should_process($record)) {
-                mtrace("Queuing File ID: " . $storedfileid);
-                plagiarism_inspera_queue_file($cmid, $file->get_userid(), $file, null, $itemid);
-            }
+        if (!$modname) {
+            mtrace("Error: Course module ID {$cmid} does not exist.");
+            return;
         }
 
-        // PART B: PROCESS ONLINE TEXT (Individual Only).
-        // Only process if team submission is NOT enabled.
-        if (empty($assigninstance->teamsubmission)) {
-            $sql = "SELECT s.id as submissionid, s.userid, ot.onlinetext
-                    FROM {assign_submission} s
-                    JOIN {assignsubmission_onlinetext} ot ON ot.submission = s.id
-                    WHERE s.assignment = ? AND s.status = 'submitted'";
+        $cm = get_coursemodule_from_id($modname, $cmid, 0, false, MUST_EXIST);
+        $context = \context_module::instance($cmid);
 
-            $textsubmissions = $DB->get_records_sql($sql, [$assigninstance->id]);
+        // PATHWAY 1: ASSIGNMENT MODULE.
+        if ($modname === 'assign') {
+            $assigninstance = $DB->get_record('assign', ['id' => $cm->instance], '*', MUST_EXIST);
 
-            mtrace("Found " . count($textsubmissions) . " online text submissions.");
+            // PART A: PROCESS FILES.
+            $fs = get_file_storage();
+            $files = $fs->get_area_files($context->id, 'assignsubmission_file', 'submission_files', false, 'timemodified', false);
+            mtrace("Found " . count($files) . " candidate assignment files.");
 
-            foreach ($textsubmissions as $sub) {
+            foreach ($files as $file) {
+                if ($file->get_filename() === '.') {
+                    continue;
+                }
+                $storedfileid = $file->get_id();
+                $itemid = $file->get_itemid();
+
+                // Added cm scoping to file queries.
                 $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                        WHERE submissionid = ? AND storedfileid IS NULL
+                        WHERE cm = ? AND storedfileid = ?
                         ORDER BY timecreated DESC, id DESC";
-
-                $record = $DB->get_record_sql($sql, [$sub->submissionid], IGNORE_MULTIPLE);
+                $record = $DB->get_record_sql($sql, [$cmid, $storedfileid], IGNORE_MULTIPLE);
 
                 if ($this->should_process($record)) {
-                    mtrace("Queuing Online Text for Submission ID: " . $sub->submissionid);
-                    $tempfileobject = plagiarism_inspera_create_temp_file(
-                        $cmid,
-                        $cm->course,
-                        $sub->userid,
-                        $sub->onlinetext,
-                        $sub->submissionid
-                    );
-                    $dummyfile = new \stdClass();
-                    $dummyfile->filepath = $tempfileobject->filepath;
-                    plagiarism_inspera_queue_file($cmid, $sub->userid, $dummyfile, null, $sub->submissionid);
+                    mtrace("Queuing Assignment File ID: " . $storedfileid);
+                    plagiarism_inspera_queue_file($cmid, $file->get_userid(), $file, null, $itemid);
                 }
             }
-        } else {
-            mtrace("Skipping Online Text: Team submission is enabled.");
+
+            // PART B: PROCESS ONLINE TEXT.
+            if (empty($assigninstance->teamsubmission)) {
+                $sql = "SELECT s.id as submissionid, s.userid, ot.onlinetext
+                        FROM {assign_submission} s
+                        JOIN {assignsubmission_onlinetext} ot ON ot.submission = s.id
+                        WHERE s.assignment = ? AND s.status = 'submitted'";
+
+                $textsubmissions = $DB->get_records_sql($sql, [$assigninstance->id]);
+                mtrace("Found " . count($textsubmissions) . " online text assignments.");
+
+                foreach ($textsubmissions as $sub) {
+                    // Added cm scoping to text lookups to protect against polymorphic collisions.
+                    $sql = "SELECT * FROM {plagiarism_inspera_subs}
+                            WHERE cm = ? AND submissionid = ? AND storedfileid IS NULL
+                            ORDER BY timecreated DESC, id DESC";
+                    $record = $DB->get_record_sql($sql, [$cmid, $sub->submissionid], IGNORE_MULTIPLE);
+
+                    if ($this->should_process($record)) {
+                        mtrace("Queuing Assignment Online Text for Submission ID: " . $sub->submissionid);
+                        $tempfileobject = plagiarism_inspera_create_temp_file(
+                            $cmid,
+                            $cm->course,
+                            $sub->userid,
+                            $sub->onlinetext,
+                            $sub->submissionid
+                        );
+                        $dummyfile = new \stdClass();
+                        $dummyfile->filepath = $tempfileobject->filepath;
+                        plagiarism_inspera_queue_file(
+                            $cmid,
+                            $sub->userid,
+                            $dummyfile,
+                            null,
+                            $sub->submissionid
+                        );
+                    }
+                }
+            }
+        } else if ($modname === 'forum' || $modname === 'hsuforum') {
+            $posttable = ($modname === 'hsuforum') ? 'hsuforum_posts' : 'forum_posts';
+
+            // Fetch all tracked submissions using a memory-safe recordset.
+            $sql = "SELECT * FROM {plagiarism_inspera_subs}
+                    WHERE cm = ? AND status != 'superseded'
+                    ORDER BY timecreated DESC, id DESC";
+            $recordset = $DB->get_recordset_sql($sql, [$cmid]);
+
+            mtrace("Processing tracking records for Forum CMID: " . $cmid);
+
+            foreach ($recordset as $record) {
+                if ($this->should_process($record)) {
+                    $postid = $record->submissionid;
+
+                    // 1. Handle Inline Text Resubmission.
+                    if ($record->storedfileid === null) {
+                        $message = $DB->get_field($posttable, 'message', ['id' => $postid], IGNORE_MISSING);
+                        if ($message !== false) {
+                            mtrace("Queuing Forum Online Text for Post ID: " . $postid);
+                            $tempfileobject = plagiarism_inspera_create_temp_file(
+                                $cmid,
+                                $cm->course,
+                                $record->userid,
+                                $message,
+                                $postid
+                            );
+                            $dummyfile = new \stdClass();
+                            $dummyfile->filepath = $tempfileobject->filepath;
+                            plagiarism_inspera_queue_file(
+                                $cmid,
+                                $record->userid,
+                                $dummyfile,
+                                null,
+                                $postid
+                            );
+                        }
+                    } else if ((int)$record->storedfileid > 0) {
+                        $fs = get_file_storage();
+                        $file = $fs->get_file_by_id($record->storedfileid);
+                        if ($file) {
+                            mtrace("Queuing Forum File Attachment ID: " . $record->storedfileid);
+                            plagiarism_inspera_queue_file($cmid, $record->userid, $file, null, $postid);
+                        }
+                    }
+                }
+            }
+
+            // Always close recordsets to release database connection locks!
+            $recordset->close();
+        } else if ($modname === 'workshop') {
+            // Fetch all tracked submissions using a memory-safe recordset.
+            $sql = "SELECT * FROM {plagiarism_inspera_subs}
+                    WHERE cm = ? AND status != 'superseded'
+                    ORDER BY timecreated DESC, id DESC";
+            $recordset = $DB->get_recordset_sql($sql, [$cmid]);
+
+            mtrace("Processing tracking records for Workshop CMID: " . $cmid);
+
+            foreach ($recordset as $record) {
+                if ($this->should_process($record)) {
+                    $submissionid = $record->submissionid;
+
+                    // 1. Handle Inline Text Resubmission.
+                    if ($record->storedfileid === null) {
+                        // Workshop stores online text in the 'content' column of the 'workshop_submissions' table.
+                        $content = $DB->get_field('workshop_submissions', 'content', ['id' => $submissionid], IGNORE_MISSING);
+                        if ($content !== false && trim(strip_tags($content)) !== '') {
+                            mtrace("Queuing Workshop Online Text for Submission ID: " . $submissionid);
+                            $tempfileobject = plagiarism_inspera_create_temp_file(
+                                $cmid,
+                                $cm->course,
+                                $record->userid,
+                                $content,
+                                $submissionid
+                            );
+                            $dummyfile = new \stdClass();
+                            $dummyfile->filepath = $tempfileobject->filepath;
+                            plagiarism_inspera_queue_file(
+                                $cmid,
+                                $record->userid,
+                                $dummyfile,
+                                null,
+                                $submissionid
+                            );
+                        }
+                    } else if ((int)$record->storedfileid > 0) {
+                        $fs = get_file_storage();
+                        $file = $fs->get_file_by_id($record->storedfileid);
+                        if ($file) {
+                            mtrace("Queuing Workshop File Attachment ID: " . $record->storedfileid);
+                            plagiarism_inspera_queue_file(
+                                $cmid,
+                                $record->userid,
+                                $file,
+                                null,
+                                $submissionid
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Always close recordsets to release database connection locks!
+            $recordset->close();
         }
 
         mtrace("Resubmit All Task Completed.");
@@ -158,7 +271,6 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             }
         }
 
-        // Do not re-process active or completed items.
         if (in_array($status, ['pending', 'finished', 'superseded'])) {
             return false;
         }

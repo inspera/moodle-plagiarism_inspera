@@ -80,10 +80,20 @@ class queue_service {
             return;
         }
 
-        // 2. Resolve Submission ID from the file if not explicitly provided.
+        // 2. Polymorphic Submission ID Extraction fallback.
         if (empty($submissionid) && $file instanceof \stored_file) {
             $comp = $file->get_component();
-            if ($comp === 'assignsubmission_file' || $comp === 'assignsubmission_onlinetext') {
+
+            // Map of all core module components supported by the plugin architecture.
+            $supportedcomponents = [
+                'assignsubmission_file',
+                'assignsubmission_onlinetext',
+                'mod_forum',
+                'mod_hsuforum',
+                'mod_workshop',
+            ];
+
+            if (in_array($comp, $supportedcomponents)) {
                 $submissionid = $file->get_itemid();
             }
         }
@@ -238,22 +248,22 @@ class queue_service {
 
             // SCENARIO 2: ONLINE TEXT (Mutable).
             if ($identifier) {
-                // If the text actually changed (identifier mismatch),
-                // or if we are explicitly re-queuing a pending/finished record, we must supersede the old one.
-                if ($existingrecord->identifier !== $identifier || in_array($status, ['pending', 'finished'])) {
-                    $existingrecord->status = 'superseded';
-                    $existingrecord->timemodified = $currenttime;
-                    $this->db->update_record('plagiarism_inspera_subs', $existingrecord);
-                    // Fall through to create a NEW record.
-                } else {
-                    // The text is identical to the existing record.
+                if ($existingrecord->identifier === $identifier) {
+                    // The text is IDENTICAL to the existing record (MD5 match).
+                    if (in_array($status, ['pending', 'finished'])) {
+                        // Do absolutely nothing. The check is already running or done for this exact text.
+                        return;
+                    }
+
                     if ($status === 'report_requested') {
+                        // It's already in the queue, just bump the modification time.
                         $existingrecord->timemodified = $currenttime;
                         $this->db->update_record('plagiarism_inspera_subs', $existingrecord);
                         return;
                     }
 
                     if (in_array($status, ['error', 'external_error'])) {
+                        // It failed previously, let's retry it.
                         $existingrecord->status = 'report_requested';
                         $existingrecord->description = '';
                         $existingrecord->externalid = '';
@@ -261,6 +271,15 @@ class queue_service {
                         $this->db->update_record('plagiarism_inspera_subs', $existingrecord);
                         return;
                     }
+                } else {
+                    // The text has actually CHANGED (MD5 hash mismatch).
+                    // Supersede the old active record.
+                    if ($status !== 'superseded') {
+                        $existingrecord->status = 'superseded';
+                        $existingrecord->timemodified = $currenttime;
+                        $this->db->update_record('plagiarism_inspera_subs', $existingrecord);
+                    }
+                    // Fall through to create a NEW record below.
                 }
             }
         }

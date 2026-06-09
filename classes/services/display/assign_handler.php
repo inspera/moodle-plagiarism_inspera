@@ -82,11 +82,12 @@ class assign_handler implements handler_interface {
             if ($comp === 'assignsubmission_file' || $comp === 'assignsubmission_onlinetext') {
                 $submissionid = $file->get_itemid();
 
+                // Scoped to cm, submissionid, and storedfileid to support group submissions safely.
                 $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                         WHERE submissionid = ? AND storedfileid = ? AND status != 'superseded'
+                         WHERE cm = ? AND submissionid = ? AND storedfileid = ? AND status != 'superseded'
                       ORDER BY timecreated DESC, id DESC";
 
-                $record = $this->db->get_record_sql($sql, [$submissionid, $file->get_id()], IGNORE_MULTIPLE);
+                $record = $this->db->get_record_sql($sql, [$cmid, $submissionid, $file->get_id()], IGNORE_MULTIPLE);
 
                 if (
                     $record &&
@@ -116,11 +117,13 @@ class assign_handler implements handler_interface {
                 $submission = $assign->get_user_submission((int)$userid, false);
 
                 if ($submission) {
+                    // Scoped to cm and userid to prevent polymorphic collisions.
                     $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                             WHERE submissionid = ? AND storedfileid IS NULL AND status != 'superseded'
+                             WHERE cm = ? AND userid = ? AND submissionid = ?
+                               AND storedfileid IS NULL AND status != 'superseded'
                           ORDER BY timecreated DESC, id DESC";
 
-                    $textrecord = $this->db->get_record_sql($sql, [$submission->id], IGNORE_MULTIPLE);
+                    $textrecord = $this->db->get_record_sql($sql, [$cmid, (int)$userid, $submission->id], IGNORE_MULTIPLE);
 
                     if (
                         $textrecord &&

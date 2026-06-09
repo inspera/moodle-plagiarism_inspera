@@ -66,20 +66,30 @@ class display_manager {
      * @return string HTML output to be displayed in the Moodle UI.
      */
     public function generate_links(array $linkarray): string {
-        // 0. Early exit if Quiz support is disabled or the question type is unsupported.
-        if (!$this->should_process_quiz_link($linkarray)) {
-            return '';
+        // 1. Isolate and resolve Quiz-specific payloads.
+        $component = $linkarray['component'] ?? '';
+        $isquizcontext = ($component === 'mod_quiz' || strpos($component, 'qtype_') === 0);
+
+        if ($isquizcontext) {
+            if (!$this->should_process_quiz_link($linkarray)) {
+                return '';
+            }
+            $this->resolve_quiz_cmid($linkarray);
+            $this->resolve_quiz_link_fields($linkarray);
         }
 
-        // 1. Resolve missing Quiz/Question-engine fields.
-        $this->resolve_quiz_cmid($linkarray);
-        $this->resolve_quiz_link_fields($linkarray);
+        // 2. Backfill missing cmid (common in Forum payloads).
+        if (empty($linkarray['cmid']) && !empty($linkarray['id'])) {
+            $linkarray['cmid'] = (int)$linkarray['id'];
+        }
 
         if (empty($linkarray['cmid'])) {
             return '';
         }
 
-        // Defensive checks for downstream handlers.
+        $cmid = (int)$linkarray['cmid'];
+
+        // 3. Defensive checks for downstream handlers.
         if (!array_key_exists('userid', $linkarray)) {
             $linkarray['userid'] = null;
         }
@@ -87,27 +97,22 @@ class display_manager {
             $linkarray['content'] = '';
         }
 
-        $cmid = (int)$linkarray['cmid'];
-
-        // 2. Load plugin config (with static caching).
-        if (!isset($this->configcache[$cmid])) {
-            $this->configcache[$cmid] = plagiarism_inspera_get_cm_settings($cmid);
-        }
-        $plagiarismvalues = $this->configcache[$cmid];
-
-        // 3. Resolve the Course Module and determine the module type.
+        // 4. Resolve the Course Module and check capabilities.
         $cm = get_coursemodule_from_id('', $cmid, 0, false, IGNORE_MISSING);
         if (!$cm) {
             return '';
         }
 
-        // 4. Determine Grader Status using the centralized capability map.
+        if (!isset($this->configcache[$cmid])) {
+            $this->configcache[$cmid] = plagiarism_inspera_get_cm_settings($cmid);
+        }
+        $plagiarismvalues = $this->configcache[$cmid];
+
         global $CFG;
         require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
-
         $gradecapabilities = plagiarism_inspera_get_grade_capabilities();
 
-        // If the module isn't in our supported capability map, exit early.
+        // Exit cleanly if this module type isn't supported by the plugin.
         if (!isset($gradecapabilities[$cm->modname])) {
             return '';
         }
@@ -115,7 +120,7 @@ class display_manager {
         $cmcontext = \context_module::instance($cmid);
         $isgrader = has_capability($gradecapabilities[$cm->modname], $cmcontext);
 
-        // 5. Route to the correct dedicated Handler Service!
+        // 5. Route to the correct dedicated Handler Service.
         $handler = $this->get_handler($cm->modname);
 
         if ($handler) {
@@ -274,6 +279,9 @@ class display_manager {
                 return new quiz_handler($this->db, $this->formatter);
             case 'workshop':
                 return new workshop_handler($this->db, $this->formatter);
+            case 'forum':
+            case 'hsuforum':
+                return new forum_handler($this->db, $this->formatter);
             default:
                 return null; // Unsupported module.
         }

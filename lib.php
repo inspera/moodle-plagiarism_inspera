@@ -232,6 +232,17 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
         $relateduserid = !empty($eventdata['relateduserid']) ? $eventdata['relateduserid'] : null;
         $courseid = $eventdata['courseid'] ?? 0;
 
+        // Check to see if restrictcontent is in use.
+        $showcontent = true;
+        $showfiles = true;
+        if (!empty($plagiarismvalues['originality_restrictcontent'])) {
+            if ($plagiarismvalues['originality_restrictcontent'] == PLAGIARISM_INSPERA_RESTRICTCONTENTFILES) {
+                $showcontent = false;
+            } else if ($plagiarismvalues['originality_restrictcontent'] == PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT) {
+                $showfiles = false;
+            }
+        }
+
         // QUIZ SUBMISSION.
         if ($eventdata['eventtype'] === 'quiz_submitted') {
             // SECURITY / LOGIC GUARD: Ensure quizzes are globally enabled before queuing.
@@ -245,18 +256,67 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             return true;
         }
 
-        $submissionid = isset($eventdata['objectid']) ? $eventdata['objectid'] : null;
-
-        // Check to see if restrictcontent is in use.
-        $showcontent = true;
-        $showfiles = true;
-        if (!empty($plagiarismvalues['originality_restrictcontent'])) {
-            if ($plagiarismvalues['originality_restrictcontent'] == PLAGIARISM_INSPERA_RESTRICTCONTENTFILES) {
-                $showcontent = false;
-            } else if ($plagiarismvalues['originality_restrictcontent'] == PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT) {
-                $showfiles = false;
+        // FORUM & HSUFORUM EVENT HANDLING.
+        if ($eventdata['eventtype'] === 'forum_file_uploaded' || $eventdata['eventtype'] === 'hsuforum_file_uploaded') {
+            // Ensure the specific forum module is globally enabled in plugin settings.
+            $modcheck = ($eventdata['eventtype'] === 'forum_file_uploaded') ? 'enable_mod_forum' : 'enable_mod_hsuforum';
+            if (empty($plagiarismsettings[$modcheck])) {
+                return true;
             }
+
+            $cmid = $eventdata['contextinstanceid'];
+            $userid = $eventdata['userid'];
+            $charcount = plagiarism_inspera_charcount();
+
+            // Explicitly cast to integer. Default to 0 if missing.
+            $postid = isset($eventdata['objectid']) ? (int)$eventdata['objectid'] : 0;
+
+            // If we cannot identify the exact forum post, we will never be able to
+            // display the score in the UI. Abort immediately to save API calls.
+            if ($postid === 0) {
+                return true;
+            }
+
+            // 1. Process Inline Text.
+            // Moodle passes the HTML body of the forum post in the 'content' field.
+            if (
+                $showcontent &&
+                !empty($eventdata['other']['content']) &&
+                \core_text::strlen(strip_tags($eventdata['other']['content'])) >= $charcount
+            ) {
+                // Create the physical temp file for the Pre-Flight architecture.
+                // We pass $postid in place of $submissionid so we can track the exact reply.
+                $file = plagiarism_inspera_create_temp_file(
+                    $cmid,
+                    $courseid,
+                    $userid,
+                    $eventdata['other']['content'],
+                    $postid
+                );
+
+                // Insert the online text into the queue table.
+                plagiarism_inspera_queue_file($cmid, $userid, $file, $relateduserid, $postid);
+            }
+
+            // 2. Process Attached Files.
+            // Moodle passes an array of file hashes for any PDFs/Docs attached to the post.
+            if ($showfiles && !empty($eventdata['other']['pathnamehashes'])) {
+                $fs = get_file_storage();
+                foreach ($eventdata['other']['pathnamehashes'] as $hash) {
+                    $efile = $fs->get_file_by_hash($hash);
+
+                    // Ignore directories or empty references.
+                    if ($efile && $efile->get_filename() !== '.') {
+                        plagiarism_inspera_queue_file($cmid, $userid, $efile, $relateduserid, $postid);
+                    }
+                }
+            }
+
+            // Return early so we don't accidentally hit the Assignment-specific logic below.
+            return true;
         }
+
+        $submissionid = isset($eventdata['objectid']) ? $eventdata['objectid'] : null;
 
         // Check Group Submission.
         $sql = "SELECT a.teamsubmission
@@ -662,6 +722,23 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
                         return true;
                     }
                 }
+            } else if ($cm->modname === 'forum' || $cm->modname === 'hsuforum') {
+                // FORUM GRADING LOGIC (Whole Forum Grading or Ratings).
+                require_once($GLOBALS['CFG']->libdir . '/gradelib.php');
+                $grades = grade_get_grades($cm->course, 'mod', $cm->modname, $cm->instance, $userid);
+
+                if (!empty($grades->items)) {
+                    foreach ($grades->items as $item) {
+                        if (empty($item->grades) || !is_array($item->grades)) {
+                            continue;
+                        }
+                        $g = $item->grades[$userid] ?? null;
+                        // Show if a grade/rating exists and is not null.
+                        if ($g && ($g->str_grade !== '-' && $g->grade !== null)) {
+                            return true;
+                        }
+                    }
+                }
             }
             return false;
         case 3: // Due date / Close date.
@@ -733,6 +810,13 @@ function plagiarism_inspera_should_show_report(int $cmid, int $userid, array $se
                 if ($workshop && !empty($workshop->submissionend)) {
                     return $now >= (int)$workshop->submissionend;
                 }
+            } else if ($cm->modname === 'forum' || $cm->modname === 'hsuforum') {
+                // FORUM DUE DATE LOGIC.
+                // Forums use a strict 'duedate' column on the forum table.
+                $forum = $DB->get_record($cm->modname, ['id' => $cm->instance], 'id, duedate', IGNORE_MISSING);
+                if ($forum && !empty($forum->duedate)) {
+                    return $now >= (int)$forum->duedate;
+                }
             }
             return false;
         default:
@@ -758,7 +842,14 @@ function plagiarism_inspera_supported_qtypes() {
  * @return string[] An array of module names (e.g., 'assign', 'quiz').
  */
 function plagiarism_inspera_supported_modules() {
-    $supportedmodules = ['assign', 'quiz', 'workshop'];
+    global $CFG;
+    $supportedmodules = ['assign', 'workshop', 'quiz', 'forum'];
+
+    // Add third-party Advanced Forum if installed.
+    if (file_exists($CFG->dirroot . '/mod/hsuforum/version.php')) {
+        $supportedmodules[] = 'hsuforum';
+    }
+
     return $supportedmodules;
 }
 
@@ -2126,7 +2217,7 @@ function plagiarism_inspera_create_temp_file(
     $submissionid = 0,
     $specificname = null
 ) {
-    // Use the specific name if provided (Quizzes), otherwise use default (Assignments).
+    // Use the specific name if provided (Quizzes), otherwise use default (Assignments, Forums, Workshops).
     if ($specificname) {
         // Strip all path separators and illegal characters to prevent Arbitrary File Write.
         $filename = clean_param($specificname, PARAM_FILE);
@@ -2136,7 +2227,9 @@ function plagiarism_inspera_create_temp_file(
             throw new \coding_exception('Invalid specificname provided to plagiarism_inspera_create_temp_file');
         }
     } else {
-        $filename = "onlinetext_{$cmid}_{$userid}_{$submissionid}.html";
+        // Generate a unique fingerprint for this specific text state to prevent edit-overwrites.
+        $contenthash = md5(trim((string)$content));
+        $filename = "onlinetext_{$cmid}_{$userid}_{$submissionid}_{$contenthash}.html";
     }
 
     // Use Moodle's core temporary directory helper.
@@ -2750,18 +2843,40 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
             mtrace("Error rehydrating Quiz text: " . $e->getMessage());
             return false;
         }
-    } else if ($submissionid > 0) {
-        // CASE B: ASSIGNMENT SUBMISSION.
-        // We detect Assignments if there is a valid submissionid.
-        // Get the online text from the assignment tables.
-        $onlinetext = $DB->get_record(
-            'assignsubmission_onlinetext',
-            ['submission' => $record->submissionid],
-            'onlinetext',
-            IGNORE_MISSING
+    } else if ($submissionid > 0 && !empty($record->cm)) {
+        $modname = $DB->get_field_sql(
+            "SELECT m.name FROM {modules} m JOIN {course_modules} cm ON cm.module = m.id WHERE cm.id = ?",
+            [$record->cm]
         );
-        if ($onlinetext) {
-            $content = $onlinetext->onlinetext;
+
+        if ($modname === 'assign') {
+            // Assignment joins course_modules -> assign -> assign_submission -> assignsubmission_onlinetext.
+            $sql = "SELECT ot.onlinetext FROM {assignsubmission_onlinetext} ot
+                    JOIN {assign_submission} s ON ot.submission = s.id
+                    JOIN {assign} a ON s.assignment = a.id
+                    JOIN {course_modules} cm ON cm.instance = a.id
+                    WHERE ot.submission = ? AND cm.id = ?";
+            $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+        } else if ($modname === 'forum') {
+            $sql = "SELECT p.message FROM {forum_posts} p
+                    JOIN {forum_discussions} d ON p.discussion = d.id
+                    JOIN {forum} f ON d.forum = f.id
+                    JOIN {course_modules} cm ON cm.instance = f.id
+                    WHERE p.id = ? AND cm.id = ?";
+            $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+        } else if ($modname === 'hsuforum') {
+            $sql = "SELECT p.message FROM {hsuforum_posts} p
+                     JOIN {hsuforum_discussions} d ON p.discussion = d.id
+                     JOIN {hsuforum} f ON d.forum = f.id
+                     JOIN {course_modules} cm ON cm.instance = f.id
+                     WHERE p.id = ? AND cm.id = ?";
+            $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+        } else if ($modname === 'workshop') {
+            $sql = "SELECT sub.content FROM {workshop_submissions} sub
+                    JOIN {workshop} w ON sub.workshopid = w.id
+                    JOIN {course_modules} cm ON cm.instance = w.id
+                    WHERE sub.id = ? AND cm.id = ?";
+            $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
         }
     }
 
@@ -2769,7 +2884,7 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
     if (!empty($content)) {
         // Match the formatting and sanitization rules from create_temp_file exactly.
         $cleanedcontent = format_text($content, FORMAT_HTML, [
-            'context' => context_system::instance(),
+            'context' => \context_system::instance(),
             'filter' => false, // Don't apply filters, just clean.
             'noclean' => false, // DO apply cleaning.
         ]);
@@ -2815,6 +2930,8 @@ function plagiarism_inspera_get_grade_capabilities(): array {
         'assign'   => 'mod/assign:grade',
         'quiz'     => 'mod/quiz:grade',
         'workshop' => 'mod/workshop:viewallsubmissions',
+        'forum'    => 'mod/forum:grade',
+        'hsuforum' => 'mod/hsuforum:grade',
     ];
 }
 

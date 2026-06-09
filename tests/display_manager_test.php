@@ -30,6 +30,7 @@ use plagiarism_inspera\services\display\display_manager;
 use plagiarism_inspera\services\display\assign_handler;
 use plagiarism_inspera\services\display\quiz_handler;
 use plagiarism_inspera\services\display\workshop_handler;
+use plagiarism_inspera\services\display\forum_handler;
 
 /**
  * Unit tests for the display_manager orchestration service.
@@ -69,9 +70,13 @@ final class display_manager_test extends advanced_testcase {
         $this->assertInstanceOf(quiz_handler::class, $method->invoke($manager, 'quiz'));
         $this->assertInstanceOf(workshop_handler::class, $method->invoke($manager, 'workshop'));
 
+        // Assert our newly added forum support routes correctly!
+        $this->assertInstanceOf(forum_handler::class, $method->invoke($manager, 'forum'));
+        $this->assertInstanceOf(forum_handler::class, $method->invoke($manager, 'hsuforum'));
+
         // Unsupported modules should return null.
-        $this->assertNull($method->invoke($manager, 'forum'));
         $this->assertNull($method->invoke($manager, 'glossary'));
+        $this->assertNull($method->invoke($manager, 'scorm'));
     }
 
     /**

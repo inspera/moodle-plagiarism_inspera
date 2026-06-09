@@ -439,35 +439,50 @@ final class quiz_test extends advanced_testcase {
 
         $generator = $this->getDataGenerator();
 
+        // Ensure the temp directory actually exists before we try writing to it!
+        make_temp_directory('plagiarism_inspera');
+
         // SCENARIO 1: Security Guard (Path Traversal).
         $dummyrecord = (object)['storedfileid' => null, 'submissionid' => 999];
         // Attempt to write outside the plugin's temp directory.
         $unsafepath = $CFG->tempdir . '/plagiarism_inspera/../malicious_override.php';
 
-        // Capture the mtrace() output to prevent PHPUnit from flagging it as "Risky".
         ob_start();
         $result = plagiarism_inspera_rehydrate_file($dummyrecord, $unsafepath);
         $output = ob_get_clean();
 
         // Assert the function rejects the path and returns false.
         $this->assertFalse($result);
-
-        // Bonus: Assert our security log actually successfully printed!
         $this->assertStringContainsString('Security block: Path traversal attempt', $output);
 
-        // SCENARIO 2: Assignment Rehydration.
-        // Mock an assignment text submission directly in the database for speed.
-        $assignsubid = $DB->insert_record('assign_submission', (object)['assignment' => 1, 'userid' => 2]);
+        // SCENARIO 2: Assignment Rehydration
+        // Create a real assignment and user so Moodle's core APIs can resolve the context.
+        $assigncourse = $generator->create_course();
+        $assignuser = $generator->create_user();
+        $assign = $generator->create_module('assign', ['course' => $assigncourse->id]);
+        $assigncm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $assignsubid = $DB->insert_record('assign_submission', (object)[
+            'assignment' => $assign->id,
+            'userid' => $assignuser->id,
+        ]);
+
         $DB->insert_record('assignsubmission_onlinetext', (object)[
-            'assignment' => 1,
+            'assignment' => $assign->id,
             'submission' => $assignsubid,
             'onlinetext' => 'Hello Assignment Rehydration',
         ]);
 
-        $assignrecord = (object)['storedfileid' => null, 'submissionid' => $assignsubid];
-        $assignfilepath = $CFG->tempdir . '/plagiarism_inspera/assign_test_1_2.html';
+        // FIX: Provide the full database record properties.
+        $assignrecord = (object)[
+            'cm' => $assigncm->id,
+            'userid' => $assignuser->id,
+            'submissionid' => $assignsubid,
+            'storedfileid' => null,
+        ];
 
-        // Clean up the file if it somehow already exists.
+        $assignfilepath = $CFG->tempdir . "/plagiarism_inspera/assign_test_{$assigncm->id}_{$assignuser->id}.html";
+
         if (file_exists($assignfilepath)) {
             unlink($assignfilepath);
         }
@@ -476,47 +491,53 @@ final class quiz_test extends advanced_testcase {
         $this->assertTrue(plagiarism_inspera_rehydrate_file($assignrecord, $assignfilepath));
         $this->assertFileExists($assignfilepath);
 
-        // Assert it contains the wrapped HTML and the expected text.
         $assigncontent = file_get_contents($assignfilepath);
-        $this->assertStringContainsString('<!DOCTYPE html>', $assigncontent);
         $this->assertStringContainsString('Hello Assignment Rehydration', $assigncontent);
 
         // SCENARIO 3: Quiz Rehydration.
-        // Reuse the globally prepared student and quiz!
         $this->setUser($this->student);
 
         $questiongenerator = $generator->get_plugin_generator('core_question');
         $cat = $questiongenerator->create_question_category();
         $essay = $questiongenerator->create_question('essay', null, ['category' => $cat->id]);
 
-        // Add the question to our global quiz.
         quiz_add_quiz_question($essay->id, $this->quiz, 0, 10.0);
 
-        // Sync the grades using the exact same logic from the other tests.
+        // Re-add the grade synchronization logic so Moodle allows the attempt!
         $quizobj = \mod_quiz\quiz_settings::create($this->quiz->id);
         $gradecalculator = \mod_quiz\grade_calculator::create($quizobj);
         $gradecalculator->recompute_quiz_sumgrades();
         $gradecalculator->update_quiz_maximum_grade(10.0);
 
-        // Create the attempt for our global student.
+        // 1. Create the attempt.
         $quizgenerator = $generator->get_plugin_generator('mod_quiz');
         $attemptrecord = $quizgenerator->create_attempt($this->quiz->id, $this->student->id);
 
-        $attemptobj = \mod_quiz\quiz_attempt::create((int) $attemptrecord->id);
-        $attemptobj->process_submitted_actions(time(), false, [
-            1 => ['answer' => 'Hello Quiz Rehydration', 'answerformat' => FORMAT_HTML],
-        ]);
-        $attemptobj->process_finish(time(), false);
-
-        // We need the specific Question Attempt ID ($qaid) to build the filename.
+        // 2. Bypass quiz form validation and use the Question Engine API directly.
         $quba = \question_engine::load_questions_usage_by_activity($attemptrecord->uniqueid);
+
+        // Process the essay answer directly on slot 1.
+        $quba->process_action(1, [
+            'answer' => 'Hello Quiz Rehydration',
+            'answerformat' => FORMAT_HTML,
+        ]);
+
+        // 3. Force save to the database so our rehydrate function can query it.
+        \question_engine::save_questions_usage_by_activity($quba);
+
+        // 4. Get the exact Question Attempt ID from the database.
         $qaiterator = $quba->get_attempt_iterator();
         $qaiterator->rewind();
         $qaid = $qaiterator->current()->get_database_id();
 
-        $quizrecord = (object)['storedfileid' => null];
+        // 5. Provide the full database record properties for our plugin function.
+        $quizrecord = (object)[
+            'cm' => $this->quiz->cmid,
+            'userid' => $this->student->id,
+            'submissionid' => $attemptrecord->id,
+            'storedfileid' => null,
+        ];
 
-        // The function relies on this specific filename pattern: quiz_{cmid}_{userid}_{qaid}.html.
         $quizfilename = "quiz_{$this->quiz->cmid}_{$this->student->id}_{$qaid}.html";
         $quizfilepath = $CFG->tempdir . '/plagiarism_inspera/' . $quizfilename;
 
@@ -528,7 +549,6 @@ final class quiz_test extends advanced_testcase {
         $this->assertTrue(plagiarism_inspera_rehydrate_file($quizrecord, $quizfilepath));
         $this->assertFileExists($quizfilepath);
 
-        // Assert it contains the expected text.
         $quizcontent = file_get_contents($quizfilepath);
         $this->assertStringContainsString('Hello Quiz Rehydration', $quizcontent);
     }

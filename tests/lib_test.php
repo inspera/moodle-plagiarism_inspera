@@ -846,18 +846,18 @@ final class lib_test extends advanced_testcase {
 
         $this->resetAfterTest();
 
-        // 1. Setup data (Course, Users, and an UNMAPPED module like 'forum').
+        // 1. Setup data (Course, Users, and a TRULY UNMAPPED module like 'page').
         $course = $this->getDataGenerator()->create_course();
         $student = $this->getDataGenerator()->create_user();
         $this->getDataGenerator()->enrol_user($student->id, $course->id, 'student');
 
-        // Create an editing teacher (who would normally be caught by the old fallback).
+        // Create an editing teacher.
         $teacher = $this->getDataGenerator()->create_user();
         $this->getDataGenerator()->enrol_user($teacher->id, $course->id, 'editingteacher');
 
-        // Create a Forum activity.
-        $forum = $this->getDataGenerator()->create_module('forum', ['course' => $course->id]);
-        $cm = get_coursemodule_from_instance('forum', $forum->id);
+        // FIX: Create a 'page' activity instead of a 'forum' activity.
+        $page = $this->getDataGenerator()->create_module('page', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('page', $page->id);
         $filepath = $this->create_online_text_temp_file('<p>unmapped module test</p>');
 
         // 2. Create the submission record.
@@ -888,8 +888,7 @@ final class lib_test extends advanced_testcase {
             });
 
         // 4. Execute the function.
-        // We expect BOTH the unmapped notice and our mock abort exception.
-        $this->expectOutputRegex('/Notice: No grading capability mapped for module \'forum\'.*Payload inspected successfully/s');
+        $this->expectOutputRegex('/Notice: No grading capability mapped for module \'page\'.*Payload inspected successfully/s');
         \plagiarism_inspera_send_file($record, $clientmock);
 
         // 5. Assert the educators array is strictly empty.

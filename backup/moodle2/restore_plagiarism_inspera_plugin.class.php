@@ -35,10 +35,7 @@ class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
         $paths = [];
 
         // 1. SETTINGS.
-        // We use a clean name for the internal handler.
         $elename = 'insperaconfigmod';
-
-        // This MUST match the XML structure in backup_plagiarism_inspera_plugin.class.php.
         $elepath = $this->get_pathfor('/inspera_configs/inspera_config');
         $paths[] = new restore_path_element($elename, $elepath);
 
@@ -79,16 +76,93 @@ class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
 
     /**
      * PROCESS: Submission Data
+     * * Processes historical plagiarism entries during a course restore. Uses defensive
+     * fallbacks (setting unmapped entities to 0) rather than dropping rows, preventing
+     * historical data loss while eliminating cross-contamination risk.
      */
     public function process_insperasubs($data) {
         global $DB;
         $data = (object)$data;
 
-        // 1. Map Context.
+        // 1. Map Context & User.
         $data->cm = $this->task->get_moduleid();
-
-        // 2. Map User.
         $data->userid = $this->get_mappingid('user', $data->userid);
+
+        // Hard Guardrail: If the user entity itself was not restored (e.g., restoring
+        // without student data entirely), we MUST discard the row for GDPR compliance.
+        if (!$data->userid) {
+            return;
+        }
+
+        // 2. Map Submission ID Safely (Resolves Caveat 3: Module Key Dependency Loss).
+        $modname = $this->task->get_modulename();
+        $mappingname = '';
+
+        if ($modname === 'assign') {
+            $mappingname = 'assign_submission';
+        } else if ($modname === 'forum') {
+            $mappingname = 'forum_post';
+        } else if ($modname === 'hsuforum') {
+            $mappingname = 'hsuforum_post';
+        } else if ($modname === 'workshop') {
+            $mappingname = 'workshop_submission';
+        }
+
+        if (!empty($mappingname) && $data->submissionid > 0) {
+            $newsubid = $this->get_mappingid($mappingname, $data->submissionid);
+            if ($newsubid) {
+                $data->submissionid = $newsubid;
+            } else {
+                // Fallback: Parent item wasn't restored or mapping failed.
+                // Set to 0 to preserve similarity scores and logs without pointing to a bad ID.
+                $data->submissionid = 0;
+            }
+        } else {
+            // Unrecognized module or missing mapping context; isolate the record safely.
+            $data->submissionid = 0;
+        }
+
+        // 3. Map Stored File ID Safely (Resolves Caveat 1: File Registry Loss).
+        if (!empty($data->storedfileid)) {
+            $newfileid = $this->get_mappingid('file', (int)$data->storedfileid);
+            if ($newfileid) {
+                $data->storedfileid = $newfileid;
+            } else {
+                // Fallback: Moodle core's file subsystem didn't provide a direct mapping link.
+                // Detach the broken pointer (set to 0) to preserve the row's metadata/scores
+                // without triggering false matches or integrity errors during display lookups.
+                $data->storedfileid = 0;
+            }
+        } else {
+            $data->storedfileid = null; // Clean normalization for online text variants.
+        }
+
+        // 4. Rebuild the Identifier Defensively.
+        if (!empty($data->identifier)) {
+            $filename = basename($data->identifier);
+            $newfilename = $filename;
+
+            // Handle Online Text states (onlinetext_cmid_userid_subid_hash.html).
+            if (preg_match('/^onlinetext_\d+_\d+_\d+_(.+)\.html$/', $filename, $matches)) {
+                $hash = $matches[1];
+                $newfilename = "onlinetext_{$data->cm}_{$data->userid}_{$data->submissionid}_{$hash}.html";
+            } else if (preg_match('/^quiz_\d+_\d+_(\d+)\.html$/', $filename, $matches)) {
+                $oldqaid = $matches[1];
+                $newqaid = $this->get_mappingid('question_attempt', $oldqaid);
+
+                // Fallback: If question_attempt mapping is missing, default to 0.
+                // This avoids cross-site contamination pointing to random foreign quiz entries.
+                if (!$newqaid) {
+                    $newqaid = 0;
+                }
+                $newfilename = "quiz_{$data->cm}_{$data->userid}_{$newqaid}.html";
+            }
+
+            // Re-point identifiers to the destination site's current temp directory,
+            // discarding the absolute server path from the source site.
+            $tempdir = make_temp_directory('plagiarism_inspera');
+            $data->identifier = $tempdir . '/' . $newfilename;
+        }
 
         unset($data->id);
         $DB->insert_record('plagiarism_inspera_subs', $data);

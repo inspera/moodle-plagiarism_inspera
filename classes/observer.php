@@ -103,6 +103,25 @@ class observer {
         \mod_forum\event\assessable_uploaded $event
     ) {
         if (!empty(get_config('plagiarism_inspera', 'enable_mod_forum'))) {
+            global $DB;
+
+            $editorid = (int)$event->userid;
+            $postid = (int)$event->objectid; // For assessable_uploaded in forums, objectid is the post ID.
+
+            // GATEKEEPER: Fetch the actual author of the post.
+            $authorid = $DB->get_field('forum_posts', 'userid', ['id' => $postid], IGNORE_MISSING);
+
+            // If the post no longer exists (race condition/deleted), abort.
+            if ($authorid === false) {
+                return;
+            }
+
+            if ($editorid !== (int)$authorid) {
+                // An admin or teacher is editing a student's post.
+                // Abort immediately to prevent queuing the teacher's edit as a new submission.
+                return;
+            }
+
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'forum_file_uploaded';
             $originality = new \plagiarism_plugin_inspera();
@@ -118,6 +137,25 @@ class observer {
         \mod_hsuforum\event\assessable_uploaded $event
     ) {
         if (!empty(get_config('plagiarism_inspera', 'enable_mod_hsuforum'))) {
+            global $DB;
+
+            $editorid = (int)$event->userid;
+            $postid = (int)$event->objectid;
+
+            // GATEKEEPER: Fetch the actual author of the hsuforum post.
+            $authorid = $DB->get_field('hsuforum_posts', 'userid', ['id' => $postid], IGNORE_MISSING);
+
+            // If the post no longer exists (race condition/deleted), abort.
+            if ($authorid === false) {
+                return;
+            }
+
+            if ($editorid !== (int)$authorid) {
+                // An admin or teacher is editing a student's post.
+                // Abort immediately.
+                return;
+            }
+
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'hsuforum_file_uploaded';
             $originality = new \plagiarism_plugin_inspera();
