@@ -232,6 +232,17 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
         $relateduserid = !empty($eventdata['relateduserid']) ? $eventdata['relateduserid'] : null;
         $courseid = $eventdata['courseid'] ?? 0;
 
+        // Check to see if restrictcontent is in use.
+        $showcontent = true;
+        $showfiles = true;
+        if (!empty($plagiarismvalues['originality_restrictcontent'])) {
+            if ($plagiarismvalues['originality_restrictcontent'] == PLAGIARISM_INSPERA_RESTRICTCONTENTFILES) {
+                $showcontent = false;
+            } else if ($plagiarismvalues['originality_restrictcontent'] == PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT) {
+                $showfiles = false;
+            }
+        }
+
         // QUIZ SUBMISSION.
         if ($eventdata['eventtype'] === 'quiz_submitted') {
             // SECURITY / LOGIC GUARD: Ensure quizzes are globally enabled before queuing.
@@ -269,6 +280,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             // 1. Process Inline Text.
             // Moodle passes the HTML body of the forum post in the 'content' field.
             if (
+                $showcontent &&
                 !empty($eventdata['other']['content']) &&
                 \core_text::strlen(strip_tags($eventdata['other']['content'])) >= $charcount
             ) {
@@ -288,7 +300,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
             // 2. Process Attached Files.
             // Moodle passes an array of file hashes for any PDFs/Docs attached to the post.
-            if (!empty($eventdata['other']['pathnamehashes'])) {
+            if ($showfiles && !empty($eventdata['other']['pathnamehashes'])) {
                 $fs = get_file_storage();
                 foreach ($eventdata['other']['pathnamehashes'] as $hash) {
                     $efile = $fs->get_file_by_hash($hash);
@@ -306,16 +318,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
         $submissionid = isset($eventdata['objectid']) ? $eventdata['objectid'] : null;
 
-        // Check to see if restrictcontent is in use.
-        $showcontent = true;
-        $showfiles = true;
-        if (!empty($plagiarismvalues['originality_restrictcontent'])) {
-            if ($plagiarismvalues['originality_restrictcontent'] == PLAGIARISM_INSPERA_RESTRICTCONTENTFILES) {
-                $showcontent = false;
-            } else if ($plagiarismvalues['originality_restrictcontent'] == PLAGIARISM_INSPERA_RESTRICTCONTENTTEXT) {
-                $showfiles = false;
-            }
-        }
+
 
         // Check Group Submission.
         $sql = "SELECT a.teamsubmission
