@@ -158,7 +158,10 @@ class restore_plagiarism_inspera_plugin extends restore_plagiarism_plugin {
                 $newfilename = "quiz_{$data->cm}_{$data->userid}_{$newqaid}.html";
             }
 
-            $data->identifier = str_replace($filename, $newfilename, $data->identifier);
+            // Re-point identifiers to the destination site's current temp directory,
+            // discarding the absolute server path from the source site.
+            $tempdir = make_temp_directory('plagiarism_inspera');
+            $data->identifier = $tempdir . '/' . $newfilename;
         }
 
         unset($data->id);
