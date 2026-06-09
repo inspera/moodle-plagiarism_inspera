@@ -144,15 +144,15 @@ class resubmit_all_reports extends \core\task\adhoc_task {
         } else if ($modname === 'forum' || $modname === 'hsuforum') {
             $posttable = ($modname === 'hsuforum') ? 'hsuforum_posts' : 'forum_posts';
 
-            // Fetch all tracked submissions already inside our plugin table for this specific activity.
+            // Fetch all tracked submissions using a memory-safe recordset.
             $sql = "SELECT * FROM {plagiarism_inspera_subs}
                     WHERE cm = ? AND status != 'superseded'
                     ORDER BY timecreated DESC, id DESC";
-            $records = $DB->get_records_sql($sql, [$cmid]);
+            $recordset = $DB->get_recordset_sql($sql, [$cmid]);
 
-            mtrace("Found " . count($records) . " tracking records for Forum CMID: " . $cmid);
+            mtrace("Processing tracking records for Forum CMID: " . $cmid);
 
-            foreach ($records as $record) {
+            foreach ($recordset as $record) {
                 if ($this->should_process($record)) {
                     $postid = $record->submissionid;
 
@@ -188,16 +188,19 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                     }
                 }
             }
+
+            // Always close recordsets to release database connection locks!
+            $recordset->close();
         } else if ($modname === 'workshop') {
-            // Fetch all tracked submissions for this Workshop.
+            // Fetch all tracked submissions using a memory-safe recordset.
             $sql = "SELECT * FROM {plagiarism_inspera_subs}
                     WHERE cm = ? AND status != 'superseded'
                     ORDER BY timecreated DESC, id DESC";
-            $records = $DB->get_records_sql($sql, [$cmid]);
+            $recordset = $DB->get_recordset_sql($sql, [$cmid]);
 
-            mtrace("Found " . count($records) . " tracking records for Workshop CMID: " . $cmid);
+            mtrace("Processing tracking records for Workshop CMID: " . $cmid);
 
-            foreach ($records as $record) {
+            foreach ($recordset as $record) {
                 if ($this->should_process($record)) {
                     $submissionid = $record->submissionid;
 
@@ -240,6 +243,9 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                     }
                 }
             }
+
+            // Always close recordsets to release database connection locks!
+            $recordset->close();
         }
 
         mtrace("Resubmit All Task Completed.");
