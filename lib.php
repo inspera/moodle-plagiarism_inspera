@@ -255,8 +255,16 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
             $cmid = $eventdata['contextinstanceid'];
             $userid = $eventdata['userid'];
-            $postid = isset($eventdata['objectid']) ? $eventdata['objectid'] : null;
             $charcount = plagiarism_inspera_charcount();
+
+            // Explicitly cast to integer. Default to 0 if missing.
+            $postid = isset($eventdata['objectid']) ? (int)$eventdata['objectid'] : 0;
+
+            // If we cannot identify the exact forum post, we will never be able to
+            // display the score in the UI. Abort immediately to save API calls.
+            if ($postid === 0) {
+                return true;
+            }
 
             // 1. Process Inline Text.
             // Moodle passes the HTML body of the forum post in the 'content' field.
