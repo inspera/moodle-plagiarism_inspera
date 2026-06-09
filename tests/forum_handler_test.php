@@ -116,9 +116,21 @@ final class forum_handler_test extends advanced_testcase {
 
         $posttext = '<p>This is my original forum discussion post.</p>';
 
-        // 1. Create a fake post directly in the DB so the handler can query its text.
+        // 1. Create a fake discussion and post directly in the DB so the handler can query its text.
+        $discussionid = $DB->insert_record('forum_discussions', (object)[
+            'course' => $course->id,
+            'forum' => $forum->id,
+            'name' => 'Test Discussion',
+            'firstpost' => 0,
+            'userid' => $student->id,
+            'groupid' => 0,
+            'assessed' => 0,
+            'timemodified' => time(),
+            'usermodified' => 0,
+        ]);
+
         $post = new \stdClass();
-        $post->discussion = 1;
+        $post->discussion = $discussionid;
         $post->parent = 0;
         $post->userid = $student->id;
         $post->created = time();
@@ -184,8 +196,21 @@ final class forum_handler_test extends advanced_testcase {
 
         $posttext = '<p>A seemingly identical text payload.</p>';
 
+        // Create the parent discussion to satisfy foreign key constraints.
+        $discussionid = $DB->insert_record('forum_discussions', (object)[
+            'course' => $course->id,
+            'forum' => $forum->id,
+            'name' => 'Collision Test Discussion',
+            'firstpost' => 0,
+            'userid' => $student->id,
+            'groupid' => 0,
+            'assessed' => 0,
+            'timemodified' => time(),
+            'usermodified' => 0,
+        ]);
+
         $post = new \stdClass();
-        $post->discussion = 1;
+        $post->discussion = $discussionid;
         $post->userid = $student->id;
         $post->created = time();
         $post->modified = time();
