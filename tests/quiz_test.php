@@ -442,9 +442,7 @@ final class quiz_test extends advanced_testcase {
         // Ensure the temp directory actually exists before we try writing to it!
         make_temp_directory('plagiarism_inspera');
 
-        // ==========================================================
-        // SCENARIO 1: Security Guard (Path Traversal)
-        // ==========================================================
+        // SCENARIO 1: Security Guard (Path Traversal).
         $dummyrecord = (object)['storedfileid' => null, 'submissionid' => 999];
         // Attempt to write outside the plugin's temp directory.
         $unsafepath = $CFG->tempdir . '/plagiarism_inspera/../malicious_override.php';
@@ -457,10 +455,8 @@ final class quiz_test extends advanced_testcase {
         $this->assertFalse($result);
         $this->assertStringContainsString('Security block: Path traversal attempt', $output);
 
-        // ==========================================================
         // SCENARIO 2: Assignment Rehydration
-        // ==========================================================
-        // FIX: Create a real assignment and user so Moodle's core APIs can resolve the context.
+        // Create a real assignment and user so Moodle's core APIs can resolve the context.
         $assigncourse = $generator->create_course();
         $assignuser = $generator->create_user();
         $assign = $generator->create_module('assign', ['course' => $assigncourse->id]);
@@ -468,7 +464,7 @@ final class quiz_test extends advanced_testcase {
 
         $assignsubid = $DB->insert_record('assign_submission', (object)[
             'assignment' => $assign->id,
-            'userid' => $assignuser->id
+            'userid' => $assignuser->id,
         ]);
 
         $DB->insert_record('assignsubmission_onlinetext', (object)[
@@ -482,7 +478,7 @@ final class quiz_test extends advanced_testcase {
             'cm' => $assigncm->id,
             'userid' => $assignuser->id,
             'submissionid' => $assignsubid,
-            'storedfileid' => null
+            'storedfileid' => null,
         ];
 
         $assignfilepath = $CFG->tempdir . "/plagiarism_inspera/assign_test_{$assigncm->id}_{$assignuser->id}.html";
@@ -498,9 +494,7 @@ final class quiz_test extends advanced_testcase {
         $assigncontent = file_get_contents($assignfilepath);
         $this->assertStringContainsString('Hello Assignment Rehydration', $assigncontent);
 
-        // ==========================================================
-        // SCENARIO 3: Quiz Rehydration
-        // ==========================================================
+        // SCENARIO 3: Quiz Rehydration.
         $this->setUser($this->student);
 
         $questiongenerator = $generator->get_plugin_generator('core_question');
@@ -509,39 +503,39 @@ final class quiz_test extends advanced_testcase {
 
         quiz_add_quiz_question($essay->id, $this->quiz, 0, 10.0);
 
-        // FIX: Re-add the grade synchronization logic so Moodle allows the attempt!
+        // Re-add the grade synchronization logic so Moodle allows the attempt!
         $quizobj = \mod_quiz\quiz_settings::create($this->quiz->id);
         $gradecalculator = \mod_quiz\grade_calculator::create($quizobj);
         $gradecalculator->recompute_quiz_sumgrades();
         $gradecalculator->update_quiz_maximum_grade(10.0);
 
-        // 1. Create the attempt
+        // 1. Create the attempt.
         $quizgenerator = $generator->get_plugin_generator('mod_quiz');
         $attemptrecord = $quizgenerator->create_attempt($this->quiz->id, $this->student->id);
 
         // 2. Bypass quiz form validation and use the Question Engine API directly.
         $quba = \question_engine::load_questions_usage_by_activity($attemptrecord->uniqueid);
 
-        // Process the essay answer directly on slot 1
+        // Process the essay answer directly on slot 1.
         $quba->process_action(1, [
             'answer' => 'Hello Quiz Rehydration',
-            'answerformat' => FORMAT_HTML
+            'answerformat' => FORMAT_HTML,
         ]);
 
-        // 3. Force save to the database so our rehydrate function can query it
+        // 3. Force save to the database so our rehydrate function can query it.
         \question_engine::save_questions_usage_by_activity($quba);
 
-        // 4. Get the exact Question Attempt ID from the database
+        // 4. Get the exact Question Attempt ID from the database.
         $qaiterator = $quba->get_attempt_iterator();
         $qaiterator->rewind();
         $qaid = $qaiterator->current()->get_database_id();
 
-        // 5. Provide the full database record properties for our plugin function
+        // 5. Provide the full database record properties for our plugin function.
         $quizrecord = (object)[
             'cm' => $this->quiz->cmid,
             'userid' => $this->student->id,
             'submissionid' => $attemptrecord->id,
-            'storedfileid' => null
+            'storedfileid' => null,
         ];
 
         $quizfilename = "quiz_{$this->quiz->cmid}_{$this->student->id}_{$qaid}.html";

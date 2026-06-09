@@ -318,8 +318,6 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
         $submissionid = isset($eventdata['objectid']) ? $eventdata['objectid'] : null;
 
-
-
         // Check Group Submission.
         $sql = "SELECT a.teamsubmission
                   FROM {assign} a
