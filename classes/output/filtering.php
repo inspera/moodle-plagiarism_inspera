@@ -38,6 +38,60 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
  */
 class filtering extends \user_filtering {
     /**
+     * Builds SQL where conditions for active filters using faceted logic.
+     *
+     * Repeated values for the same filter field are combined with OR, while
+     * different fields are combined with AND.
+     *
+     * @param string $extra Extra SQL condition to include.
+     * @param array|null $params Named parameters associated with $extra.
+     * @return array A tuple of [sql, params].
+     */
+    public function get_sql_filter($extra = '', ?array $params = null) {
+        global $SESSION;
+
+        $params = (array)$params;
+        $sqlparts = [];
+
+        if ($extra !== '') {
+            $sqlparts[] = $extra;
+        }
+
+        if (!empty($SESSION->user_filtering)) {
+            $fieldsqlgroups = [];
+
+            foreach ($SESSION->user_filtering as $fname => $datas) {
+                if (!array_key_exists($fname, $this->_fields)) {
+                    continue;
+                }
+
+                $field = $this->_fields[$fname];
+                foreach ($datas as $data) {
+                    [$sql, $sqlparams] = $field->get_sql_filter($data);
+                    if ($sql === '') {
+                        continue;
+                    }
+
+                    $fieldsqlgroups[$fname][] = "($sql)";
+                    $params = $params + $sqlparams;
+                }
+            }
+
+            foreach ($fieldsqlgroups as $fieldsqlgroup) {
+                if (!empty($fieldsqlgroup)) {
+                    $sqlparts[] = '(' . implode(' OR ', $fieldsqlgroup) . ')';
+                }
+            }
+        }
+
+        if (empty($sqlparts)) {
+            return ['', []];
+        }
+
+        return [implode(' AND ', $sqlparts), $params];
+    }
+
+    /**
      * Adds handling for custom fieldnames.
      *
      * @param string $fieldname The name of the field.
