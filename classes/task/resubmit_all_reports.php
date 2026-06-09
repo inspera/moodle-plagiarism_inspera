@@ -178,7 +178,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                                 $postid
                             );
                         }
-                    } else {
+                    } else if ((int)$record->storedfileid > 0) {
                         $fs = get_file_storage();
                         $file = $fs->get_file_by_id($record->storedfileid);
                         if ($file) {
