@@ -90,7 +90,7 @@ class forum_handler implements handler_interface {
             // 1. Fetch all active online text records for this user in this forum.
             $sql = "SELECT * FROM {plagiarism_inspera_subs}
                      WHERE cm = ? AND userid = ? AND storedfileid IS NULL AND status != 'superseded'
-                  ORDER BY timecreated DESC";
+                  ORDER BY timecreated DESC, id DESC";
 
             $records = $this->db->get_records_sql($sql, [$cmid, $userid]);
 
