@@ -205,7 +205,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                     $submissionid = $record->submissionid;
 
                     // 1. Handle Inline Text Resubmission.
-                    if (empty($record->storedfileid)) {
+                    if ($record->storedfileid === null) {
                         // Workshop stores online text in the 'content' column of the 'workshop_submissions' table.
                         $content = $DB->get_field('workshop_submissions', 'content', ['id' => $submissionid], IGNORE_MISSING);
                         if ($content !== false && trim(strip_tags($content)) !== '') {
