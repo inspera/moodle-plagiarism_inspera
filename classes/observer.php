@@ -109,9 +109,14 @@ class observer {
             $postid = (int)$event->objectid; // For assessable_uploaded in forums, objectid is the post ID.
 
             // GATEKEEPER: Fetch the actual author of the post.
-            $authorid = (int)$DB->get_field('forum_posts', 'userid', ['id' => $postid]);
+            $authorid = $DB->get_field('forum_posts', 'userid', ['id' => $postid], IGNORE_MISSING);
 
-            if ($authorid > 0 && $editorid !== $authorid) {
+            // If the post no longer exists (race condition/deleted), abort.
+            if ($authorid === false) {
+                return;
+            }
+
+            if ($editorid !== (int)$authorid) {
                 // An admin or teacher is editing a student's post.
                 // Abort immediately to prevent queuing the teacher's edit as a new submission.
                 return;
@@ -138,9 +143,14 @@ class observer {
             $postid = (int)$event->objectid;
 
             // GATEKEEPER: Fetch the actual author of the hsuforum post.
-            $authorid = (int)$DB->get_field('hsuforum_posts', 'userid', ['id' => $postid]);
+            $authorid = $DB->get_field('hsuforum_posts', 'userid', ['id' => $postid], IGNORE_MISSING);
 
-            if ($authorid > 0 && $editorid !== $authorid) {
+            // If the post no longer exists (race condition/deleted), abort.
+            if ($authorid === false) {
+                return;
+            }
+
+            if ($editorid !== (int)$authorid) {
                 // An admin or teacher is editing a student's post.
                 // Abort immediately.
                 return;
