@@ -82,12 +82,12 @@ class assign_handler implements handler_interface {
             if ($comp === 'assignsubmission_file' || $comp === 'assignsubmission_onlinetext') {
                 $submissionid = $file->get_itemid();
 
-                // Scoped to cm and userid to prevent polymorphic collisions.
+                // Scoped to cm, submissionid, and storedfileid to support group submissions safely.
                 $sql = "SELECT * FROM {plagiarism_inspera_subs}
-                         WHERE cm = ? AND userid = ? AND submissionid = ? AND storedfileid = ? AND status != 'superseded'
+                         WHERE cm = ? AND submissionid = ? AND storedfileid = ? AND status != 'superseded'
                       ORDER BY timecreated DESC, id DESC";
 
-                $record = $this->db->get_record_sql($sql, [$cmid, $vieweruserid, $submissionid, $file->get_id()], IGNORE_MULTIPLE);
+                $record = $this->db->get_record_sql($sql, [$cmid, $submissionid, $file->get_id()], IGNORE_MULTIPLE);
 
                 if (
                     $record &&
