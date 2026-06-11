@@ -2979,8 +2979,8 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
         }
     }
 
-    // If we found content, write it directly to the exact path the caller expects.
-    if (!empty($content)) {
+    // Accept empty-string and "0" submissions as valid content; only false/null means "not found".
+    if ($content !== false && $content !== null) {
         // Match the formatting and sanitization rules from create_temp_file exactly.
         $cleanedcontent = format_text($content, FORMAT_HTML, [
             'context' => \context_system::instance(),
