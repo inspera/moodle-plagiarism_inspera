@@ -2904,7 +2904,8 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
         return false;
     }
 
-    $content = '';
+    $content = null;
+    $sourcefound = false;
     $filename = basename($filepath);
     $submissionid = !empty($record->submissionid) ? (int)$record->submissionid : 0;
 
@@ -2937,6 +2938,10 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
                 $qa = $quba->get_question_attempt($qarecord->slot);
                 // 3. Get the submitted text.
                 $content = $qa->get_last_qt_var('answer');
+                if ($content === null) {
+                    $content = '';
+                }
+                $sourcefound = true;
             }
         } catch (\Exception $e) {
             mtrace("Error rehydrating Quiz text: " . $e->getMessage());
@@ -2956,6 +2961,7 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
                     JOIN {course_modules} cm ON cm.instance = a.id
                     WHERE ot.submission = ? AND cm.id = ?";
             $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+            $sourcefound = ($content !== false);
         } else if ($modname === 'forum') {
             $sql = "SELECT p.message FROM {forum_posts} p
                     JOIN {forum_discussions} d ON p.discussion = d.id
@@ -2963,6 +2969,7 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
                     JOIN {course_modules} cm ON cm.instance = f.id
                     WHERE p.id = ? AND cm.id = ?";
             $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+            $sourcefound = ($content !== false);
         } else if ($modname === 'hsuforum') {
             $sql = "SELECT p.message FROM {hsuforum_posts} p
                      JOIN {hsuforum_discussions} d ON p.discussion = d.id
@@ -2970,17 +2977,23 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
                      JOIN {course_modules} cm ON cm.instance = f.id
                      WHERE p.id = ? AND cm.id = ?";
             $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+            $sourcefound = ($content !== false);
         } else if ($modname === 'workshop') {
             $sql = "SELECT sub.content FROM {workshop_submissions} sub
                     JOIN {workshop} w ON sub.workshopid = w.id
                     JOIN {course_modules} cm ON cm.instance = w.id
                     WHERE sub.id = ? AND cm.id = ?";
             $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+            $sourcefound = ($content !== false);
+        }
+
+        if ($sourcefound && $content === null) {
+            $content = '';
         }
     }
 
-    // Accept empty-string and "0" submissions as valid content; only false/null means "not found".
-    if ($content !== false && $content !== null) {
+    // Accept empty-string and "0" submissions as valid content when source rows exist.
+    if ($sourcefound) {
         // Match the formatting and sanitization rules from create_temp_file exactly.
         $cleanedcontent = format_text($content, FORMAT_HTML, [
             'context' => \context_system::instance(),
