@@ -601,7 +601,7 @@ final class lib_test extends advanced_testcase {
      *
      * @covers ::plagiarism_inspera_poll_file_status
      */
-    public function test_plagiarism_inspera_poll_file_status_sets_error_after_grace_period(): void {
+    public function test_plagiarism_inspera_poll_file_status_sets_fatal_error_after_grace_period(): void {
         global $DB;
 
         $this->resetAfterTest();
