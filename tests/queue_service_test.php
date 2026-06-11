@@ -182,4 +182,58 @@ final class queue_service_test extends advanced_testcase {
         $this->assertEquals('report_requested', $record->status);
         $this->assertNull($record->storedfileid);
     }
+
+    /**
+     * Test that existing fatal_error records are not automatically reset to report_requested for files.
+     *
+     * @covers \plagiarism_inspera\services\queue_service::queue_file
+     */
+    public function test_queue_file_does_not_retry_fatal_error(): void {
+        global $DB;
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $DB->insert_record('plagiarism_inspera_config', (object) [
+            'cm' => $cm->id,
+            'name' => 'use_originality',
+            'value' => '1',
+        ]);
+
+        $fs = get_file_storage();
+        $filerecord = [
+            'contextid' => \context_module::instance($cm->id)->id,
+            'component' => 'mod_assign',
+            'filearea' => 'submission_files',
+            'itemid' => 1,
+            'filepath' => '/',
+            'filename' => 'submission.pdf',
+            'userid' => $user->id,
+        ];
+        $file = $fs->create_file_from_string($filerecord, 'Fake PDF content');
+
+        $existing = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 1,
+            'storedfileid' => $file->get_id(),
+            'identifier' => null,
+            'status' => 'fatal_error',
+            'description' => 'terminal test state',
+            'externalid' => 'terminal-doc',
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ];
+        $existingid = $DB->insert_record('plagiarism_inspera_subs', $existing);
+
+        $service = new queue_service($DB);
+        $service->queue_file($cm->id, $user->id, $file, null, 1);
+
+        $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $existingid], '*', MUST_EXIST);
+        $this->assertEquals('fatal_error', $updated->status);
+        $this->assertEquals('terminal test state', $updated->description);
+        $this->assertEquals('terminal-doc', $updated->externalid);
+    }
 }

@@ -87,9 +87,10 @@ $prefshowall = get_user_preferences('plagiarism_inspera_debug_showall', 0);
 
 // Apply the error filter ONLY if no custom filters are set AND the user hasn't toggled "Show All".
 if (empty($ufextrasql) && !$prefshowall) {
-    $ufextrasql = "t.status IN (:defaultstatus1, :defaultstatus2)";
+    $ufextrasql = "t.status IN (:defaultstatus1, :defaultstatus2, :defaultstatus3)";
     $ufparams['defaultstatus1'] = 'error';
     $ufparams['defaultstatus2'] = 'external_error';
+    $ufparams['defaultstatus3'] = 'fatal_error';
 }
 
 
@@ -162,7 +163,17 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
     } else if ($resubmitselected) {
         // Use short array destructuring instead of list().
         [$insql, $inparams] = $DB->get_in_or_equal($selectedids, SQL_PARAMS_NAMED);
-        $sqlparams = array_merge(['status' => 'report_requested', 'modtime' => time()], $inparams);
+
+        // Prevent resubmitting fatal_error files by enforcing status constraint.
+        $sqlparams = array_merge(
+            [
+                'status' => 'report_requested',
+                'modtime' => time(),
+                'staterr' => 'error',
+                'statexterr' => 'external_error',
+            ],
+            $inparams
+        );
 
         $sql = "UPDATE {plagiarism_inspera_subs}
                    SET status = :status,
@@ -176,7 +187,7 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
                        image_as_text = NULL,
                        externalid = NULL,
                        description = NULL
-                 WHERE id $insql";
+                 WHERE id $insql AND status IN (:staterr, :statexterr)";
 
         $DB->execute($sql, $sqlparams);
         \core\notification::success(get_string('filesresubmitted', 'plagiarism_inspera', count($selectedids)));
@@ -191,25 +202,31 @@ if ($id && ($action === 'resubmit' || $action === 'delete')) {
     require_sesskey();
     $executed = false;
     if ($action === 'resubmit') {
-        // Reset single file.
-        $record = new stdClass();
-        $record->id = $id;
-        $record->status = 'report_requested';
-        $record->timemodified = time();
-        // Clear scores.
-        $record->similarity = null;
-        $record->translation_similarity = null;
-        $record->ai_index = null;
-        $record->originality = null;
-        $record->character_replacement = null;
-        $record->hidden_text = null;
-        $record->image_as_text = null;
-        $record->externalid = null;
-        $record->description = null;
+        // Prevent resubmitting fatal_error files manually via URL.
+        $currentrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $id]);
+        if ($currentrecord && in_array($currentrecord->status, ['error', 'external_error'])) {
+            // Reset single file.
+            $record = new stdClass();
+            $record->id = $id;
+            $record->status = 'report_requested';
+            $record->timemodified = time();
+            // Clear scores.
+            $record->similarity = null;
+            $record->translation_similarity = null;
+            $record->ai_index = null;
+            $record->originality = null;
+            $record->character_replacement = null;
+            $record->hidden_text = null;
+            $record->image_as_text = null;
+            $record->externalid = null;
+            $record->description = null;
 
-        $DB->update_record('plagiarism_inspera_subs', $record);
-        \core\notification::success(get_string('fileresubmitted', 'plagiarism_inspera'));
-        $executed = true;
+            $DB->update_record('plagiarism_inspera_subs', $record);
+            \core\notification::success(get_string('fileresubmitted', 'plagiarism_inspera'));
+            $executed = true;
+        } else {
+            \core\notification::error(get_string('statuserror', 'plagiarism_inspera'));
+        }
     } else if ($action === 'delete') {
         $DB->delete_records('plagiarism_inspera_subs', ['id' => $id]);
         \core\notification::success(get_string('filedeleted', 'plagiarism_inspera'));

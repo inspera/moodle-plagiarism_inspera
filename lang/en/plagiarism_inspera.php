@@ -188,6 +188,7 @@ $string['similarity_score'] = 'Similarity';
 $string['status'] = 'Originality status';
 $string['status_error'] = 'Error';
 $string['status_external_error'] = 'External Error';
+$string['status_fatal_error'] = 'Fatal Error';
 $string['status_finished'] = 'Finished';
 $string['status_pending'] = 'Pending';
 $string['status_report_requested'] = 'Queued';

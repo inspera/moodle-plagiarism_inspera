@@ -2299,7 +2299,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
                 "Skipping Inspera submission for fileid {$plagiarismfile->id}: {$reason}. " .
                 "Preserving queue record as error because externalid {$plagiarismfile->externalid} already exists."
             );
-            $plagiarismfile->status = 'error';
+            $plagiarismfile->status = 'fatal_error';
             $plagiarismfile->description = "Source file unavailable: {$reason}";
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
             return;
@@ -2311,6 +2311,62 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         );
         $DB->delete_records('plagiarism_inspera_subs', ['id' => $plagiarismfile->id]);
     };
+
+    // GHOST SUBMISSION CHECK (Pre-Flight).
+    // Ensure the parent Moodle submission wasn't deleted by the user before cron ran.
+    if (!empty($plagiarismfile->cm) && !empty($plagiarismfile->submissionid)) {
+        try {
+            $cm = get_coursemodule_from_id('', $plagiarismfile->cm, 0, false, IGNORE_MISSING);
+            if ($cm) {
+                $parenttable = '';
+                switch ($cm->modname) {
+                    case 'assign':
+                        $parenttable = 'assign_submission';
+                        break;
+                    case 'forum':
+                        $parenttable = 'forum_posts';
+                        break;
+                    case 'hsuforum':
+                        $parenttable = 'hsuforum_posts';
+                        break;
+                    case 'workshop':
+                        $parenttable = 'workshop_submissions';
+                        break;
+                    case 'quiz':
+                        $parenttable = 'question_attempts';
+                        break;
+                }
+
+                if ($parenttable) {
+                    $parentexists = $DB->record_exists($parenttable, ['id' => $plagiarismfile->submissionid]);
+
+                    if (!$parentexists) {
+                        mtrace(
+                            "GHOST DETECTED: Parent record in '{$parenttable}' " .
+                            "(ID: {$plagiarismfile->submissionid}) was deleted. Aborting upload."
+                        );
+
+                        // 1. Clean up the orphaned temp file from the disk if it exists (Online Text).
+                        if (empty($plagiarismfile->storedfileid) && !empty($plagiarismfile->identifier)) {
+                            if (file_exists($plagiarismfile->identifier)) {
+                                if (unlink($plagiarismfile->identifier)) {
+                                    mtrace("Deleted orphaned temporary file: {$plagiarismfile->identifier}");
+                                }
+                            }
+                        }
+
+                        // 2. Safely close out the database queue record as fatal error.
+                        $plagiarismfile->status = 'fatal_error';
+                        $plagiarismfile->description = "Ghost submission: parent record in {$parenttable} was deleted.";
+                        $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+                        return false;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            mtrace("Warning: Failed to verify ghost submission status for fileid {$plagiarismfile->id}: " . $e->getMessage());
+        }
+    }
 
     if (!empty($plagiarismfile->storedfileid)) {
         $fs = get_file_storage();
@@ -2334,7 +2390,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         $realbasepath = realpath($safebase);
         if ($realbasepath === false) {
             mtrace('SECURITY FATAL: Base temp directory could not be resolved for identifier validation.');
-            $plagiarismfile->status = 'error';
+            $plagiarismfile->status = 'fatal_error';
             $plagiarismfile->description = 'Security violation: Invalid file path detected.';
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
             return false;
@@ -2360,17 +2416,36 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
             mtrace("SECURITY FATAL: Unauthorized directory or traversal attempt detected in identifier path: {$tempfilepath}");
 
             // Mark the record as an error so cron stops trying to process it.
-            $plagiarismfile->status = 'error';
+            $plagiarismfile->status = 'fatal_error';
             $plagiarismfile->description = 'Security violation: Invalid file path detected.';
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
             return false;
         }
 
         // REHYDRATION LOGIC START.
-        // If the file is missing (e.g. deleted by cleanup), try to recreate it from DB.
-        if (!file_exists($tempfilepath)) {
-            mtrace("Temp file missing: {$tempfilepath}. Attempting rehydration...");
+        // For online-text records tied to Moodle source data, always validate source existence
+        // against Moodle DB, even if a temp file still exists. This prevents sending stale ghost files.
+        $filename = basename((string)$tempfilepath);
+        $isquizidentifier = (bool)preg_match('/^quiz_(\d+)_(\d+)_(\d+)\.html$/', $filename);
+        $requiresourcevalidation = empty($plagiarismfile->storedfileid) &&
+            !empty($plagiarismfile->cm) &&
+            (!empty($plagiarismfile->submissionid) || $isquizidentifier);
 
+        if ($requiresourcevalidation) {
+            if (!plagiarism_inspera_rehydrate_file($plagiarismfile, $tempfilepath)) {
+                mtrace("GHOST DETECTED: Online-text source no longer exists for fileid {$plagiarismfile->id}. Aborting upload.");
+                if (!empty($tempfilepath) && file_exists($tempfilepath) && !unlink($tempfilepath)) {
+                    mtrace("Warning: Failed to delete ghost temporary file: {$tempfilepath}");
+                }
+                $plagiarismfile->status = 'fatal_error';
+                $plagiarismfile->description = 'Ghost submission: online-text source no longer exists in Moodle.';
+                $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+                return false;
+            }
+            mtrace("Source validation successful: Online text synchronized from Moodle DB.");
+        } else if (!file_exists($tempfilepath)) {
+            // For non-submission-scoped identifiers, keep existing best-effort behavior.
+            mtrace("Temp file missing: {$tempfilepath}. Attempting rehydration...");
             if (plagiarism_inspera_rehydrate_file($plagiarismfile, $tempfilepath)) {
                 mtrace("Rehydration successful: File recreated.");
             } else {
@@ -2387,7 +2462,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
 
             if ($isunsafe) {
                 mtrace("SECURITY FATAL: Unauthorized resolved identifier path detected: {$tempfilepath}");
-                $plagiarismfile->status = 'error';
+                $plagiarismfile->status = 'fatal_error';
                 $plagiarismfile->description = 'Security violation: Invalid file path detected.';
                 $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
                 return false;
@@ -2711,7 +2786,7 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
                     break;
                 }
 
-                $plagiarismfile->status = 'external_error';
+                $plagiarismfile->status = 'fatal_error';
                 $plagiarismfile->description = isset($status->message) ? (string)$status->message : json_encode($status);
 
                 $plagiarismfile->timemodified = time();
@@ -2746,6 +2821,7 @@ function plagiarism_inspera_statuscodes() {
         'report_requested' => get_string('status_report_requested', 'plagiarism_inspera'),
         'finished' => get_string('status_finished', 'plagiarism_inspera'),
         'error' => get_string('status_error', 'plagiarism_inspera'),
+        'fatal_error' => get_string('status_fatal_error', 'plagiarism_inspera'),
         'external_error' => get_string('status_external_error', 'plagiarism_inspera'),
         'superseded' => get_string('status_superseded', 'plagiarism_inspera'),
     ];
