@@ -163,16 +163,25 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
     } else if ($resubmitselected) {
         // Use short array destructuring instead of list().
         [$insql, $inparams] = $DB->get_in_or_equal($selectedids, SQL_PARAMS_NAMED);
+        $selectedcount = count($selectedids);
 
         // Prevent resubmitting fatal_error files by enforcing status constraint.
-        $sqlparams = array_merge(
+        $eligibilityparams = array_merge(
             [
-                'status' => 'report_requested',
-                'modtime' => time(),
                 'staterr' => 'error',
                 'statexterr' => 'external_error',
             ],
             $inparams
+        );
+        $eligibilitywhere = "id $insql AND status IN (:staterr, :statexterr)";
+        $eligiblecount = (int)$DB->count_records_select('plagiarism_inspera_subs', $eligibilitywhere, $eligibilityparams);
+
+        $sqlparams = array_merge(
+            [
+                'status' => 'report_requested',
+                'modtime' => time(),
+            ],
+            $eligibilityparams
         );
 
         $sql = "UPDATE {plagiarism_inspera_subs}
@@ -181,16 +190,29 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
                        similarity = NULL,
                        translation_similarity = NULL,
                        ai_index = NULL,
-                       originality = NULL,
-                       character_replacement = NULL,
-                       hidden_text = NULL,
-                       image_as_text = NULL,
-                       externalid = NULL,
-                       description = NULL
-                 WHERE id $insql AND status IN (:staterr, :statexterr)";
+                        originality = NULL,
+                        character_replacement = NULL,
+                        hidden_text = NULL,
+                        image_as_text = NULL,
+                        externalid = NULL,
+                        description = NULL
+                  WHERE $eligibilitywhere";
 
-        $DB->execute($sql, $sqlparams);
-        \core\notification::success(get_string('filesresubmitted', 'plagiarism_inspera', count($selectedids)));
+        if ($eligiblecount > 0) {
+            $DB->execute($sql, $sqlparams);
+        }
+
+        if ($eligiblecount === $selectedcount) {
+            \core\notification::success(get_string('filesresubmitted', 'plagiarism_inspera', $eligiblecount));
+        } else if ($eligiblecount > 0) {
+            $messageparams = (object)[
+                'eligible' => $eligiblecount,
+                'selected' => $selectedcount,
+            ];
+            \core\notification::warning(get_string('filesresubmittedpartial', 'plagiarism_inspera', $messageparams));
+        } else {
+            \core\notification::error(get_string('filesresubmittednone', 'plagiarism_inspera'));
+        }
     }
 
     // Final Redirect (Clean URL).
