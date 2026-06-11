@@ -174,6 +174,7 @@ $string['resubmit_confirm'] = 'Are you sure you want to request originality repo
 $string['resubmit_pending'] = 'Request is currently processing...';
 $string['resubmit_scheduled'] = 'A background task has been scheduled to check and request missing originality reports. This may take a few minutes.';
 $string['resubmit_tooltip'] = 'Retry report submission using the current originality checking settings.';
+$string['resubmitnoteligible'] = 'Resubmit blocked: only files with status "Error" or "External Error" can be resubmitted.';
 $string['resubmitallfiltered'] = 'Resubmit all filtered files';
 $string['resubmitcheck'] = 'Are you sure you want to resubmit this file?';
 $string['resubmitselectedfiles'] = 'Resubmit Selected Files';

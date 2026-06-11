@@ -225,7 +225,7 @@ if ($id && ($action === 'resubmit' || $action === 'delete')) {
             \core\notification::success(get_string('fileresubmitted', 'plagiarism_inspera'));
             $executed = true;
         } else {
-            \core\notification::error(get_string('statuserror', 'plagiarism_inspera'));
+            \core\notification::error(get_string('resubmitnoteligible', 'plagiarism_inspera'));
         }
     } else if ($action === 'delete') {
         $DB->delete_records('plagiarism_inspera_subs', ['id' => $id]);
