@@ -2438,7 +2438,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         if ($isunsafe) {
             mtrace("SECURITY FATAL: Unauthorized directory or traversal attempt detected in identifier path: {$tempfilepath}");
 
-            // Mark the record as an error so cron stops trying to process it.
+            // Mark the record as a fatal_error so cron stops trying to process it.
             $plagiarismfile->status = 'fatal_error';
             $plagiarismfile->description = 'Security violation: Invalid file path detected.';
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
