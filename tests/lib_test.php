@@ -276,7 +276,7 @@ final class lib_test extends advanced_testcase {
         $clientmock->expects($this->never())
             ->method('create_submission');
 
-        $this->expectOutputRegex('/Preserving queue record as error because externalid/s');
+        $this->expectOutputRegex('/Preserving queue record as fatal_error because externalid/s');
         \plagiarism_inspera_send_file($record, $clientmock);
 
         $this->assertTrue($DB->record_exists('plagiarism_inspera_subs', ['id' => $record->id]));

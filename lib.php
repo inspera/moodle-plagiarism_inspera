@@ -2297,7 +2297,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         if (!empty($plagiarismfile->externalid)) {
             mtrace(
                 "Skipping Inspera submission for fileid {$plagiarismfile->id}: {$reason}. " .
-                "Preserving queue record as error because externalid {$plagiarismfile->externalid} already exists."
+                "Preserving queue record as fatal_error because externalid {$plagiarismfile->externalid} already exists."
             );
             $plagiarismfile->status = 'fatal_error';
             $plagiarismfile->description = "Source file unavailable: {$reason}";
