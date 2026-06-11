@@ -2346,12 +2346,35 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
                             "(ID: {$plagiarismfile->submissionid}) was deleted. Aborting upload."
                         );
 
-                        // 1. Clean up the orphaned temp file from the disk if it exists (Online Text).
+                        // 1. Clean up orphaned Online Text temp files, but only inside the plugin temp base.
                         if (empty($plagiarismfile->storedfileid) && !empty($plagiarismfile->identifier)) {
-                            if (file_exists($plagiarismfile->identifier)) {
-                                if (unlink($plagiarismfile->identifier)) {
-                                    mtrace("Deleted orphaned temporary file: {$plagiarismfile->identifier}");
+                            $tempfilepath = (string)$plagiarismfile->identifier;
+                            $normalizedcandidate = str_replace('\\', '/', $tempfilepath);
+                            $hastraversal = strpos($normalizedcandidate, '..') !== false;
+
+                            $safebase = make_temp_directory('plagiarism_inspera');
+                            $realbasepath = realpath($safebase);
+                            $realfilepath = realpath($tempfilepath);
+
+                            $issafe = !$hastraversal &&
+                                $realbasepath !== false &&
+                                $realfilepath !== false &&
+                                is_file($realfilepath);
+                            if ($issafe) {
+                                $normalizedbase = str_replace('\\', '/', $realbasepath);
+                                if (substr($normalizedbase, -1) !== '/') {
+                                    $normalizedbase .= '/';
                                 }
+                                $normalizedresolvedpath = str_replace('\\', '/', $realfilepath);
+                                $issafe = strpos($normalizedresolvedpath, $normalizedbase) === 0;
+                            }
+
+                            if ($issafe) {
+                                if (unlink($realfilepath)) {
+                                    mtrace("Deleted orphaned temporary file: {$realfilepath}");
+                                }
+                            } else {
+                                mtrace("Security block: Skipped orphaned temporary file cleanup for unsafe identifier path.");
                             }
                         }
 

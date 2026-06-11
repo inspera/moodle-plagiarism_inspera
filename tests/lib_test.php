@@ -374,6 +374,56 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Test plagiarism_inspera_send_file does not unlink unsafe identifier paths during ghost cleanup.
+     *
+     * @covers ::plagiarism_inspera_send_file
+     */
+    public function test_plagiarism_inspera_send_file_keeps_unsafe_identifier_when_parent_deleted(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+
+        $outsidetempdir = make_temp_directory('inspera_outside_fixture');
+        $outsidefilepath = $outsidetempdir . '/outside_' . uniqid('', true) . '.html';
+        file_put_contents($outsidefilepath, '<p>outside path</p>');
+        $this->assertTrue(file_exists($outsidefilepath));
+
+        $record = (object) [
+            'cm' => $cm->id,
+            'userid' => $user->id,
+            'submissionid' => 999999, // Deliberately non-existent assign_submission row.
+            'status' => 'report_requested',
+            'externalid' => null,
+            'timecreated' => time(),
+            'storedfileid' => null,
+            'identifier' => $outsidefilepath,
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['create_submission'])
+            ->getMock();
+        $clientmock->expects($this->never())
+            ->method('create_submission');
+
+        $this->expectOutputRegex('/GHOST DETECTED: Parent record.*Security block: Skipped orphaned temporary file cleanup/s');
+        \plagiarism_inspera_send_file($record, $clientmock);
+
+        $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertNotFalse($updated);
+        $this->assertEquals('fatal_error', $updated->status);
+        $this->assertStringContainsString('Ghost submission', $updated->description);
+        $this->assertTrue(file_exists($outsidefilepath), 'Unsafe identifier path must not be deleted.');
+
+        @unlink($outsidefilepath);
+    }
+
+    /**
      * Test plagiarism_inspera_send_file marks fatal_error for quiz temp identifiers when source data is gone.
      *
      * @covers ::plagiarism_inspera_send_file
