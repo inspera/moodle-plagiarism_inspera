@@ -2657,7 +2657,6 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
             // Clean activity instance name.
             $modcontext = \context_module::instance($plagiarismfile->cm);
             $assignmentname = format_string($rawname, true, ['context' => $modcontext]);
-
         } catch (\Throwable $e) {
             mtrace(
                 "GHOST DETECTED: Failed to resolve activity/course metadata for CM {$plagiarismfile->cm}. " .

@@ -345,9 +345,9 @@ class api_client {
             'email'         => $metadata->email,
             'docType'       => $metadata->doctype,
             'assignmentId'  => $metadata->assignmentid,
-            'assignmentName' => $metadata->assignmentname ?? '',
-            'subjectId' => $metadata->subjectid ?? '',
-            'subjectName' => $metadata->subjectname ?? '',
+            'assignmentName' => (string) ($metadata->assignmentname ?? ''),
+            'subjectId'      => (string) ($metadata->subjectid ?? ''),
+            'subjectName'    => (string) ($metadata->subjectname ?? ''),
             // Set to true if students array is provided (Group Submission), otherwise false.
             'teamSubmission'     => !empty($students),
         ];
