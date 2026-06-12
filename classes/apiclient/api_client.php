@@ -344,7 +344,7 @@ class api_client {
             'author'        => $metadata->author,
             'email'         => $metadata->email,
             'docType'       => $metadata->doctype,
-            'assignmentId'  => $metadata->assignmentid,
+            'assignmentId'   => (string) ($metadata->assignmentid ?? ''),
             'assignmentName' => (string) ($metadata->assignmentname ?? ''),
             'subjectId'      => (string) ($metadata->subjectid ?? ''),
             'subjectName'    => (string) ($metadata->subjectname ?? ''),
