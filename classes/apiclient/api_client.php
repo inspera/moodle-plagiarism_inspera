@@ -321,7 +321,8 @@ class api_client {
     /**
      * Create a submission (metadata only) via the API.
      *
-     * @param \stdClass $metadata Object containing: title, author, email, doctype, assignmentid
+     * @param \stdClass $metadata Object containing: title, author, email, doctype, assignmentid,
+     *                            assignmentname, subjectid, subjectname
      * @param array $settings Activity-level plugin settings.
      * @param array $educators List of teachers/educators.
      * @param array $students List of students (for Group Submissions).
@@ -344,6 +345,9 @@ class api_client {
             'email'         => $metadata->email,
             'docType'       => $metadata->doctype,
             'assignmentId'  => $metadata->assignmentid,
+            'assignmentName' => $metadata->assignmentname ?? '',
+            'subjectId' => $metadata->subjectid ?? '',
+            'subjectName' => $metadata->subjectname ?? '',
             // Set to true if students array is provided (Group Submission), otherwise false.
             'teamSubmission'     => !empty($students),
         ];

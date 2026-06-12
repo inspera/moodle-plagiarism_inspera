@@ -164,6 +164,9 @@ final class api_client_test extends \advanced_testcase {
             'email' => 'e@mail.com',
             'doctype' => 'type',
             'assignmentid' => 'cmid-999',
+            'assignmentname' => 'Assignment 999',
+            'subjectid' => 'course-42',
+            'subjectname' => 'ENG-101',
         ];
 
         $this->clientmock->expects($this->once())
@@ -174,6 +177,9 @@ final class api_client_test extends \advanced_testcase {
                     $payload = json_decode($payloadjson, true);
                     $this->assertIsArray($payload);
                     $this->assertEquals('cmid-999', $payload['assignmentId']);
+                    $this->assertEquals('Assignment 999', $payload['assignmentName']);
+                    $this->assertEquals('course-42', $payload['subjectId']);
+                    $this->assertEquals('ENG-101', $payload['subjectName']);
                     $this->assertTrue($payload['enableAIDetection']);
                     return true;
                 }),

@@ -330,6 +330,50 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Test plagiarism_inspera_send_file marks fatal_error when activity metadata cannot be resolved.
+     *
+     * @covers ::plagiarism_inspera_send_file
+     */
+    public function test_plagiarism_inspera_send_file_marks_fatal_error_when_activity_metadata_missing(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
+        $cm = get_coursemodule_from_instance('assign', $assign->id);
+        $filepath = $this->create_online_text_temp_file('<p>metadata ghost test</p>');
+
+        $record = (object) [
+            'cm' => $cm->id + 999999, // Deliberately invalid CM id to force metadata resolution failure.
+            'userid' => $user->id,
+            'submissionid' => 0,
+            'status' => 'report_requested',
+            'externalid' => null,
+            'timecreated' => time(),
+            'storedfileid' => null,
+            'identifier' => $filepath,
+        ];
+        $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['create_submission'])
+            ->getMock();
+        $clientmock->expects($this->never())
+            ->method('create_submission');
+
+        $this->expectOutputRegex('/GHOST DETECTED: Failed to resolve activity\/course metadata/s');
+        \plagiarism_inspera_send_file($record, $clientmock);
+
+        $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertNotFalse($updated);
+        $this->assertEquals('fatal_error', $updated->status);
+        $this->assertSame('Ghost submission: activity or course no longer exists in Moodle.', $updated->description);
+        $this->assertFalse(file_exists($filepath), 'Ghost temp file should be deleted on metadata resolution failure.');
+    }
+
+    /**
      * Test plagiarism_inspera_send_file marks fatal_error when parent submission is deleted even if temp file exists.
      *
      * @covers ::plagiarism_inspera_send_file
@@ -943,6 +987,7 @@ final class lib_test extends advanced_testcase {
 
         // 3. Mock the API client.
         $capturededucators = []; // Variable to extract the array outside the mock.
+        $capturedmetadata = null;
 
         $clientmock = $this->getMockBuilder(api_client::class)
             ->onlyMethods(['create_submission'])
@@ -950,8 +995,17 @@ final class lib_test extends advanced_testcase {
 
         $clientmock->expects($this->once())
             ->method('create_submission')
-            ->willReturnCallback(function ($metadata, $settings, $educators, $students) use (&$capturededucators) {
+            ->willReturnCallback(function (
+                $metadata,
+                $settings,
+                $educators,
+                $students
+            ) use (
+                &$capturededucators,
+                &$capturedmetadata
+            ) {
                 // Save the educators array by reference, then safely abort.
+                $capturedmetadata = $metadata;
                 $capturededucators = $educators;
                 throw new \Exception('Payload inspected successfully.');
             });
@@ -962,10 +1016,16 @@ final class lib_test extends advanced_testcase {
 
         // 5. RUN ASSERTIONS OUTSIDE THE CATCH BLOCK!
         $this->assertIsArray($capturededucators);
+        $this->assertInstanceOf(\stdClass::class, $capturedmetadata);
 
         $educatorids = array_map(function ($e) {
             return (int)$e['id'];
         }, $capturededucators);
+
+        $this->assertSame((string)$cm->id, $capturedmetadata->assignmentid);
+        $this->assertSame((string)$quiz->name, $capturedmetadata->assignmentname);
+        $this->assertSame((string)$course->id, $capturedmetadata->subjectid);
+        $this->assertSame((string)$course->shortname, $capturedmetadata->subjectname);
 
         // Assert the Active Editing Teacher is in the payload.
         $this->assertContains((int)$editingteacher->id, $educatorids, 'Active Editing Teacher must be included.');
