@@ -494,6 +494,54 @@ final class quiz_test extends advanced_testcase {
         $assigncontent = file_get_contents($assignfilepath);
         $this->assertStringContainsString('Hello Assignment Rehydration', $assigncontent);
 
+        // SCENARIO 2b: Assignment Rehydration with "0" content.
+        $assignsubidzero = $DB->insert_record('assign_submission', (object)[
+            'assignment' => $assign->id,
+            'userid' => $assignuser->id,
+            'attemptnumber' => 1,
+        ]);
+        $DB->insert_record('assignsubmission_onlinetext', (object)[
+            'assignment' => $assign->id,
+            'submission' => $assignsubidzero,
+            'onlinetext' => '0',
+        ]);
+        $assignrecordzero = (object)[
+            'cm' => $assigncm->id,
+            'userid' => $assignuser->id,
+            'submissionid' => $assignsubidzero,
+            'storedfileid' => null,
+        ];
+        $assignfilepathzero = $CFG->tempdir . "/plagiarism_inspera/assign_zero_{$assigncm->id}_{$assignuser->id}.html";
+        if (file_exists($assignfilepathzero)) {
+            unlink($assignfilepathzero);
+        }
+        $this->assertTrue(plagiarism_inspera_rehydrate_file($assignrecordzero, $assignfilepathzero));
+        $this->assertFileExists($assignfilepathzero);
+
+        // SCENARIO 2c: Assignment Rehydration with empty-string content.
+        $assignsubidempty = $DB->insert_record('assign_submission', (object)[
+            'assignment' => $assign->id,
+            'userid' => $assignuser->id,
+            'attemptnumber' => 2,
+        ]);
+        $DB->insert_record('assignsubmission_onlinetext', (object)[
+            'assignment' => $assign->id,
+            'submission' => $assignsubidempty,
+            'onlinetext' => '',
+        ]);
+        $assignrecordempty = (object)[
+            'cm' => $assigncm->id,
+            'userid' => $assignuser->id,
+            'submissionid' => $assignsubidempty,
+            'storedfileid' => null,
+        ];
+        $assignfilepathempty = $CFG->tempdir . "/plagiarism_inspera/assign_empty_{$assigncm->id}_{$assignuser->id}.html";
+        if (file_exists($assignfilepathempty)) {
+            unlink($assignfilepathempty);
+        }
+        $this->assertTrue(plagiarism_inspera_rehydrate_file($assignrecordempty, $assignfilepathempty));
+        $this->assertFileExists($assignfilepathempty);
+
         // SCENARIO 3: Quiz Rehydration.
         $this->setUser($this->student);
 

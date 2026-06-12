@@ -236,6 +236,7 @@ class queue_service {
 
             // SCENARIO 1: FILES (Immutable in Moodle).
             if ($storedfileid) {
+                // Do not consider fatal_error.
                 if (in_array($status, ['error', 'external_error'])) {
                     $existingrecord->status = 'report_requested';
                     $existingrecord->description = '';
@@ -262,6 +263,7 @@ class queue_service {
                         return;
                     }
 
+                    // Do not consider fatal_error.
                     if (in_array($status, ['error', 'external_error'])) {
                         // It failed previously, let's retry it.
                         $existingrecord->status = 'report_requested';
