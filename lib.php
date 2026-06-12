@@ -2631,21 +2631,33 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         }
 
         // Prepare DTO for Metadata.
-        $assignmentname = '';
-        $subjectid = '';
-        $subjectname = '';
         try {
             $cmrecord = get_coursemodule_from_id('', $plagiarismfile->cm, 0, false, MUST_EXIST);
             $course = get_course($cmrecord->course);
             $subjectid = (string)$course->id;
+
             // Clean course shortname (strips HTML and multi-lang tags).
             $coursecontext = \context_course::instance($course->id);
             $subjectname = format_string($course->shortname, true, ['context' => $coursecontext]);
 
             $modinfo = get_fast_modinfo($course);
-            if (!empty($modinfo->cms[$plagiarismfile->cm])) {
-                $assignmentname = (string)$modinfo->cms[$plagiarismfile->cm]->name;
+
+            // Fail fast if the CM is missing from the course cache.
+            if (empty($modinfo->cms[$plagiarismfile->cm])) {
+                throw new \Exception("Activity CM {$plagiarismfile->cm} is missing from course modinfo cache.");
             }
+
+            $rawname = $modinfo->cms[$plagiarismfile->cm]->name;
+
+            // Fail fast if the raw name is somehow completely empty.
+            if (trim($rawname) === '') {
+                throw new \Exception("Activity CM {$plagiarismfile->cm} contains an empty name string.");
+            }
+
+            // Clean activity instance name.
+            $modcontext = \context_module::instance($plagiarismfile->cm);
+            $assignmentname = format_string($rawname, true, ['context' => $modcontext]);
+
         } catch (\Throwable $e) {
             mtrace(
                 "GHOST DETECTED: Failed to resolve activity/course metadata for CM {$plagiarismfile->cm}. " .
@@ -2655,7 +2667,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
                 mtrace("Warning: Failed to delete ghost temporary file after metadata resolution failure: {$tempfilepath}");
             }
             $plagiarismfile->status = 'fatal_error';
-            $plagiarismfile->description = 'Ghost submission: activity or course no longer exists in Moodle.';
+            $plagiarismfile->description = 'Ghost submission: activity or course metadata could not be resolved.';
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
             return false;
         }
