@@ -2130,8 +2130,8 @@ function plagiarism_inspera_cleanup_orphaned_records() {
                 $DB->delete_records('plagiarism_inspera_subs', ['id' => $record->id]);
                 $cleaned++;
             } else {
-                // If it reached Inspera but the source is gone, mark as error and stop polling.
-                $record->status = 'error';
+                // If it reached Inspera but the source is gone, mark as fatal_error and stop polling.
+                $record->status = 'fatal_error';
                 $record->description = 'Source file deleted from Moodle storage.';
                 $record->timemodified = time();
                 $DB->update_record('plagiarism_inspera_subs', $record);
@@ -2142,8 +2142,8 @@ function plagiarism_inspera_cleanup_orphaned_records() {
 
     // 2. Clean up temporary files for online text that are too old (> 7 days).
     $oldtime = time() - (7 * DAYSECS);
-    $sql = "identifier IS NOT NULL AND timecreated < ? AND status IN (?, ?, ?)";
-    $params = [$oldtime, 'report_requested', 'error', 'superseded'];
+    $sql = "identifier IS NOT NULL AND timecreated < ? AND status IN (?, ?, ?, ?, ?)";
+    $params = [$oldtime, 'report_requested', 'error', 'superseded', 'fatal_error', 'external_error'];
 
     $oldrecords = $DB->get_recordset_select('plagiarism_inspera_subs', $sql, $params);
 
