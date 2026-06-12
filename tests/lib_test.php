@@ -369,7 +369,7 @@ final class lib_test extends advanced_testcase {
         $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
         $this->assertNotFalse($updated);
         $this->assertEquals('fatal_error', $updated->status);
-        $this->assertSame('Ghost submission: activity or course no longer exists in Moodle.', $updated->description);
+        $this->assertSame('Ghost submission: activity or course metadata could not be resolved.', $updated->description);
         $this->assertFalse(file_exists($filepath), 'Ghost temp file should be deleted on metadata resolution failure.');
     }
 
