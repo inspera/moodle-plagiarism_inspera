@@ -64,11 +64,14 @@ if (($data = $mform->get_data()) && confirm_sesskey()) {
     }
 
     foreach ($data as $field => $value) {
-        if ($field != 'submitbutton') { // Ignore the button.
-            $value = trim($value); // Strip trailing spaces.
+        // Defensively guard against arrays/objects and enforce string typing for PHP 8+.
+        if (is_scalar($value)) {
+            $value = trim((string)$value); // Strip trailing spaces safely.
+
             if ($field == 'baseurl') { // Strip trailing slash from api.
                 $value = rtrim($value, '/');
             }
+
             set_config($field, $value, 'plagiarism_inspera');
         }
     }
