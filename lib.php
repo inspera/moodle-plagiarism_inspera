@@ -2889,7 +2889,6 @@ function plagiarism_inspera_statuscodes() {
         'error' => get_string('status_error', 'plagiarism_inspera'),
         'fatal_error' => get_string('status_fatal_error', 'plagiarism_inspera'),
         'external_error' => get_string('status_external_error', 'plagiarism_inspera'),
-        'fatal_error' => get_string('status_fatal_error', 'plagiarism_inspera'),
         'superseded' => get_string('status_superseded', 'plagiarism_inspera'),
     ];
 }
