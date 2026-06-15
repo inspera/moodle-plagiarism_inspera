@@ -20,9 +20,6 @@
     Submissions Management Page Template.
 
     Context variables required for this template:
-    * showallvalue - The target state for the toggle (-1 or 1).
-    * toggleclass - CSS class for the toggle button.
-    * togglelabel - Label for the toggle button.
     * filterhtml - HTML string for the filter bar.
     * posturl - Target URL for the bulk action form.
     * sesskey - The user session key.
@@ -32,9 +29,6 @@
 
     Example context (json):
     {
-        "showallvalue": 1,
-        "toggleclass": "btn-primary",
-        "togglelabel": "Show All",
         "filterhtml": "<div>Filter Placeholder</div>",
         "posturl": "originality_debug.php",
         "sesskey": "abcde12345",
@@ -44,16 +38,6 @@
     }
 }}
 <div class="plagiarism_inspera_debug_page">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="view-toggle">
-            <form action="{{posturl}}" method="post" class="m-0 p-0">
-                <input type="hidden" name="sesskey" value="{{sesskey}}">
-                <input type="hidden" name="showall" value="{{showallvalue}}">
-                <button type="submit" class="btn {{toggleclass}}">{{togglelabel}}</button>
-            </form>
-        </div>
-    </div>
-
     <div class="filter-container mb-4">
         {{{filterhtml}}}
     </div>

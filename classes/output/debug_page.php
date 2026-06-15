@@ -51,11 +51,6 @@ class debug_page implements renderable, templatable {
     protected $filtering;
 
     /**
-     * @var bool Whether the user is viewing all submissions or just errors.
-     */
-    protected $prefshowall;
-
-    /**
      * @var int The number of items to display per page.
      */
     protected $pagesize;
@@ -65,13 +60,11 @@ class debug_page implements renderable, templatable {
      *
      * @param \plagiarism_inspera\output\debug_table $table
      * @param \plagiarism_inspera\output\filtering $filtering
-     * @param bool $prefshowall
      * @param int $pagesize The pagination limit
      */
-    public function __construct($table, $filtering, $prefshowall, $pagesize = 50) {
+    public function __construct($table, $filtering, $pagesize = 50) {
         $this->table = $table;
         $this->filtering = $filtering;
-        $this->prefshowall = $prefshowall;
         $this->pagesize = $pagesize;
     }
 
@@ -92,25 +85,14 @@ class debug_page implements renderable, templatable {
         $data->filterhtml = ob_get_contents();
         ob_end_clean();
 
-        // 2. Toggle Button Logic.
-        $data->showallvalue = $this->prefshowall ? -1 : 1;
-
-        if ($this->prefshowall) {
-            $data->togglelabel = get_string('toggleviewerrorsonly', 'plagiarism_inspera');
-            $data->toggleclass = 'btn-outline-danger';
-        } else {
-            $data->togglelabel = get_string('toggleviewallsubmissions', 'plagiarism_inspera');
-            $data->toggleclass = 'btn-outline-primary';
-        }
-
-        // 3. Table UI.
+        // 2. Table UI.
         // Tablelib doesn't use mustache yet, so we capture its raw HTML.
         ob_start();
         $this->table->out($this->pagesize, false);
         $data->tablehtml = ob_get_contents();
         ob_end_clean();
 
-        // 4. Form Actions.
+        // 3. Form Actions.
         $data->sesskey = sesskey();
         $posturl = new moodle_url('/plagiarism/inspera/originality_debug.php');
         $data->posturl = $posturl->out(false);
