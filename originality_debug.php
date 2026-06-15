@@ -134,9 +134,14 @@ $filters = ['status' => 0, 'realname' => 0, 'timecreated' => 0, 'course' => 0, '
 $ufiltering = new \plagiarism_inspera\output\filtering($filters, $PAGE->url);
 [$ufextrasql, $ufparams] = $ufiltering->get_sql_filter();
 
-// Apply error-only defaults only when globally enabled and no custom filters are active.
-if ($errorsonly && empty($ufextrasql)) {
-    $ufextrasql = "t.status IN (:defaultstatus1, :defaultstatus2, :defaultstatus3)";
+// Enforce error-only scope for all queries when globally enabled.
+if ($errorsonly) {
+    $erroronlysql = "t.status IN (:defaultstatus1, :defaultstatus2, :defaultstatus3)";
+    if (!empty($ufextrasql)) {
+        $ufextrasql = "({$ufextrasql}) AND {$erroronlysql}";
+    } else {
+        $ufextrasql = $erroronlysql;
+    }
     $ufparams['defaultstatus1'] = 'error';
     $ufparams['defaultstatus2'] = 'external_error';
     $ufparams['defaultstatus3'] = 'fatal_error';
