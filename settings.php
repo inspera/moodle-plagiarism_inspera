@@ -59,6 +59,10 @@ if (($data = $mform->get_data()) && confirm_sesskey()) {
         }
     }
 
+    if (!isset($data->errorsonlymanagement)) {
+        $data->errorsonlymanagement = 0;
+    }
+
     foreach ($data as $field => $value) {
         if ($field != 'submitbutton') { // Ignore the button.
             $value = trim($value); // Strip trailing spaces.

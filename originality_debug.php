@@ -65,31 +65,14 @@ $limit = 50;
 $filters = ['status' => 0, 'realname' => 0, 'timecreated' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0];
 $ufiltering = new \plagiarism_inspera\output\filtering($filters, $PAGE->url);
 [$ufextrasql, $ufparams] = $ufiltering->get_sql_filter();
+$errorsonly = (bool)get_config('plagiarism_inspera', 'errorsonlymanagement');
 
-// SMART TOGGLE LOGIC.
-$showall = optional_param('showall', 0, PARAM_INT);
-if ($showall !== 0) {
-    require_sesskey();
-    // Save preference: 1 = Show All, any other non-zero value = Show Errors Only.
-    set_user_preference('plagiarism_inspera_debug_showall', $showall == 1 ? 1 : 0);
-    // 1. Create a fresh URL object based on the current page.
-    $redirecturl = new moodle_url($PAGE->url);
-
-    // 2. Remove parameters one by one as strings.
-    $redirecturl->remove_params('showall');
-    $redirecturl->remove_params('sesskey');
-
-    // 3. Perform the redirect.
-    redirect($redirecturl);
-}
-// Read the user's saved preference (Defaults to 0 / Errors Only).
-$prefshowall = get_user_preferences('plagiarism_inspera_debug_showall', 0);
-
-// Apply the error filter ONLY if no custom filters are set AND the user hasn't toggled "Show All".
-if (empty($ufextrasql) && !$prefshowall) {
-    $ufextrasql = "t.status IN (:defaultstatus1, :defaultstatus2)";
+// Apply error-only defaults only when globally enabled and no custom filters are active.
+if ($errorsonly && empty($ufextrasql)) {
+    $ufextrasql = "t.status IN (:defaultstatus1, :defaultstatus2, :defaultstatus3)";
     $ufparams['defaultstatus1'] = 'error';
     $ufparams['defaultstatus2'] = 'external_error';
+    $ufparams['defaultstatus3'] = 'fatal_error';
 }
 
 
@@ -262,7 +245,7 @@ $table->set_sql($sqlfields, $sqlfrom, $sqlwhere, $ufparams);
 $renderer = $PAGE->get_renderer('plagiarism_inspera');
 
 if (!$table->is_downloading()) {
-    $renderable = new \plagiarism_inspera\output\debug_page($table, $ufiltering, $prefshowall, $limit);
+    $renderable = new \plagiarism_inspera\output\debug_page($table, $ufiltering, $limit);
 
     // Standard Page Render.
     echo $renderer->render_debug_page($renderable);

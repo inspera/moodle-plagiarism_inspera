@@ -113,6 +113,15 @@ class filtering extends \user_filtering {
         if ($fieldname == 'status') {
             // Fetch statuses from the library.
             $statuses = plagiarism_inspera_statuscodes();
+            $errorsonly = (bool)get_config('plagiarism_inspera', 'errorsonlymanagement');
+            if ($errorsonly) {
+                $allowedstatuses = [
+                    'error' => true,
+                    'external_error' => true,
+                    'fatal_error' => true,
+                ];
+                $statuses = array_intersect_key($statuses, $allowedstatuses);
+            }
             return new \user_filter_simpleselect(
                 'status',
                 get_string('status', 'plagiarism_inspera'),

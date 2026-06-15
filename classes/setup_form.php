@@ -83,6 +83,16 @@ class plagiarism_inspera_setup_form extends moodleform {
             }
         }
 
+        // Creates a visual section break for Submissions Management settings.
+        $mform->addElement(
+            'header',
+            'errorsonlymanagementsettingsheader',
+            get_string('errorsonlymanagementsettingsheader', 'plagiarism_inspera')
+        );
+        $mform->addElement('checkbox', 'errorsonlymanagement', get_string('errorsonlymanagement', 'plagiarism_inspera'));
+        $mform->addHelpButton('errorsonlymanagement', 'errorsonlymanagement', 'plagiarism_inspera');
+        $mform->setDefault('errorsonlymanagement', 0);
+
         // Add form submit/cancel buttons.
         $this->add_action_buttons(true);
     }
