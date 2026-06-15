@@ -57,10 +57,10 @@ class filtering extends \user_filtering {
             $sqlparts[] = $extra;
         }
 
-        if (!empty($SESSION->user_filtering)) {
+        if (!empty($SESSION->user_filtering[$this->_uniqueid])) {
             $fieldsqlgroups = [];
 
-            foreach ($SESSION->user_filtering as $fname => $datas) {
+            foreach ($SESSION->user_filtering[$this->_uniqueid] as $fname => $datas) {
                 if (!array_key_exists($fname, $this->_fields)) {
                     continue;
                 }
@@ -73,7 +73,8 @@ class filtering extends \user_filtering {
                     }
 
                     $fieldsqlgroups[$fname][] = "($sql)";
-                    $params = $params + $sqlparams;
+                    // Use array_merge to safely combine parameter arrays.
+                    $params = array_merge($params, $sqlparams);
                 }
             }
 
