@@ -50,11 +50,7 @@ class filtering extends \user_filtering {
             return;
         }
 
-        $allowedstatuses = [
-            'error' => true,
-            'external_error' => true,
-            'fatal_error' => true,
-        ];
+        $allowedstatuses = plagiarism_inspera_errors_only_status_map();
 
         $sanitizefilters = function (array &$filters) use ($allowedstatuses): void {
             if (empty($filters['status']) || !is_array($filters['status'])) {
@@ -63,18 +59,7 @@ class filtering extends \user_filtering {
 
             $filteredstatusrules = [];
             foreach ($filters['status'] as $rule) {
-                $value = null;
-
-                if (is_array($rule) && array_key_exists('value', $rule)) {
-                    $value = (string)$rule['value'];
-                } else if (is_array($rule) && array_key_exists(1, $rule) && is_scalar($rule[1])) {
-                    // Some Moodle filter payloads store [operator, value] as numeric indexes.
-                    $value = (string)$rule[1];
-                } else if (is_object($rule) && property_exists($rule, 'value')) {
-                    $value = (string)$rule->value;
-                } else if (is_scalar($rule)) {
-                    $value = (string)$rule;
-                }
+                $value = plagiarism_inspera_extract_status_rule_value($rule);
 
                 if ($value !== null && isset($allowedstatuses[$value])) {
                     $filteredstatusrules[] = $rule;
@@ -218,12 +203,7 @@ class filtering extends \user_filtering {
             $statuses = plagiarism_inspera_statuscodes();
             $errorsonly = (bool)get_config('plagiarism_inspera', 'errorsonlymanagement');
             if ($errorsonly) {
-                $allowedstatuses = [
-                    'error' => true,
-                    'external_error' => true,
-                    'fatal_error' => true,
-                ];
-                $statuses = array_intersect_key($statuses, $allowedstatuses);
+                $statuses = array_intersect_key($statuses, plagiarism_inspera_errors_only_status_map());
             }
             return new \user_filter_simpleselect(
                 'status',

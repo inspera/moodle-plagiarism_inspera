@@ -69,11 +69,7 @@ if (
     !empty($SESSION->user_filtering) &&
     is_array($SESSION->user_filtering)
 ) {
-    $allowedstatuses = [
-        'error' => true,
-        'external_error' => true,
-        'fatal_error' => true,
-    ];
+    $allowedstatuses = plagiarism_inspera_errors_only_status_map();
     $sessionchanged = false;
 
     $sanitizefilters = function (array &$filters) use ($allowedstatuses, &$sessionchanged): void {
@@ -83,17 +79,7 @@ if (
 
         $filteredstatusrules = [];
         foreach ($filters['status'] as $rule) {
-            $value = null;
-
-            if (is_array($rule) && array_key_exists('value', $rule)) {
-                $value = (string)$rule['value'];
-            } else if (is_array($rule) && array_key_exists(1, $rule) && is_scalar($rule[1])) {
-                $value = (string)$rule[1];
-            } else if (is_object($rule) && property_exists($rule, 'value')) {
-                $value = (string)$rule->value;
-            } else if (is_scalar($rule)) {
-                $value = (string)$rule;
-            }
+            $value = plagiarism_inspera_extract_status_rule_value($rule);
 
             if ($value !== null && isset($allowedstatuses[$value])) {
                 $filteredstatusrules[] = $rule;
@@ -136,15 +122,19 @@ $ufiltering = new \plagiarism_inspera\output\filtering($filters, $PAGE->url);
 
 // Enforce error-only scope for all queries when globally enabled.
 if ($errorsonly) {
-    $erroronlysql = "t.status IN (:defaultstatus1, :defaultstatus2, :defaultstatus3)";
+    $erroronlystatuses = plagiarism_inspera_errors_only_statuses();
+    $statusplaceholders = [];
+    foreach ($erroronlystatuses as $idx => $statusvalue) {
+        $paramname = "defaultstatus{$idx}";
+        $statusplaceholders[] = ':' . $paramname;
+        $ufparams[$paramname] = $statusvalue;
+    }
+    $erroronlysql = 't.status IN (' . implode(', ', $statusplaceholders) . ')';
     if (!empty($ufextrasql)) {
         $ufextrasql = "({$ufextrasql}) AND {$erroronlysql}";
     } else {
         $ufextrasql = $erroronlysql;
     }
-    $ufparams['defaultstatus1'] = 'error';
-    $ufparams['defaultstatus2'] = 'external_error';
-    $ufparams['defaultstatus3'] = 'fatal_error';
 }
 
 
