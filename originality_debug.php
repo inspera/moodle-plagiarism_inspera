@@ -145,7 +145,26 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
     } else if ($resubmitselected) {
         // Use short array destructuring instead of list().
         [$insql, $inparams] = $DB->get_in_or_equal($selectedids, SQL_PARAMS_NAMED);
-        $sqlparams = array_merge(['status' => 'report_requested', 'modtime' => time()], $inparams);
+        $selectedcount = count($selectedids);
+
+        // Prevent resubmitting fatal_error files by enforcing status constraint.
+        $eligibilityparams = array_merge(
+            [
+                'staterr' => 'error',
+                'statexterr' => 'external_error',
+            ],
+            $inparams
+        );
+        $eligibilitywhere = "id $insql AND status IN (:staterr, :statexterr)";
+        $eligiblecount = (int)$DB->count_records_select('plagiarism_inspera_subs', $eligibilitywhere, $eligibilityparams);
+
+        $sqlparams = array_merge(
+            [
+                'status' => 'report_requested',
+                'modtime' => time(),
+            ],
+            $eligibilityparams
+        );
 
         $sql = "UPDATE {plagiarism_inspera_subs}
                    SET status = :status,
@@ -153,16 +172,29 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
                        similarity = NULL,
                        translation_similarity = NULL,
                        ai_index = NULL,
-                       originality = NULL,
-                       character_replacement = NULL,
-                       hidden_text = NULL,
-                       image_as_text = NULL,
-                       externalid = NULL,
-                       description = NULL
-                 WHERE id $insql";
+                        originality = NULL,
+                        character_replacement = NULL,
+                        hidden_text = NULL,
+                        image_as_text = NULL,
+                        externalid = NULL,
+                        description = NULL
+                  WHERE $eligibilitywhere";
 
-        $DB->execute($sql, $sqlparams);
-        \core\notification::success(get_string('filesresubmitted', 'plagiarism_inspera', count($selectedids)));
+        if ($eligiblecount > 0) {
+            $DB->execute($sql, $sqlparams);
+        }
+
+        if ($eligiblecount === $selectedcount) {
+            \core\notification::success(get_string('filesresubmitted', 'plagiarism_inspera', $eligiblecount));
+        } else if ($eligiblecount > 0) {
+            $messageparams = (object)[
+                'eligible' => $eligiblecount,
+                'selected' => $selectedcount,
+            ];
+            \core\notification::warning(get_string('filesresubmittedpartial', 'plagiarism_inspera', $messageparams));
+        } else {
+            \core\notification::error(get_string('filesresubmittednone', 'plagiarism_inspera'));
+        }
     }
 
     // Final Redirect (Clean URL).
@@ -174,25 +206,31 @@ if ($id && ($action === 'resubmit' || $action === 'delete')) {
     require_sesskey();
     $executed = false;
     if ($action === 'resubmit') {
-        // Reset single file.
-        $record = new stdClass();
-        $record->id = $id;
-        $record->status = 'report_requested';
-        $record->timemodified = time();
-        // Clear scores.
-        $record->similarity = null;
-        $record->translation_similarity = null;
-        $record->ai_index = null;
-        $record->originality = null;
-        $record->character_replacement = null;
-        $record->hidden_text = null;
-        $record->image_as_text = null;
-        $record->externalid = null;
-        $record->description = null;
+        // Prevent resubmitting fatal_error files manually via URL.
+        $currentrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $id]);
+        if ($currentrecord && in_array($currentrecord->status, ['error', 'external_error'])) {
+            // Reset single file.
+            $record = new stdClass();
+            $record->id = $id;
+            $record->status = 'report_requested';
+            $record->timemodified = time();
+            // Clear scores.
+            $record->similarity = null;
+            $record->translation_similarity = null;
+            $record->ai_index = null;
+            $record->originality = null;
+            $record->character_replacement = null;
+            $record->hidden_text = null;
+            $record->image_as_text = null;
+            $record->externalid = null;
+            $record->description = null;
 
-        $DB->update_record('plagiarism_inspera_subs', $record);
-        \core\notification::success(get_string('fileresubmitted', 'plagiarism_inspera'));
-        $executed = true;
+            $DB->update_record('plagiarism_inspera_subs', $record);
+            \core\notification::success(get_string('fileresubmitted', 'plagiarism_inspera'));
+            $executed = true;
+        } else {
+            \core\notification::error(get_string('resubmitnoteligible', 'plagiarism_inspera'));
+        }
     } else if ($action === 'delete') {
         $DB->delete_records('plagiarism_inspera_subs', ['id' => $id]);
         \core\notification::success(get_string('filedeleted', 'plagiarism_inspera'));

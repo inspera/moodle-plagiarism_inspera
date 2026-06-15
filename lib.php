@@ -2130,8 +2130,8 @@ function plagiarism_inspera_cleanup_orphaned_records() {
                 $DB->delete_records('plagiarism_inspera_subs', ['id' => $record->id]);
                 $cleaned++;
             } else {
-                // If it reached Inspera but the source is gone, mark as error and stop polling.
-                $record->status = 'error';
+                // If it reached Inspera but the source is gone, mark as fatal_error and stop polling.
+                $record->status = 'fatal_error';
                 $record->description = 'Source file deleted from Moodle storage.';
                 $record->timemodified = time();
                 $DB->update_record('plagiarism_inspera_subs', $record);
@@ -2142,8 +2142,8 @@ function plagiarism_inspera_cleanup_orphaned_records() {
 
     // 2. Clean up temporary files for online text that are too old (> 7 days).
     $oldtime = time() - (7 * DAYSECS);
-    $sql = "identifier IS NOT NULL AND timecreated < ? AND status IN (?, ?, ?)";
-    $params = [$oldtime, 'report_requested', 'error', 'superseded'];
+    $sql = "identifier IS NOT NULL AND timecreated < ? AND status IN (?, ?, ?, ?, ?)";
+    $params = [$oldtime, 'report_requested', 'error', 'superseded', 'fatal_error', 'external_error'];
 
     $oldrecords = $DB->get_recordset_select('plagiarism_inspera_subs', $sql, $params);
 
@@ -2297,9 +2297,9 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         if (!empty($plagiarismfile->externalid)) {
             mtrace(
                 "Skipping Inspera submission for fileid {$plagiarismfile->id}: {$reason}. " .
-                "Preserving queue record as error because externalid {$plagiarismfile->externalid} already exists."
+                "Preserving queue record as fatal_error because externalid {$plagiarismfile->externalid} already exists."
             );
-            $plagiarismfile->status = 'error';
+            $plagiarismfile->status = 'fatal_error';
             $plagiarismfile->description = "Source file unavailable: {$reason}";
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
             return;
@@ -2311,6 +2311,85 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         );
         $DB->delete_records('plagiarism_inspera_subs', ['id' => $plagiarismfile->id]);
     };
+
+    // GHOST SUBMISSION CHECK (Pre-Flight).
+    // Ensure the parent Moodle submission wasn't deleted by the user before cron ran.
+    if (!empty($plagiarismfile->cm) && !empty($plagiarismfile->submissionid)) {
+        try {
+            $cm = get_coursemodule_from_id('', $plagiarismfile->cm, 0, false, IGNORE_MISSING);
+            if ($cm) {
+                $parenttable = '';
+                switch ($cm->modname) {
+                    case 'assign':
+                        $parenttable = 'assign_submission';
+                        break;
+                    case 'forum':
+                        $parenttable = 'forum_posts';
+                        break;
+                    case 'hsuforum':
+                        $parenttable = 'hsuforum_posts';
+                        break;
+                    case 'workshop':
+                        $parenttable = 'workshop_submissions';
+                        break;
+                    case 'quiz':
+                        $parenttable = 'question_attempts';
+                        break;
+                }
+
+                if ($parenttable) {
+                    $parentexists = $DB->record_exists($parenttable, ['id' => $plagiarismfile->submissionid]);
+
+                    if (!$parentexists) {
+                        mtrace(
+                            "GHOST DETECTED: Parent record in '{$parenttable}' " .
+                            "(ID: {$plagiarismfile->submissionid}) was deleted. Aborting upload."
+                        );
+
+                        // 1. Clean up orphaned Online Text temp files, but only inside the plugin temp base.
+                        if (empty($plagiarismfile->storedfileid) && !empty($plagiarismfile->identifier)) {
+                            $tempfilepath = (string)$plagiarismfile->identifier;
+                            $normalizedcandidate = str_replace('\\', '/', $tempfilepath);
+                            $hastraversal = strpos($normalizedcandidate, '..') !== false;
+
+                            $safebase = make_temp_directory('plagiarism_inspera');
+                            $realbasepath = realpath($safebase);
+                            $realfilepath = realpath($tempfilepath);
+
+                            $issafe = !$hastraversal &&
+                                $realbasepath !== false &&
+                                $realfilepath !== false &&
+                                is_file($realfilepath);
+                            if ($issafe) {
+                                $normalizedbase = str_replace('\\', '/', $realbasepath);
+                                if (substr($normalizedbase, -1) !== '/') {
+                                    $normalizedbase .= '/';
+                                }
+                                $normalizedresolvedpath = str_replace('\\', '/', $realfilepath);
+                                $issafe = strpos($normalizedresolvedpath, $normalizedbase) === 0;
+                            }
+
+                            if ($issafe) {
+                                if (unlink($realfilepath)) {
+                                    mtrace("Deleted orphaned temporary file: {$realfilepath}");
+                                }
+                            } else {
+                                mtrace("Security block: Skipped orphaned temporary file cleanup for unsafe identifier path.");
+                            }
+                        }
+
+                        // 2. Safely close out the database queue record as fatal error.
+                        $plagiarismfile->status = 'fatal_error';
+                        $plagiarismfile->description = "Ghost submission: parent record in {$parenttable} was deleted.";
+                        $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+                        return false;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            mtrace("Warning: Failed to verify ghost submission status for fileid {$plagiarismfile->id}: " . $e->getMessage());
+        }
+    }
 
     if (!empty($plagiarismfile->storedfileid)) {
         $fs = get_file_storage();
@@ -2334,7 +2413,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         $realbasepath = realpath($safebase);
         if ($realbasepath === false) {
             mtrace('SECURITY FATAL: Base temp directory could not be resolved for identifier validation.');
-            $plagiarismfile->status = 'error';
+            $plagiarismfile->status = 'fatal_error';
             $plagiarismfile->description = 'Security violation: Invalid file path detected.';
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
             return false;
@@ -2359,18 +2438,37 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         if ($isunsafe) {
             mtrace("SECURITY FATAL: Unauthorized directory or traversal attempt detected in identifier path: {$tempfilepath}");
 
-            // Mark the record as an error so cron stops trying to process it.
-            $plagiarismfile->status = 'error';
+            // Mark the record as a fatal_error so cron stops trying to process it.
+            $plagiarismfile->status = 'fatal_error';
             $plagiarismfile->description = 'Security violation: Invalid file path detected.';
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
             return false;
         }
 
         // REHYDRATION LOGIC START.
-        // If the file is missing (e.g. deleted by cleanup), try to recreate it from DB.
-        if (!file_exists($tempfilepath)) {
-            mtrace("Temp file missing: {$tempfilepath}. Attempting rehydration...");
+        // For online-text records tied to Moodle source data, always validate source existence
+        // against Moodle DB, even if a temp file still exists. This prevents sending stale ghost files.
+        $filename = basename((string)$tempfilepath);
+        $isquizidentifier = (bool)preg_match('/^quiz_(\d+)_(\d+)_(\d+)\.html$/', $filename);
+        $requiresourcevalidation = empty($plagiarismfile->storedfileid) &&
+            !empty($plagiarismfile->cm) &&
+            (!empty($plagiarismfile->submissionid) || $isquizidentifier);
 
+        if ($requiresourcevalidation) {
+            if (!plagiarism_inspera_rehydrate_file($plagiarismfile, $tempfilepath)) {
+                mtrace("GHOST DETECTED: Online-text source no longer exists for fileid {$plagiarismfile->id}. Aborting upload.");
+                if (!empty($tempfilepath) && file_exists($tempfilepath) && !unlink($tempfilepath)) {
+                    mtrace("Warning: Failed to delete ghost temporary file: {$tempfilepath}");
+                }
+                $plagiarismfile->status = 'fatal_error';
+                $plagiarismfile->description = 'Ghost submission: online-text source no longer exists in Moodle.';
+                $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+                return false;
+            }
+            mtrace("Source validation successful: Online text synchronized from Moodle DB.");
+        } else if (!file_exists($tempfilepath)) {
+            // For non-submission-scoped identifiers, keep existing best-effort behavior.
+            mtrace("Temp file missing: {$tempfilepath}. Attempting rehydration...");
             if (plagiarism_inspera_rehydrate_file($plagiarismfile, $tempfilepath)) {
                 mtrace("Rehydration successful: File recreated.");
             } else {
@@ -2387,7 +2485,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
 
             if ($isunsafe) {
                 mtrace("SECURITY FATAL: Unauthorized resolved identifier path detected: {$tempfilepath}");
-                $plagiarismfile->status = 'error';
+                $plagiarismfile->status = 'fatal_error';
                 $plagiarismfile->description = 'Security violation: Invalid file path detected.';
                 $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
                 return false;
@@ -2532,13 +2630,56 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
             }
         }
 
-        // Prepate DTO for Metadata.
+        // Prepare DTO for Metadata.
+        try {
+            $cmrecord = get_coursemodule_from_id('', $plagiarismfile->cm, 0, false, MUST_EXIST);
+            $course = get_course($cmrecord->course);
+            $subjectid = (string)$course->id;
+
+            // Clean course shortname (strips HTML and multi-lang tags).
+            $coursecontext = \context_course::instance($course->id);
+            $subjectname = format_string($course->shortname, true, ['context' => $coursecontext]);
+
+            $modinfo = get_fast_modinfo($course);
+
+            // Fail fast if the CM is missing from the course cache.
+            if (empty($modinfo->cms[$plagiarismfile->cm])) {
+                throw new \Exception("Activity CM {$plagiarismfile->cm} is missing from course modinfo cache.");
+            }
+
+            $rawname = $modinfo->cms[$plagiarismfile->cm]->name;
+
+            // Fail fast if the raw name is somehow completely empty.
+            if (trim($rawname) === '') {
+                throw new \Exception("Activity CM {$plagiarismfile->cm} contains an empty name string.");
+            }
+
+            // Clean activity instance name.
+            $modcontext = \context_module::instance($plagiarismfile->cm);
+            $assignmentname = format_string($rawname, true, ['context' => $modcontext]);
+        } catch (\Throwable $e) {
+            mtrace(
+                "GHOST DETECTED: Failed to resolve activity/course metadata for CM {$plagiarismfile->cm}. " .
+                "Aborting upload. " . $e->getMessage()
+            );
+            if (!empty($tempfilepath) && file_exists($tempfilepath) && !unlink($tempfilepath)) {
+                mtrace("Warning: Failed to delete ghost temporary file after metadata resolution failure: {$tempfilepath}");
+            }
+            $plagiarismfile->status = 'fatal_error';
+            $plagiarismfile->description = 'Ghost submission: activity or course metadata could not be resolved.';
+            $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+            return false;
+        }
+
         $metadata = new \stdClass();
-        $metadata->title        = $filename;
-        $metadata->author       = $authorname;
-        $metadata->email        = $user->email;
-        $metadata->doctype      = $mimetype;
-        $metadata->assignmentid = $plagiarismfile->cm;
+        $metadata->title = $filename;
+        $metadata->author = $authorname;
+        $metadata->email = $user->email;
+        $metadata->doctype = $mimetype;
+        $metadata->assignmentid = (string)$plagiarismfile->cm;
+        $metadata->assignmentname = $assignmentname;
+        $metadata->subjectid = $subjectid;
+        $metadata->subjectname = $subjectname;
 
         // Create submission.
         try {
@@ -2711,7 +2852,7 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
                     break;
                 }
 
-                $plagiarismfile->status = 'external_error';
+                $plagiarismfile->status = 'fatal_error';
                 $plagiarismfile->description = isset($status->message) ? (string)$status->message : json_encode($status);
 
                 $plagiarismfile->timemodified = time();
@@ -2746,6 +2887,7 @@ function plagiarism_inspera_statuscodes() {
         'report_requested' => get_string('status_report_requested', 'plagiarism_inspera'),
         'finished' => get_string('status_finished', 'plagiarism_inspera'),
         'error' => get_string('status_error', 'plagiarism_inspera'),
+        'fatal_error' => get_string('status_fatal_error', 'plagiarism_inspera'),
         'external_error' => get_string('status_external_error', 'plagiarism_inspera'),
         'fatal_error' => get_string('status_fatal_error', 'plagiarism_inspera'),
         'superseded' => get_string('status_superseded', 'plagiarism_inspera'),
@@ -2806,7 +2948,8 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
         return false;
     }
 
-    $content = '';
+    $content = null;
+    $sourcefound = false;
     $filename = basename($filepath);
     $submissionid = !empty($record->submissionid) ? (int)$record->submissionid : 0;
 
@@ -2839,6 +2982,10 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
                 $qa = $quba->get_question_attempt($qarecord->slot);
                 // 3. Get the submitted text.
                 $content = $qa->get_last_qt_var('answer');
+                if ($content === null) {
+                    $content = '';
+                }
+                $sourcefound = true;
             }
         } catch (\Exception $e) {
             mtrace("Error rehydrating Quiz text: " . $e->getMessage());
@@ -2858,6 +3005,7 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
                     JOIN {course_modules} cm ON cm.instance = a.id
                     WHERE ot.submission = ? AND cm.id = ?";
             $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+            $sourcefound = ($content !== false);
         } else if ($modname === 'forum') {
             $sql = "SELECT p.message FROM {forum_posts} p
                     JOIN {forum_discussions} d ON p.discussion = d.id
@@ -2865,6 +3013,7 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
                     JOIN {course_modules} cm ON cm.instance = f.id
                     WHERE p.id = ? AND cm.id = ?";
             $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+            $sourcefound = ($content !== false);
         } else if ($modname === 'hsuforum') {
             $sql = "SELECT p.message FROM {hsuforum_posts} p
                      JOIN {hsuforum_discussions} d ON p.discussion = d.id
@@ -2872,17 +3021,23 @@ function plagiarism_inspera_rehydrate_file($record, $filepath) {
                      JOIN {course_modules} cm ON cm.instance = f.id
                      WHERE p.id = ? AND cm.id = ?";
             $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+            $sourcefound = ($content !== false);
         } else if ($modname === 'workshop') {
             $sql = "SELECT sub.content FROM {workshop_submissions} sub
                     JOIN {workshop} w ON sub.workshopid = w.id
                     JOIN {course_modules} cm ON cm.instance = w.id
                     WHERE sub.id = ? AND cm.id = ?";
             $content = $DB->get_field_sql($sql, [$submissionid, $record->cm]);
+            $sourcefound = ($content !== false);
+        }
+
+        if ($sourcefound && $content === null) {
+            $content = '';
         }
     }
 
-    // If we found content, write it directly to the exact path the caller expects.
-    if (!empty($content)) {
+    // Accept empty-string and "0" submissions as valid content when source rows exist.
+    if ($sourcefound) {
         // Match the formatting and sanitization rules from create_temp_file exactly.
         $cleanedcontent = format_text($content, FORMAT_HTML, [
             'context' => \context_system::instance(),

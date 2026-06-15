@@ -127,9 +127,16 @@ class report_formatter {
 
             case 'error':
             case 'external_error':
+            case 'fatal_error':
                 $context['iserror'] = true;
                 $context['wrapperclass'] .= ' error';
-                $context['statustext'] = get_string('statuserror', 'plagiarism_inspera');
+
+                // Use the specific fatal error string, or fall back to the generic error string.
+                if ($record->status === 'fatal_error') {
+                    $context['statustext'] = get_string('status_fatal_error', 'plagiarism_inspera');
+                } else {
+                    $context['statustext'] = get_string('statuserror', 'plagiarism_inspera');
+                }
 
                 if (!empty($record->description)) {
                     $context['hasdescription'] = true;
