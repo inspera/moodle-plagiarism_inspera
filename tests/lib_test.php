@@ -685,6 +685,44 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Test errors-only helper status list and keyed map stay aligned.
+     *
+     * @covers ::plagiarism_inspera_errors_only_statuses
+     * @covers ::plagiarism_inspera_errors_only_status_map
+     */
+    public function test_plagiarism_inspera_errors_only_status_helpers_are_consistent(): void {
+        $statuses = \plagiarism_inspera_errors_only_statuses();
+        $statusmap = \plagiarism_inspera_errors_only_status_map();
+
+        $this->assertSame(['error', 'external_error', 'fatal_error'], $statuses);
+        $this->assertSame(array_fill_keys($statuses, true), $statusmap);
+        $this->assertArrayHasKey('fatal_error', $statusmap);
+    }
+
+    /**
+     * Test helper extracts status values from supported filter-rule payload shapes.
+     *
+     * @covers ::plagiarism_inspera_extract_status_rule_value
+     */
+    public function test_plagiarism_inspera_extract_status_rule_value_supported_shapes(): void {
+        $this->assertSame('error', \plagiarism_inspera_extract_status_rule_value(['value' => 'error']));
+        $this->assertSame('external_error', \plagiarism_inspera_extract_status_rule_value([0 => 2, 1 => 'external_error']));
+        $this->assertSame('fatal_error', \plagiarism_inspera_extract_status_rule_value((object)['value' => 'fatal_error']));
+        $this->assertSame('error', \plagiarism_inspera_extract_status_rule_value('error'));
+    }
+
+    /**
+     * Test helper returns null for unsupported filter-rule payloads.
+     *
+     * @covers ::plagiarism_inspera_extract_status_rule_value
+     */
+    public function test_plagiarism_inspera_extract_status_rule_value_unsupported_shapes(): void {
+        $this->assertNull(\plagiarism_inspera_extract_status_rule_value([]));
+        $this->assertNull(\plagiarism_inspera_extract_status_rule_value((object)[]));
+        $this->assertNull(\plagiarism_inspera_extract_status_rule_value(['foo' => 'bar']));
+    }
+
+    /**
      * Test poll catches network exceptions and keeps record pending for retry.
      *
      * @covers ::plagiarism_inspera_poll_file_status
