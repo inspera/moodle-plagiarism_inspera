@@ -67,9 +67,9 @@ if (isset($gradecapabilities[$modulename])) {
 
 // Access Control: Graders have unconditional access.
 if (!$isgrader) {
+    // 1. Non-graders MUST be the owner of the submission (or a team member for group submissions).
     $hasstudentaccess = ((int)$record->userid === (int)$USER->id);
 
-    // Allow team members to view assignment reports when teamsubmission is enabled.
     if (!$hasstudentaccess && $cm->modname === 'assign') {
         require_once($CFG->dirroot . '/mod/assign/locallib.php');
         $assign = new \assign($context, $cm, $course);
