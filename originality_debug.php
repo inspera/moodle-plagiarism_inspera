@@ -59,20 +59,82 @@ if (!empty($SITE)) {
 }
 require_capability('moodle/site:config', $context);
 
+$errorsonly = (bool)get_config('plagiarism_inspera', 'errorsonlymanagement');
+if (
+    $errorsonly &&
+    !$deleteselected &&
+    !$resubmitselected &&
+    !$id &&
+    $action === '' &&
+    !empty($SESSION->user_filtering) &&
+    is_array($SESSION->user_filtering)
+) {
+    $allowedstatuses = plagiarism_inspera_errors_only_status_map();
+    $sessionchanged = false;
+
+    $sanitizefilters = function (array &$filters) use ($allowedstatuses, &$sessionchanged): void {
+        if (empty($filters['status']) || !is_array($filters['status'])) {
+            return;
+        }
+
+        $filteredstatusrules = [];
+        foreach ($filters['status'] as $rule) {
+            $value = plagiarism_inspera_extract_status_rule_value($rule);
+
+            if ($value !== null && isset($allowedstatuses[$value])) {
+                $filteredstatusrules[] = $rule;
+            }
+        }
+
+        if (count($filteredstatusrules) !== count($filters['status'])) {
+            $sessionchanged = true;
+        }
+
+        if (empty($filteredstatusrules)) {
+            unset($filters['status']);
+        } else {
+            $filters['status'] = $filteredstatusrules;
+        }
+    };
+
+    if (array_key_exists('status', $SESSION->user_filtering)) {
+        $sanitizefilters($SESSION->user_filtering);
+    } else {
+        foreach ($SESSION->user_filtering as &$filtersession) {
+            if (is_array($filtersession) && array_key_exists('status', $filtersession)) {
+                $sanitizefilters($filtersession);
+            }
+        }
+        unset($filtersession);
+    }
+
+    if ($sessionchanged) {
+        redirect($url);
+    }
+}
+
 $exportfilename = 'OriginalityDebugOutput.csv';
 
 $limit = 50;
 $filters = ['status' => 0, 'realname' => 0, 'timecreated' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0];
 $ufiltering = new \plagiarism_inspera\output\filtering($filters, $PAGE->url);
 [$ufextrasql, $ufparams] = $ufiltering->get_sql_filter();
-$errorsonly = (bool)get_config('plagiarism_inspera', 'errorsonlymanagement');
 
-// Apply error-only defaults only when globally enabled and no custom filters are active.
-if ($errorsonly && empty($ufextrasql)) {
-    $ufextrasql = "t.status IN (:defaultstatus1, :defaultstatus2, :defaultstatus3)";
-    $ufparams['defaultstatus1'] = 'error';
-    $ufparams['defaultstatus2'] = 'external_error';
-    $ufparams['defaultstatus3'] = 'fatal_error';
+// Enforce error-only scope for all queries when globally enabled.
+if ($errorsonly) {
+    $erroronlystatuses = plagiarism_inspera_errors_only_statuses();
+    $statusplaceholders = [];
+    foreach ($erroronlystatuses as $idx => $statusvalue) {
+        $paramname = "defaultstatus{$idx}";
+        $statusplaceholders[] = ':' . $paramname;
+        $ufparams[$paramname] = $statusvalue;
+    }
+    $erroronlysql = 't.status IN (' . implode(', ', $statusplaceholders) . ')';
+    if (!empty($ufextrasql)) {
+        $ufextrasql = "({$ufextrasql}) AND {$erroronlysql}";
+    } else {
+        $ufextrasql = $erroronlysql;
+    }
 }
 
 

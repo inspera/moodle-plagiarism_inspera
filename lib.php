@@ -2876,6 +2876,54 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
 }
 
 /**
+ * Returns the list of statuses allowed when Submissions Management runs in errors-only mode.
+ *
+ * @package plagiarism_inspera
+ * @return array
+ */
+function plagiarism_inspera_errors_only_statuses(): array {
+    return ['error', 'external_error', 'fatal_error'];
+}
+
+/**
+ * Returns a keyed map of statuses allowed in errors-only mode.
+ *
+ * @package plagiarism_inspera
+ * @return array
+ */
+function plagiarism_inspera_errors_only_status_map(): array {
+    return array_fill_keys(plagiarism_inspera_errors_only_statuses(), true);
+}
+
+/**
+ * Extracts a status value from Moodle filter rule payloads.
+ *
+ * @package plagiarism_inspera
+ * @param mixed $rule
+ * @return string|null
+ */
+function plagiarism_inspera_extract_status_rule_value($rule): ?string {
+    if (is_array($rule) && array_key_exists('value', $rule)) {
+        return (string)$rule['value'];
+    }
+
+    if (is_array($rule) && array_key_exists(1, $rule) && is_scalar($rule[1])) {
+        // Some Moodle filter payloads store [operator, value] as numeric indexes.
+        return (string)$rule[1];
+    }
+
+    if (is_object($rule) && property_exists($rule, 'value')) {
+        return (string)$rule->value;
+    }
+
+    if (is_scalar($rule)) {
+        return (string)$rule;
+    }
+
+    return null;
+}
+
+/**
  * Returns list of available statuses for filtering.
  *
  * @package plagiarism_inspera

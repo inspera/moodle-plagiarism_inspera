@@ -38,6 +38,64 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
  */
 class filtering extends \user_filtering {
     /**
+     * Removes stale status filter values that are incompatible with errors-only mode.
+     *
+     * @return void
+     */
+    private function sanitize_status_filters_for_errors_only(): void {
+        global $SESSION;
+
+        $errorsonly = (bool)get_config('plagiarism_inspera', 'errorsonlymanagement');
+        if (!$errorsonly || empty($SESSION->user_filtering) || !is_array($SESSION->user_filtering)) {
+            return;
+        }
+
+        $allowedstatuses = plagiarism_inspera_errors_only_status_map();
+
+        $sanitizefilters = function (array &$filters) use ($allowedstatuses): void {
+            if (empty($filters['status']) || !is_array($filters['status'])) {
+                return;
+            }
+
+            $filteredstatusrules = [];
+            foreach ($filters['status'] as $rule) {
+                $value = plagiarism_inspera_extract_status_rule_value($rule);
+
+                if ($value !== null && isset($allowedstatuses[$value])) {
+                    $filteredstatusrules[] = $rule;
+                }
+            }
+
+            if (empty($filteredstatusrules)) {
+                unset($filters['status']);
+            } else {
+                $filters['status'] = $filteredstatusrules;
+            }
+        };
+
+        if (
+            !empty($this->_uniqueid) &&
+            !empty($SESSION->user_filtering[$this->_uniqueid]) &&
+            is_array($SESSION->user_filtering[$this->_uniqueid])
+        ) {
+            $sanitizefilters($SESSION->user_filtering[$this->_uniqueid]);
+            return;
+        }
+
+        if (array_key_exists('status', $SESSION->user_filtering)) {
+            $sanitizefilters($SESSION->user_filtering);
+            return;
+        }
+
+        foreach ($SESSION->user_filtering as &$filters) {
+            if (is_array($filters) && array_key_exists('status', $filters)) {
+                $sanitizefilters($filters);
+            }
+        }
+        unset($filters);
+    }
+
+    /**
      * Builds SQL where conditions for active filters using faceted logic.
      *
      * Repeated values for the same filter field are combined with OR, while
@@ -50,6 +108,8 @@ class filtering extends \user_filtering {
     public function get_sql_filter($extra = '', ?array $params = null) {
         global $SESSION;
 
+        $this->sanitize_status_filters_for_errors_only();
+
         $params = (array)$params;
         $sqlparts = [];
 
@@ -57,10 +117,37 @@ class filtering extends \user_filtering {
             $sqlparts[] = $extra;
         }
 
-        if (!empty($SESSION->user_filtering[$this->_uniqueid])) {
+        $sessionfilters = [];
+        if (!empty($SESSION->user_filtering) && is_array($SESSION->user_filtering)) {
+            if (
+                !empty($this->_uniqueid) &&
+                !empty($SESSION->user_filtering[$this->_uniqueid]) &&
+                is_array($SESSION->user_filtering[$this->_uniqueid])
+            ) {
+                $sessionfilters = $SESSION->user_filtering[$this->_uniqueid];
+            } else {
+                // Backward/shape compatibility: support flat and nested filter session structures.
+                $fieldkeys = array_keys($this->_fields);
+                if (!empty(array_intersect(array_keys($SESSION->user_filtering), $fieldkeys))) {
+                    $sessionfilters = $SESSION->user_filtering;
+                } else {
+                    foreach ($SESSION->user_filtering as $maybe) {
+                        if (!is_array($maybe)) {
+                            continue;
+                        }
+                        if (!empty(array_intersect(array_keys($maybe), $fieldkeys))) {
+                            $sessionfilters = $maybe;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!empty($sessionfilters)) {
             $fieldsqlgroups = [];
 
-            foreach ($SESSION->user_filtering[$this->_uniqueid] as $fname => $datas) {
+            foreach ($sessionfilters as $fname => $datas) {
                 if (!array_key_exists($fname, $this->_fields)) {
                     continue;
                 }
@@ -116,12 +203,7 @@ class filtering extends \user_filtering {
             $statuses = plagiarism_inspera_statuscodes();
             $errorsonly = (bool)get_config('plagiarism_inspera', 'errorsonlymanagement');
             if ($errorsonly) {
-                $allowedstatuses = [
-                    'error' => true,
-                    'external_error' => true,
-                    'fatal_error' => true,
-                ];
-                $statuses = array_intersect_key($statuses, $allowedstatuses);
+                $statuses = array_intersect_key($statuses, plagiarism_inspera_errors_only_status_map());
             }
             return new \user_filter_simpleselect(
                 'status',
