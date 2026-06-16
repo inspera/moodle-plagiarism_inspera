@@ -2751,7 +2751,7 @@ function plagiarism_inspera_send_file($plagiarismfile, \plagiarism_inspera\apicl
         }
     } catch (\Throwable $e) {
         mtrace("Error uploading file content for documentId: {$plagiarismfile->externalid}: " . $e->getMessage());
-        $plagiarismfile->status = 'external_error';
+        $plagiarismfile->status = 'error';
         $plagiarismfile->description = $e->getMessage();
         $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
 
