@@ -205,57 +205,20 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
         $deletedcount = count($selectedids);
         \core\notification::success(get_string('recordsdeleted', 'plagiarism_inspera', $deletedcount));
     } else if ($resubmitselected) {
-        // Use short array destructuring instead of list().
-        [$insql, $inparams] = $DB->get_in_or_equal($selectedids, SQL_PARAMS_NAMED);
         $selectedcount = count($selectedids);
+        $client = new \plagiarism_inspera\apiclient\api_client();
+        $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
+        $result = $recoveryservice->resubmit_bulk($selectedids, $client);
 
-        // Prevent resubmitting fatal_error files by enforcing status constraint.
-        $eligibilityparams = array_merge(
-            [
-                'staterr' => 'error',
-                'statexterr' => 'external_error',
-            ],
-            $inparams
-        );
-        $eligibilitywhere = "id $insql AND status IN (:staterr, :statexterr)";
-        $eligiblecount = (int)$DB->count_records_select('plagiarism_inspera_subs', $eligibilitywhere, $eligibilityparams);
-
-        $sqlparams = array_merge(
-            [
-                'status' => 'report_requested',
-                'modtime' => time(),
-            ],
-            $eligibilityparams
-        );
-
-        $sql = "UPDATE {plagiarism_inspera_subs}
-                   SET status = :status,
-                       timemodified = :modtime,
-                       similarity = NULL,
-                       translation_similarity = NULL,
-                       ai_index = NULL,
-                        originality = NULL,
-                        character_replacement = NULL,
-                        hidden_text = NULL,
-                        image_as_text = NULL,
-                        externalid = NULL,
-                        description = NULL
-                  WHERE $eligibilitywhere";
-
-        if ($eligiblecount > 0) {
-            $DB->execute($sql, $sqlparams);
-        }
-
-        if ($eligiblecount === $selectedcount) {
-            \core\notification::success(get_string('filesresubmitted', 'plagiarism_inspera', $eligiblecount));
-        } else if ($eligiblecount > 0) {
-            $messageparams = (object)[
-                'eligible' => $eligiblecount,
-                'selected' => $selectedcount,
-            ];
-            \core\notification::warning(get_string('filesresubmittedpartial', 'plagiarism_inspera', $messageparams));
+        if (($result->recovered + $result->queued) > 0) {
+            $message = "Resubmit processed {$selectedcount} selected records: " .
+                "{$result->recovered} recovered immediately, {$result->queued} queued for fresh submission.";
+            if ($result->skipped > 0) {
+                $message .= " {$result->skipped} skipped (status was not error or record not found).";
+            }
+            \core\notification::success($message);
         } else {
-            \core\notification::error(get_string('filesresubmittednone', 'plagiarism_inspera'));
+            \core\notification::error('No records were resubmitted. Only records in error status are eligible.');
         }
     }
 
@@ -268,30 +231,18 @@ if ($id && ($action === 'resubmit' || $action === 'delete')) {
     require_sesskey();
     $executed = false;
     if ($action === 'resubmit') {
-        // Prevent resubmitting fatal_error files manually via URL.
-        $currentrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $id]);
-        if ($currentrecord && in_array($currentrecord->status, ['error', 'external_error'])) {
-            // Reset single file.
-            $record = new stdClass();
-            $record->id = $id;
-            $record->status = 'report_requested';
-            $record->timemodified = time();
-            // Clear scores.
-            $record->similarity = null;
-            $record->translation_similarity = null;
-            $record->ai_index = null;
-            $record->originality = null;
-            $record->character_replacement = null;
-            $record->hidden_text = null;
-            $record->image_as_text = null;
-            $record->externalid = null;
-            $record->description = null;
+        $client = new \plagiarism_inspera\apiclient\api_client();
+        $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
+        $outcome = $recoveryservice->resubmit_single($id, $client);
 
-            $DB->update_record('plagiarism_inspera_subs', $record);
-            \core\notification::success(get_string('fileresubmitted', 'plagiarism_inspera'));
+        if ($outcome === 'recovered') {
+            \core\notification::success('Submission recovered immediately via pre-flight check.');
+            $executed = true;
+        } else if ($outcome === 'queued') {
+            \core\notification::success('Submission queued for a fresh start after pre-flight check.');
             $executed = true;
         } else {
-            \core\notification::error(get_string('resubmitnoteligible', 'plagiarism_inspera'));
+            \core\notification::error('Resubmit is only allowed when status is error.');
         }
     } else if ($action === 'delete') {
         $DB->delete_records('plagiarism_inspera_subs', ['id' => $id]);

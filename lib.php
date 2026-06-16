@@ -2788,11 +2788,25 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
         $status = $client->check_document_status($plagiarismfile->externalid);
 
         switch ($status->status) {
-            case -1:
-                // Still processing.
-                break;
-            case 0:
-                // Queued, do nothing.
+            case -1: // Processing.
+            case 0: // Queued, do nothing.
+                $graceperiodreference = (int)($plagiarismfile->timemodified ?? $plagiarismfile->timecreated ?? time());
+                $elapsedseconds = time() - $graceperiodreference;
+
+                if ($elapsedseconds > 2 * DAYSECS) { // 48 hours limit.
+                    // Dynamically determine the human-readable state for the admin logs.
+                    $statustext = ($status->status == 0) ? 'queued' : 'processing';
+
+                    $plagiarismfile->status = 'error';
+                    $plagiarismfile->description = "API timeout: Stuck in {$statustext} state for over 24 hours.";
+                    $plagiarismfile->timemodified = time();
+                    $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+
+                    mtrace(
+                        "Originality API timeout: fileid {$plagiarismfile->id} stuck in state " .
+                        "{$status->status} ({$statustext}) for over 24h. Marked as error."
+                    );
+                }
                 break;
             case 1:
                 // Processed successfully → update record with returned data.
@@ -2871,6 +2885,22 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
                 break;
         }
     } catch (\Throwable $e) {
+        $graceperiodreference = (int)($plagiarismfile->timemodified ?? $plagiarismfile->timecreated ?? time());
+        $elapsedseconds = time() - $graceperiodreference;
+
+        if ($elapsedseconds > 2 * DAYSECS) { // 48 hours limit
+            $plagiarismfile->status = 'error';
+            $plagiarismfile->description = "Polling failed for 48 hours. Last error: " . $e->getMessage();
+            $plagiarismfile->timemodified = time();
+            $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+
+            mtrace(
+                "Originality API poll timeout for fileid {$plagiarismfile->id}: " .
+                "Aborting after 48 hours. Marked as error."
+            );
+        } else {
+            mtrace("Originality API poll error for fileid {$plagiarismfile->id}: " . $e->getMessage());
+        }
         mtrace("Originality API poll error for fileid {$plagiarismfile->id}: " . $e->getMessage());
     }
 }

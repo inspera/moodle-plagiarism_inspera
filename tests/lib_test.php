@@ -1189,6 +1189,163 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Test poll handles successful processing (status 1) and maps originality data.
+     *
+     * @covers ::plagiarism_inspera_poll_file_status
+     */
+    public function test_plagiarism_inspera_poll_file_status_handles_success(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $record = $this->create_pending_submission(time() - 3600);
+
+        $statusresponse = (object) [
+            'status' => 1,
+            'similarity' => 12,
+            'originality_percentage' => 88,
+            'translationSimilarity' => 5,
+            'ai_index' => 2,
+        ];
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+
+        $clientmock->expects($this->once())
+            ->method('check_document_status')
+            ->willReturn($statusresponse);
+
+        // Suppress mtrace output if it exists in status 1, though standard code might not output here.
+        ob_start();
+        \plagiarism_inspera_poll_file_status($record, $clientmock);
+        ob_end_clean();
+
+        $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertEquals('finished', $updatedrecord->status);
+        $this->assertEquals(12, $updatedrecord->similarity);
+        $this->assertEquals(88, $updatedrecord->originality_score);
+        $this->assertEquals(5, $updatedrecord->translation_similarity);
+        $this->assertEquals(2, $updatedrecord->ai_index);
+    }
+
+    /**
+     * Test poll keeps record pending when API returns 0 or -1 within the 24h limit.
+     *
+     * @covers ::plagiarism_inspera_poll_file_status
+     */
+    public function test_plagiarism_inspera_poll_file_status_keeps_pending_for_queued_within_limit(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        // Created 12 hours ago (Within 24h limit).
+        $record = $this->create_pending_submission(time() - (12 * 3600));
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+
+        $clientmock->expects($this->once())
+            ->method('check_document_status')
+            ->willReturn((object) ['status' => 0]);
+
+        ob_start();
+        \plagiarism_inspera_poll_file_status($record, $clientmock);
+        ob_end_clean();
+
+        $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertEquals('pending', $updatedrecord->status);
+    }
+
+    /**
+     * Test poll sets error when API returns 0 or -1 AFTER the 24h limit.
+     *
+     * @covers ::plagiarism_inspera_poll_file_status
+     */
+    public function test_plagiarism_inspera_poll_file_status_sets_error_for_queued_after_limit(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        // Created 25 hours ago (Exceeds DAYSECS).
+        $record = $this->create_pending_submission(time() - 90000);
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+
+        $clientmock->expects($this->once())
+            ->method('check_document_status')
+            ->willReturn((object) ['status' => -1]);
+
+        $this->expectOutputRegex('/stuck in state -1 \(processing\) for over 24h\. Marked as error/s');
+        \plagiarism_inspera_poll_file_status($record, $clientmock);
+
+        $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertEquals('error', $updatedrecord->status);
+        $this->assertStringContainsString('API timeout: Stuck in processing state for over 24 hours', $updatedrecord->description);
+    }
+
+    /**
+     * Test poll sets error when an exception is thrown AFTER the 48h limit.
+     *
+     * @covers ::plagiarism_inspera_poll_file_status
+     */
+    public function test_plagiarism_inspera_poll_file_status_sets_error_on_exception_after_limit(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        // Created 50 hours ago (Exceeds 2 * DAYSECS).
+        $record = $this->create_pending_submission(time() - 180000);
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+
+        $clientmock->expects($this->once())
+            ->method('check_document_status')
+            ->willThrowException(new \Exception('Persistent network failure'));
+
+        $this->expectOutputRegex('/Aborting after 48 hours\. Marked as error/s');
+        \plagiarism_inspera_poll_file_status($record, $clientmock);
+
+        $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertEquals('error', $updatedrecord->status);
+        $this->assertStringContainsString('Polling failed for 48 hours', $updatedrecord->description);
+        $this->assertStringContainsString('Persistent network failure', $updatedrecord->description);
+    }
+
+    /**
+     * Test poll handles unknown status codes by mapping to external_error.
+     *
+     * @covers ::plagiarism_inspera_poll_file_status
+     */
+    public function test_plagiarism_inspera_poll_file_status_sets_external_error_for_unknown_status(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $record = $this->create_pending_submission(time() - 3600);
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+
+        $clientmock->expects($this->once())
+            ->method('check_document_status')
+            ->willReturn((object) ['status' => 99, 'message' => 'New unmapped API state']);
+
+        $this->expectOutputRegex('/returned error status/s');
+        \plagiarism_inspera_poll_file_status($record, $clientmock);
+
+        $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertEquals('external_error', $updatedrecord->status);
+        $this->assertEquals('New unmapped API state', $updatedrecord->description);
+    }
+
+    /**
      * Creates an online-text temporary file under plagiarism_inspera temp directory.
      *
      * @param string $content HTML content to write.
