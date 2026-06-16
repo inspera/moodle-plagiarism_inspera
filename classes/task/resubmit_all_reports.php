@@ -74,6 +74,8 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
         $cm = get_coursemodule_from_id($modname, $cmid, 0, false, MUST_EXIST);
         $context = \context_module::instance($cmid);
+        $client = new \plagiarism_inspera\apiclient\api_client();
+        $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
 
         // PATHWAY 1: ASSIGNMENT MODULE.
         if ($modname === 'assign') {
@@ -83,6 +85,8 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             $fs = get_file_storage();
             $files = $fs->get_area_files($context->id, 'assignsubmission_file', 'submission_files', false, 'timemodified', false);
             mtrace("Found " . count($files) . " candidate assignment files.");
+
+            $bulkassignfileids = [];
 
             foreach ($files as $file) {
                 if ($file->get_filename() === '.') {
@@ -97,10 +101,20 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                         ORDER BY timecreated DESC, id DESC";
                 $record = $DB->get_record_sql($sql, [$cmid, $storedfileid], IGNORE_MULTIPLE);
 
-                if ($this->should_process($record)) {
+                if (!$record) {
                     mtrace("Queuing Assignment File ID: " . $storedfileid);
                     plagiarism_inspera_queue_file($cmid, $file->get_userid(), $file, null, $itemid);
+                    continue;
                 }
+
+                if ($this->should_process($record)) {
+                    $bulkassignfileids[] = (int)$record->id;
+                }
+            }
+            if (!empty($bulkassignfileids)) {
+                $bulkresult = $recoveryservice->resubmit_bulk($bulkassignfileids, $client);
+                mtrace("Bulk Processed Assignment Files: {$bulkresult->recovered} recovered via pre-flight, " .
+                    "{$bulkresult->queued} queued for fresh submission.");
             }
 
             // PART B: PROCESS ONLINE TEXT.
@@ -120,7 +134,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                             ORDER BY timecreated DESC, id DESC";
                     $record = $DB->get_record_sql($sql, [$cmid, $sub->submissionid], IGNORE_MULTIPLE);
 
-                    if ($this->should_process($record)) {
+                    if (!$record) {
                         mtrace("Queuing Assignment Online Text for Submission ID: " . $sub->submissionid);
                         $tempfileobject = plagiarism_inspera_create_temp_file(
                             $cmid,
@@ -138,6 +152,34 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                             null,
                             $sub->submissionid
                         );
+                        continue;
+                    }
+
+                    if ($this->should_process($record)) {
+                        $outcome = $recoveryservice->resubmit_single((int)$record->id, $client);
+                        if ($outcome === 'recovered') {
+                            mtrace("Recovered Assignment Online Text for Submission ID {$sub->submissionid} via pre-flight.");
+                            continue;
+                        }
+                        if ($outcome !== 'queued') {
+                            continue;
+                        }
+
+                        // Refresh online text payload by creating a fresh temp file reference.
+                        mtrace("Updating Assignment Online Text identifier for Submission " .
+                            "ID {$sub->submissionid} after pre-flight fallback.");
+                        $tempfileobject = plagiarism_inspera_create_temp_file(
+                            $cmid,
+                            $cm->course,
+                            $sub->userid,
+                            $sub->onlinetext,
+                            $sub->submissionid
+                        );
+                        $updaterecord = new \stdClass();
+                        $updaterecord->id = $record->id;
+                        $updaterecord->identifier = $tempfileobject->filepath;
+                        $updaterecord->timemodified = time();
+                        $DB->update_record('plagiarism_inspera_subs', $updaterecord);
                     }
                 }
             }
@@ -152,15 +194,27 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
             mtrace("Processing tracking records for Forum CMID: " . $cmid);
 
+            $bulkforumfileids = [];
+
             foreach ($recordset as $record) {
                 if ($this->should_process($record)) {
                     $postid = $record->submissionid;
 
-                    // 1. Handle Inline Text Resubmission.
+                    // 1. Handle Inline Text Resubmission (Single Processing Required).
                     if ($record->storedfileid === null) {
+                        $outcome = $recoveryservice->resubmit_single((int)$record->id, $client);
+
+                        if ($outcome === 'recovered') {
+                            mtrace("Recovered Forum Online Text for Post ID {$postid} via pre-flight.");
+                            continue;
+                        }
+                        if ($outcome !== 'queued') {
+                            continue;
+                        }
+
                         $message = $DB->get_field($posttable, 'message', ['id' => $postid], IGNORE_MISSING);
                         if ($message !== false) {
-                            mtrace("Queuing Forum Online Text for Post ID: " . $postid);
+                            mtrace("Updating Forum Online Text identifier for Post ID {$postid} after pre-flight fallback.");
                             $tempfileobject = plagiarism_inspera_create_temp_file(
                                 $cmid,
                                 $cm->course,
@@ -168,29 +222,29 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                                 $message,
                                 $postid
                             );
-                            $dummyfile = new \stdClass();
-                            $dummyfile->filepath = $tempfileobject->filepath;
-                            plagiarism_inspera_queue_file(
-                                $cmid,
-                                $record->userid,
-                                $dummyfile,
-                                null,
-                                $postid
-                            );
+                            $updaterecord = new \stdClass();
+                            $updaterecord->id = $record->id;
+                            $updaterecord->identifier = $tempfileobject->filepath;
+                            $updaterecord->timemodified = time();
+                            $DB->update_record('plagiarism_inspera_subs', $updaterecord);
                         }
                     } else if ((int)$record->storedfileid > 0) {
-                        $fs = get_file_storage();
-                        $file = $fs->get_file_by_id($record->storedfileid);
-                        if ($file) {
-                            mtrace("Queuing Forum File Attachment ID: " . $record->storedfileid);
-                            plagiarism_inspera_queue_file($cmid, $record->userid, $file, null, $postid);
-                        }
+                        // 2. Handle File Attachment Resubmission (Batch Processing).
+                        $bulkforumfileids[] = (int)$record->id;
                     }
                 }
             }
 
             // Always close recordsets to release database connection locks!
             $recordset->close();
+
+            if (!empty($bulkforumfileids)) {
+                $bulkresult = $recoveryservice->resubmit_bulk($bulkforumfileids, $client);
+                mtrace(
+                    "Bulk Processed Forum File Attachments: {$bulkresult->recovered} " .
+                    "recovered via pre-flight, {$bulkresult->queued} queued for fresh submission."
+                );
+            }
         } else if ($modname === 'workshop') {
             // Fetch all tracked submissions using a memory-safe recordset.
             $sql = "SELECT * FROM {plagiarism_inspera_subs}
@@ -200,16 +254,31 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
             mtrace("Processing tracking records for Workshop CMID: " . $cmid);
 
+            $bulkworkshopfileids = [];
+
             foreach ($recordset as $record) {
                 if ($this->should_process($record)) {
                     $submissionid = $record->submissionid;
 
-                    // 1. Handle Inline Text Resubmission.
+                    // 1. Handle Inline Text Resubmission (Single Processing Required).
                     if ($record->storedfileid === null) {
+                        $outcome = $recoveryservice->resubmit_single((int)$record->id, $client);
+
+                        if ($outcome === 'recovered') {
+                            mtrace("Recovered Workshop Online Text for Submission ID {$submissionid} via pre-flight.");
+                            continue;
+                        }
+                        if ($outcome !== 'queued') {
+                            continue;
+                        }
+
                         // Workshop stores online text in the 'content' column of the 'workshop_submissions' table.
                         $content = $DB->get_field('workshop_submissions', 'content', ['id' => $submissionid], IGNORE_MISSING);
                         if ($content !== false && trim(strip_tags($content)) !== '') {
-                            mtrace("Queuing Workshop Online Text for Submission ID: " . $submissionid);
+                            mtrace(
+                                "Updating Workshop Online Text identifier for " .
+                                "Submission ID {$submissionid} after pre-flight fallback."
+                            );
                             $tempfileobject = plagiarism_inspera_create_temp_file(
                                 $cmid,
                                 $cm->course,
@@ -217,35 +286,29 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                                 $content,
                                 $submissionid
                             );
-                            $dummyfile = new \stdClass();
-                            $dummyfile->filepath = $tempfileobject->filepath;
-                            plagiarism_inspera_queue_file(
-                                $cmid,
-                                $record->userid,
-                                $dummyfile,
-                                null,
-                                $submissionid
-                            );
+                            $updaterecord = new \stdClass();
+                            $updaterecord->id = $record->id;
+                            $updaterecord->identifier = $tempfileobject->filepath;
+                            $updaterecord->timemodified = time();
+                            $DB->update_record('plagiarism_inspera_subs', $updaterecord);
                         }
                     } else if ((int)$record->storedfileid > 0) {
-                        $fs = get_file_storage();
-                        $file = $fs->get_file_by_id($record->storedfileid);
-                        if ($file) {
-                            mtrace("Queuing Workshop File Attachment ID: " . $record->storedfileid);
-                            plagiarism_inspera_queue_file(
-                                $cmid,
-                                $record->userid,
-                                $file,
-                                null,
-                                $submissionid
-                            );
-                        }
+                        // 2. Handle File Attachment Resubmission (Batch Processing).
+                        $bulkworkshopfileids[] = (int)$record->id;
                     }
                 }
             }
 
             // Always close recordsets to release database connection locks!
             $recordset->close();
+
+            if (!empty($bulkworkshopfileids)) {
+                $bulkresult = $recoveryservice->resubmit_bulk($bulkworkshopfileids, $client);
+                mtrace(
+                    "Bulk Processed Workshop File Attachments: {$bulkresult->recovered} " .
+                    "recovered via pre-flight, {$bulkresult->queued} queued for fresh submission."
+                );
+            }
         }
 
         mtrace("Resubmit All Task Completed.");
@@ -254,27 +317,11 @@ class resubmit_all_reports extends \core\task\adhoc_task {
     /**
      * Helper to determine if a record matches Inspera's "Retry" criteria.
      */
-    private function should_process($record) {
+    private function should_process(?\stdClass $record): bool {
         if (!$record) {
             return true;
         }
 
-        $status = $record->status;
-        if ($status === 'error' || $status === 'external_error') {
-            return true;
-        }
-
-        if ($status === 'report_requested') {
-            $tenminsago = time() - (10 * 60);
-            if ($record->timemodified < $tenminsago) {
-                return true;
-            }
-        }
-
-        if (in_array($status, ['pending', 'finished', 'superseded'])) {
-            return false;
-        }
-
-        return false;
+        return ($record->status ?? '') === 'error';
     }
 }
