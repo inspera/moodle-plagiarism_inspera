@@ -457,19 +457,21 @@ class plagiarism_inspera_defaults_form extends moodleform {
 
                     $arr = [];
                     if ($val !== '') {
-                        // Explode, trim whitespace, remove empty items, and re-index.
+                        // Explode, trim whitespace, remove empty items, DEDUPLICATE, and re-index.
                         $arr = array_values(
-                            array_filter(
-                                array_map(
-                                    'trim',
-                                    explode(
-                                        ',',
-                                        $val
-                                    )
-                                ),
-                                function ($c) {
-                                    return $c !== '';
-                                }
+                            array_unique(
+                                array_filter(
+                                    array_map(
+                                        'trim',
+                                        explode(
+                                            ',',
+                                            $val
+                                        )
+                                    ),
+                                    function ($c) {
+                                        return $c !== '';
+                                    }
+                                )
                             )
                         );
                     }
@@ -479,8 +481,25 @@ class plagiarism_inspera_defaults_form extends moodleform {
                     // 2. Inject the array items as <option>s so Moodle renders them as chips.
                     if ($this->_form->elementExists($key)) {
                         $el = $this->_form->getElement($key);
+
+                        // Moodle's form processor may have auto-injected POSTed options.
+                        // We must inspect the internal options array to prevent duplicating them.
+                        $existingvalues = [];
+                        if (isset($el->_options) && is_array($el->_options)) {
+                            foreach ($el->_options as $opt) {
+                                if (isset($opt['attr']['value'])) {
+                                    $existingvalues[] = (string)$opt['attr']['value'];
+                                }
+                            }
+                        }
+
                         foreach ($arr as $c) {
-                            $el->addOption($c, $c);
+                            $strval = (string)$c;
+                            // Only add the option if Moodle hasn't already added it.
+                            if (!in_array($strval, $existingvalues, true)) {
+                                $el->addOption($c, $c);
+                                $existingvalues[] = $strval; // Track it so we don't double-add in this loop.
+                            }
                         }
                     }
                 }
