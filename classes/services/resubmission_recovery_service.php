@@ -105,6 +105,9 @@ class resubmission_recovery_service {
      * @return \stdClass {selected, recovered, queued, skipped}
      */
     public function resubmit_bulk(array $ids, api_client $client): \stdClass {
+        // Normalize to unique integer IDs up-front to prevent duplicate/malformed inputs inflating the skipped counter.
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+
         $result = (object) [
             'selected' => count($ids),
             'recovered' => 0,
