@@ -90,7 +90,7 @@ final class resubmission_recovery_service_test extends advanced_testcase {
         $this->assertEquals(4, (int)$updated->hidden_text);
         $this->assertEquals(5, (int)$updated->image_as_text);
         $this->assertEquals($oldtimecreated, (int)$updated->timecreated);
-        $this->assertStringContainsString('Recovered via manual pre-flight', (string)$updated->description);
+        $this->assertStringContainsString('Recovered via pre-flight', (string)$updated->description);
     }
 
     /**

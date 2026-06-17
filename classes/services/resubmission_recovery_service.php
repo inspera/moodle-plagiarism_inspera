@@ -191,7 +191,7 @@ class resubmission_recovery_service {
         $record->hidden_text = $status->hiddenText ?? null;
         $record->image_as_text = $status->imageAsText ?? null;
         $record->timemodified = time();
-        $record->description = 'Recovered via manual pre-flight check; external report already finished.';
+        $record->description = 'Recovered via pre-flight check; external report already finished.';
 
         $this->db->update_record('plagiarism_inspera_subs', $record);
     }
@@ -218,7 +218,7 @@ class resubmission_recovery_service {
         $record->image_as_text = null;
         $record->timecreated = $now;
         $record->timemodified = $now;
-        $record->description = 'Queued for fresh submission after manual pre-flight check.';
+        $record->description = 'Queued for fresh submission after pre-flight check.';
 
         $this->db->update_record('plagiarism_inspera_subs', $record);
     }
