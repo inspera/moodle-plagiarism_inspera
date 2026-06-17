@@ -1230,7 +1230,7 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
-     * Test poll keeps record pending when API returns 0 or -1 within the 24h limit.
+     * Test poll keeps record pending when API returns 0 or -1 within the 48h limit.
      *
      * @covers ::plagiarism_inspera_poll_file_status
      */
@@ -1239,7 +1239,7 @@ final class lib_test extends advanced_testcase {
 
         $this->resetAfterTest();
 
-        // Created 12 hours ago (Within 24h limit).
+        // Created 12 hours ago (Within 48h limit).
         $record = $this->create_pending_submission(time() - (12 * 3600));
 
         $clientmock = $this->getMockBuilder(api_client::class)
