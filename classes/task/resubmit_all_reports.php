@@ -107,7 +107,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                     continue;
                 }
 
-                if ($this->should_process($record)) {
+                if ($this->should_process($record, $recoveryservice)) {
                     $bulkassignfileids[] = (int)$record->id;
                 }
             }
@@ -155,7 +155,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                         continue;
                     }
 
-                    if ($this->should_process($record)) {
+                    if ($this->should_process($record, $recoveryservice)) {
                         $outcome = $recoveryservice->resubmit_record($record, $client);
                         if ($outcome === 'recovered') {
                             mtrace("Recovered Assignment Online Text for Submission ID {$sub->submissionid} via pre-flight.");
@@ -198,7 +198,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             $fs = get_file_storage(); // Initialize file storage.
 
             foreach ($recordset as $record) {
-                if ($this->should_process($record)) {
+                if ($this->should_process($record, $recoveryservice)) {
                     $postid = $record->submissionid;
 
                     // 1. Handle Inline Text Resubmission (Single Processing Required).
@@ -265,7 +265,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             $fs = get_file_storage(); // Initialize file storage.
 
             foreach ($recordset as $record) {
-                if ($this->should_process($record)) {
+                if ($this->should_process($record, $recoveryservice)) {
                     $submissionid = $record->submissionid;
 
                     // 1. Handle Inline Text Resubmission (Single Processing Required).
@@ -331,16 +331,12 @@ class resubmit_all_reports extends \core\task\adhoc_task {
     /**
      * Helper to determine if a record matches Inspera's "Retry" criteria.
      */
-    private function should_process(?\stdClass $record): bool {
+    private function should_process(
+        ?\stdClass $record,
+        \plagiarism_inspera\services\resubmission_recovery_service $recoveryservice
+    ): bool {
         if (!$record) {
             return false;
-        }
-
-        // Cache the service instance statically within the method to avoid repeated instantiation.
-        static $recoveryservice = null;
-        if ($recoveryservice === null) {
-            global $DB;
-            $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
         }
 
         return $recoveryservice->is_eligible($record);
