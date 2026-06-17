@@ -1259,7 +1259,7 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
-     * Test poll sets error when API returns 0 or -1 AFTER the 24h limit.
+     * Test poll sets error when API returns 0 or -1 AFTER the 48h limit.
      *
      * @covers ::plagiarism_inspera_poll_file_status
      */
