@@ -336,9 +336,12 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             return false;
         }
 
-        // Instantiate the service to check eligibility (or use an injected instance if available).
-        global $DB;
-        $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
+        // Cache the service instance statically within the method to avoid repeated instantiation.
+        static $recoveryservice = null;
+        if ($recoveryservice === null) {
+            global $DB;
+            $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
+        }
 
         return $recoveryservice->is_eligible($record);
     }
