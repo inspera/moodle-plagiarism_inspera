@@ -132,10 +132,10 @@ final class resubmission_recovery_service_test extends advanced_testcase {
     }
 
     /**
-     * Test resubmit_single queues when API throws exception (e.g. network error), ensuring fallback to fresh submission.
+     * Test resubmit_single aborts (does not queue) when API throws exception to prevent data loss.
      * @covers \plagiarism_inspera\services\resubmission_recovery_service::resubmit_single
      */
-    public function test_resubmit_single_queues_when_api_throws_exception(): void {
+    public function test_resubmit_single_aborts_when_api_throws_exception(): void {
         global $DB;
 
         $record = $this->create_submission_record('error', 'doc-throws');
@@ -151,10 +151,13 @@ final class resubmission_recovery_service_test extends advanced_testcase {
         $outcome = $service->resubmit_single((int)$record->id, $clientmock);
 
         $this->assertDebuggingCalled();
-        $this->assertEquals('queued', $outcome);
+
+        // Assert that we get an API error and the record is left untouched.
+        $this->assertEquals('api_error', $outcome);
+
         $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id], '*', MUST_EXIST);
-        $this->assertEquals('report_requested', $updated->status);
-        $this->assertNull($updated->externalid);
+        $this->assertEquals('error', $updated->status); // Status unchanged.
+        $this->assertEquals('doc-throws', $updated->externalid); // External ID preserved!
     }
 
     /**
