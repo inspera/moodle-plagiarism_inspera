@@ -1314,7 +1314,7 @@ final class lib_test extends advanced_testcase {
 
         $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
         $this->assertEquals('error', $updatedrecord->status);
-        $this->assertStringContainsString('Polling failed for 48 hours', $updatedrecord->description);
+        $this->assertStringContainsString('Document pending for over 48 hours', $updatedfile->description);
         $this->assertStringContainsString('Persistent network failure', $updatedrecord->description);
     }
 
