@@ -167,6 +167,7 @@ class resubmission_recovery_service {
         $record->status = 'finished';
         $record->similarity = $status->similarity ?? null;
         $record->originality_score = $status->originality_percentage ?? null;
+        $record->originality = $status->originality ?? null;
         $record->translation_similarity = $this->extract_translation_similarity($status);
         $record->ai_index = $this->extract_ai_index($status);
         $record->character_replacement = $this->extract_character_replacement($status);
