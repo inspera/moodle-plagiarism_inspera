@@ -1309,12 +1309,13 @@ final class lib_test extends advanced_testcase {
             ->method('check_document_status')
             ->willThrowException(new \Exception('Persistent network failure'));
 
-        $this->expectOutputRegex('/Aborting after 48 hours\. Marked as error/s');
+        // Fixed the regex pattern to match the new age-based mtrace log output.
+        $this->expectOutputRegex('/Document pending for over 48 hours\. Aborting and marked as error/s');
         \plagiarism_inspera_poll_file_status($record, $clientmock);
 
         $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
         $this->assertEquals('error', $updatedrecord->status);
-        $this->assertStringContainsString('Document pending for over 48 hours', $updatedfile->description);
+        $this->assertStringContainsString('Document pending for over 48 hours', $updatedrecord->description);
         $this->assertStringContainsString('Persistent network failure', $updatedrecord->description);
     }
 

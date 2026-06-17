@@ -2891,7 +2891,8 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
         if ($elapsedseconds > 2 * DAYSECS) { // 48-hour overall pending limit.
             $plagiarismfile->status = 'error';
             // Updated description to reflect age-based timeout rather than continuous polling failure.
-            $plagiarismfile->description = "Document pending for over 48 hours and API poll failed. Last error: " . $e->getMessage();
+            $plagiarismfile->description = "Document pending for over 48 hours and API poll failed. " .
+                "Last error: " . $e->getMessage();
             $plagiarismfile->timemodified = time();
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
 
