@@ -44,6 +44,9 @@ class resubmission_recovery_service {
 
     /**
      * Determines if a submission record is eligible for recovery.
+     *
+     * @param \stdClass $record Submission record from {plagiarism_inspera_subs}.
+     * @return bool True if the record can be recovered/queued, otherwise false.
      */
     public function is_eligible(\stdClass $record): bool {
         $status = $record->status ?? '';
