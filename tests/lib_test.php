@@ -1279,7 +1279,7 @@ final class lib_test extends advanced_testcase {
             ->method('check_document_status')
             ->willReturn((object) ['status' => -1]);
 
-        // Update regex if your mtrace text looks for 48h instead of 24h.
+        // Regex should match the 48h circuit-breaker message.
         $this->expectOutputRegex('/stuck in state -1 \(processing\) for over 48h\. Marked as error/s');
         \plagiarism_inspera_poll_file_status($record, $clientmock);
 
