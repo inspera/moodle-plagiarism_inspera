@@ -254,7 +254,8 @@ final class resubmission_recovery_service_test extends advanced_testcase {
     }
 
     /**
-     * Test resubmit_bulk updates status and externalid for selected records.
+     * Test resubmit_bulk updates status and externalid for selected records,
+     * and correctly tallies recovered, queued, and skipped (including API errors) counts.
      * @covers \plagiarism_inspera\services\resubmission_recovery_service::resubmit_bulk
      */
     public function test_resubmit_bulk_reports_recovered_queued_and_skipped_counts(): void {
@@ -262,41 +263,60 @@ final class resubmission_recovery_service_test extends advanced_testcase {
 
         $recoverable = $this->create_submission_record('error', 'doc-bulk-1');
         $queueable = $this->create_submission_record('error', 'doc-bulk-2');
-        $skipped = $this->create_submission_record('fatal_error', 'doc-bulk-3');
+        $apierror = $this->create_submission_record('error', 'doc-bulk-throw'); // New record for testing API failure.
+        $ineligible = $this->create_submission_record('fatal_error', 'doc-bulk-3');
 
         $clientmock = $this->getMockBuilder(api_client::class)
             ->onlyMethods(['check_document_status'])
             ->getMock();
-        // Use willReturnMap to tie specific external IDs to specific responses,
-        // eliminating any database sorting/ordering dependencies.
-        $clientmock->expects($this->exactly(2))
+
+        // The ineligible record won't trigger an API call, so we expect exactly 3 calls.
+        $clientmock->expects($this->exactly(3))
             ->method('check_document_status')
-            ->willReturnMap([
-                ['doc-bulk-1', (object) ['status' => 1, 'similarity' => 10, 'originality_percentage' => 90]],
-                ['doc-bulk-2', (object) ['status' => -1]],
-            ]);
+            ->willReturnCallback(function ($externalid) {
+                if ($externalid === 'doc-bulk-1') {
+                    return (object) ['status' => 1, 'similarity' => 10, 'originality_percentage' => 90];
+                }
+                if ($externalid === 'doc-bulk-2') {
+                    return (object) ['status' => -1];
+                }
+                if ($externalid === 'doc-bulk-throw') {
+                    throw new \moodle_exception('apierror', 'plagiarism_inspera');
+                }
+                return null;
+            });
 
         $service = new resubmission_recovery_service($DB);
         $result = $service->resubmit_bulk(
-            [(int)$recoverable->id, (int)$queueable->id, (int)$skipped->id],
+            [(int)$recoverable->id, (int)$queueable->id, (int)$apierror->id, (int)$ineligible->id],
             $clientmock
         );
 
-        $this->assertEquals(3, (int)$result->selected);
+        // Tell Moodle's test framework that we expected the API failure to trigger a debugging message.
+        $this->assertDebuggingCalled();
+
+        // Assert the counts add up perfectly (4 selected = 1 recovered + 1 queued + 2 skipped).
+        $this->assertEquals(4, (int)$result->selected);
         $this->assertEquals(1, (int)$result->recovered);
         $this->assertEquals(1, (int)$result->queued);
-        $this->assertEquals(1, (int)$result->skipped);
+        $this->assertEquals(2, (int)$result->skipped);
 
+        // Verify recoverable worked.
         $updatedrecoverable = $DB->get_record('plagiarism_inspera_subs', ['id' => $recoverable->id], '*', MUST_EXIST);
         $this->assertEquals('finished', $updatedrecoverable->status);
-        $this->assertEquals('doc-bulk-1', $updatedrecoverable->externalid);
 
+        // Verify queueable worked.
         $updatedqueueable = $DB->get_record('plagiarism_inspera_subs', ['id' => $queueable->id], '*', MUST_EXIST);
         $this->assertEquals('report_requested', $updatedqueueable->status);
-        $this->assertNull($updatedqueueable->externalid);
 
-        $updatedskipped = $DB->get_record('plagiarism_inspera_subs', ['id' => $skipped->id], '*', MUST_EXIST);
-        $this->assertEquals('fatal_error', $updatedskipped->status);
+        // Verify the API error record was safely aborted and left completely untouched.
+        $updatedapierror = $DB->get_record('plagiarism_inspera_subs', ['id' => $apierror->id], '*', MUST_EXIST);
+        $this->assertEquals('error', $updatedapierror->status);
+        $this->assertEquals('doc-bulk-throw', $updatedapierror->externalid);
+
+        // Verify ineligible record was skipped untouched.
+        $updatedineligible = $DB->get_record('plagiarism_inspera_subs', ['id' => $ineligible->id], '*', MUST_EXIST);
+        $this->assertEquals('fatal_error', $updatedineligible->status);
     }
 
     /**

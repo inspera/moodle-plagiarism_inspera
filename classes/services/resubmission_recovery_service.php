@@ -131,6 +131,9 @@ class resubmission_recovery_service {
                 $result->recovered++;
             } else if ($outcome === 'queued') {
                 $result->queued++;
+            } else {
+                // Catch 'api_error' (or any future failure states) so the UI counts match.
+                $result->skipped++;
             }
         }
 
