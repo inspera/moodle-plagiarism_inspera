@@ -211,14 +211,20 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
         $result = $recoveryservice->resubmit_bulk($selectedids, $client);
 
         if (($result->recovered + $result->queued) > 0) {
-            $message = "Resubmit processed {$selectedcount} selected records: " .
-                "{$result->recovered} recovered immediately, {$result->queued} queued for fresh submission.";
+            $a = new \stdClass();
+            $a->selected = $selectedcount;
+            $a->recovered = $result->recovered;
+            $a->queued = $result->queued;
+            $a->skipped = $result->skipped;
+
             if ($result->skipped > 0) {
-                $message .= " {$result->skipped} skipped (status was not error or record not found).";
+                $message = get_string('resubmit_bulk_success_skipped', 'plagiarism_inspera', $a);
+            } else {
+                $message = get_string('resubmit_bulk_success', 'plagiarism_inspera', $a);
             }
             \core\notification::success($message);
         } else {
-            \core\notification::error('No records were resubmitted. Only records in error status are eligible.');
+            \core\notification::error(get_string('resubmit_bulk_error', 'plagiarism_inspera'));
         }
     }
 
