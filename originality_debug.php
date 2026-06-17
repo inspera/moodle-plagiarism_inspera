@@ -247,6 +247,9 @@ if ($id && ($action === 'resubmit' || $action === 'delete')) {
         } else if ($outcome === 'queued') {
             \core\notification::success(get_string('resubmit_single_queued', 'plagiarism_inspera'));
             $executed = true;
+        } else if ($outcome === 'not_found') {
+            // Handle the specific 'not_found' case.
+            \core\notification::error(get_string('resubmit_single_not_found', 'plagiarism_inspera'));
         } else {
             \core\notification::error(get_string('resubmit_single_not_eligible', 'plagiarism_inspera'));
         }

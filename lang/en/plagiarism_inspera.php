@@ -182,6 +182,7 @@ $string['resubmit_confirm'] = 'Are you sure you want to request originality repo
 $string['resubmit_pending'] = 'Request is currently processing...';
 $string['resubmit_scheduled'] = 'A background task has been scheduled to check and request missing originality reports. This may take a few minutes.';
 $string['resubmit_single_not_eligible'] = 'Resubmit is only allowed when status is error.';
+$string['resubmit_single_not_found'] = 'Cannot resubmit: The tracking record could not be found. It may have already been deleted.';
 $string['resubmit_single_queued'] = 'Submission queued for a fresh start after pre-flight check.';
 $string['resubmit_single_recovered'] = 'Submission recovered immediately via pre-flight check.';
 $string['resubmit_tooltip'] = 'Retry report submission using the current originality checking settings.';
