@@ -333,7 +333,7 @@ final class resubmission_recovery_service_test extends advanced_testcase {
         $course = $this->getDataGenerator()->create_course();
         $user = $this->getDataGenerator()->create_user();
         $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
-        $cm = get_coursemodule_from_instance('assign', $assign->id);
+        $cm = get_coursemodule_from_instance('assign', $assign->id, 0, false, MUST_EXIST);
 
         $record = (object) [
             'cm' => $cm->id,
