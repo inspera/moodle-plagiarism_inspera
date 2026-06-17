@@ -64,6 +64,17 @@ class resubmission_recovery_service {
     }
 
     /**
+     * Attempts recovery using an already-loaded submission record to avoid redundant DB reads.
+     */
+    public function resubmit_record(\stdClass $record, api_client $client): string {
+        if (!$this->is_eligible($record)) {
+            return 'not_eligible';
+        }
+
+        return $this->process_eligible_record($record, $client);
+    }
+
+    /**
      * Process one record by id.
      *
      * Returns one of: recovered, queued, not_eligible, not_found.
@@ -83,7 +94,7 @@ class resubmission_recovery_service {
             return 'not_eligible';
         }
 
-        return $this->process_eligible_record($record, $client);
+        return $this->resubmit_record($record, $client);
     }
 
     /**

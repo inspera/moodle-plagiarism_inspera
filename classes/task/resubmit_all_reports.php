@@ -156,7 +156,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                     }
 
                     if ($this->should_process($record)) {
-                        $outcome = $recoveryservice->resubmit_single((int)$record->id, $client);
+                        $outcome = $recoveryservice->resubmit_record($record, $client);
                         if ($outcome === 'recovered') {
                             mtrace("Recovered Assignment Online Text for Submission ID {$sub->submissionid} via pre-flight.");
                             continue;
@@ -203,7 +203,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
                     // 1. Handle Inline Text Resubmission (Single Processing Required).
                     if ($record->storedfileid === null) {
-                        $outcome = $recoveryservice->resubmit_single((int)$record->id, $client);
+                        $outcome = $recoveryservice->resubmit_record($record, $client);
 
                         if ($outcome === 'recovered') {
                             mtrace("Recovered Forum Online Text for Post ID {$postid} via pre-flight.");
@@ -270,7 +270,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
                     // 1. Handle Inline Text Resubmission (Single Processing Required).
                     if ($record->storedfileid === null) {
-                        $outcome = $recoveryservice->resubmit_single((int)$record->id, $client);
+                        $outcome = $recoveryservice->resubmit_record($record, $client);
 
                         if ($outcome === 'recovered') {
                             mtrace("Recovered Workshop Online Text for Submission ID {$submissionid} via pre-flight.");

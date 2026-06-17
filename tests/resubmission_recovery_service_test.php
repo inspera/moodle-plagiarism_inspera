@@ -44,17 +44,20 @@ final class resubmission_recovery_service_test extends advanced_testcase {
     /**
      * Test resubmit_single recovers finished document without wiping externalid.
      * @covers \plagiarism_inspera\services\resubmission_recovery_service::resubmit_single
+     * @covers \plagiarism_inspera\services\resubmission_recovery_service::mark_as_recovered
      */
     public function test_resubmit_single_recovers_finished_document_without_wiping_externalid(): void {
         global $DB;
 
         $oldtimecreated = time() - 1000;
+        // Record starts with originality = 'high'.
         $record = $this->create_submission_record('error', 'doc-123', $oldtimecreated);
 
         $statusresponse = (object) [
             'status' => 1,
             'similarity' => 32,
             'originality_percentage' => 68,
+            'originality' => 'low', // Added the text field to the mock.
             'translationSimilarity' => 7,
             'Ai_index' => '2',
             'characterReplacement' => 3,
@@ -80,6 +83,7 @@ final class resubmission_recovery_service_test extends advanced_testcase {
         $this->assertEquals('doc-123', $updated->externalid);
         $this->assertEquals(32, (float)$updated->similarity);
         $this->assertEquals(68, (float)$updated->originality_score);
+        $this->assertEquals('low', $updated->originality); // Assert the text field synced correctly.
         $this->assertEquals(7, (float)$updated->translation_similarity);
         $this->assertEquals('2', (string)$updated->ai_index);
         $this->assertEquals(3, (int)$updated->character_replacement);
@@ -117,6 +121,7 @@ final class resubmission_recovery_service_test extends advanced_testcase {
         $this->assertNull($updated->externalid);
         $this->assertNull($updated->similarity);
         $this->assertNull($updated->originality_score);
+        $this->assertNull($updated->originality);
         $this->assertNull($updated->translation_similarity);
         $this->assertNull($updated->ai_index);
         $this->assertNull($updated->character_replacement);
@@ -330,5 +335,45 @@ final class resubmission_recovery_service_test extends advanced_testcase {
         $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
 
         return $record;
+    }
+
+    /**
+     * Test resubmit_single returns not_found when the record does not exist.
+     * @covers \plagiarism_inspera\services\resubmission_recovery_service::resubmit_single
+     */
+    public function test_resubmit_single_returns_not_found(): void {
+        global $DB;
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+
+        $service = new resubmission_recovery_service($DB);
+
+        // Pass a non-existent ID.
+        $outcome = $service->resubmit_single(999999, $clientmock);
+
+        $this->assertEquals('not_found', $outcome);
+    }
+
+    /**
+     * Test resubmit_record processes an existing stdClass object directly.
+     * @covers \plagiarism_inspera\services\resubmission_recovery_service::resubmit_record
+     */
+    public function test_resubmit_record_processes_existing_object(): void {
+        global $DB;
+
+        $record = $this->create_submission_record('error', null);
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+
+        $service = new resubmission_recovery_service($DB);
+
+        // Pass the object directly instead of the ID.
+        $outcome = $service->resubmit_record($record, $clientmock);
+
+        $this->assertEquals('queued', $outcome);
     }
 }
