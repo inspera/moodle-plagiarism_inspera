@@ -68,6 +68,12 @@ class resubmission_recovery_service {
 
     /**
      * Attempts recovery using an already-loaded submission record to avoid redundant DB reads.
+     *
+     *  Returns one of: recovered, queued, api_error, not_eligible.
+     *
+     * @param \stdClass $record Record from {plagiarism_inspera_subs}.
+     * @param api_client $client API client.
+     * @return string
      */
     public function resubmit_record(\stdClass $record, api_client $client): string {
         if (!$this->is_eligible($record)) {
