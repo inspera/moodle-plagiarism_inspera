@@ -247,6 +247,9 @@ if ($id && ($action === 'resubmit' || $action === 'delete')) {
         } else if ($outcome === 'queued') {
             \core\notification::success(get_string('resubmit_single_queued', 'plagiarism_inspera'));
             $executed = true;
+        } else if ($outcome === 'api_error') {
+            // Handle the API failure case safely.
+            \core\notification::error(get_string('resubmit_single_api_error', 'plagiarism_inspera'));
         } else if ($outcome === 'not_found') {
             // Handle the specific 'not_found' case.
             \core\notification::error(get_string('resubmit_single_not_found', 'plagiarism_inspera'));
