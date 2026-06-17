@@ -1268,8 +1268,8 @@ final class lib_test extends advanced_testcase {
 
         $this->resetAfterTest();
 
-        // Created 25 hours ago (Exceeds DAYSECS).
-        $record = $this->create_pending_submission(time() - 90000);
+        // Fix: Move the clock back 50 hours (180000 seconds) to exceed the 48-hour circuit breaker.
+        $record = $this->create_pending_submission(time() - 180000);
 
         $clientmock = $this->getMockBuilder(api_client::class)
             ->onlyMethods(['check_document_status'])
@@ -1279,12 +1279,13 @@ final class lib_test extends advanced_testcase {
             ->method('check_document_status')
             ->willReturn((object) ['status' => -1]);
 
-        $this->expectOutputRegex('/stuck in state -1 \(processing\) for over 24h\. Marked as error/s');
+        // Update regex if your mtrace text looks for 48h instead of 24h.
+        $this->expectOutputRegex('/stuck in state -1 \(processing\) for over 48h\. Marked as error/s');
         \plagiarism_inspera_poll_file_status($record, $clientmock);
 
         $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
         $this->assertEquals('error', $updatedrecord->status);
-        $this->assertStringContainsString('API timeout: Stuck in processing state for over 24 hours', $updatedrecord->description);
+        $this->assertStringContainsString('API timeout: Stuck in processing state for over 48 hours', $updatedrecord->description);
     }
 
     /**

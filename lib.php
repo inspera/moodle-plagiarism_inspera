@@ -2798,13 +2798,13 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
                     $statustext = ($status->status == 0) ? 'queued' : 'processing';
 
                     $plagiarismfile->status = 'error';
-                    $plagiarismfile->description = "API timeout: Stuck in {$statustext} state for over 24 hours.";
+                    $plagiarismfile->description = "API timeout: Stuck in {$statustext} state for over 48 hours.";
                     $plagiarismfile->timemodified = time();
                     $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
 
                     mtrace(
                         "Originality API timeout: fileid {$plagiarismfile->id} stuck in state " .
-                        "{$status->status} ({$statustext}) for over 24h. Marked as error."
+                        "{$status->status} ({$statustext}) for over 48h. Marked as error."
                     );
                 }
                 break;
