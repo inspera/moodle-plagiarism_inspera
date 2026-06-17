@@ -77,7 +77,7 @@ class resubmission_recovery_service {
     /**
      * Process one record by id.
      *
-     * Returns one of: recovered, queued, not_eligible, not_found.
+     * Returns one of: recovered, queued, api_error, not_eligible, not_found.
      *
      * @param int $id Record id.
      * @param api_client $client API client.
