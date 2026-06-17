@@ -2888,15 +2888,16 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
         $graceperiodreference = (int)($plagiarismfile->timemodified ?? $plagiarismfile->timecreated ?? time());
         $elapsedseconds = time() - $graceperiodreference;
 
-        if ($elapsedseconds > 2 * DAYSECS) { // 48 hours limit
+        if ($elapsedseconds > 2 * DAYSECS) { // 48-hour overall pending limit.
             $plagiarismfile->status = 'error';
-            $plagiarismfile->description = "Polling failed for 48 hours. Last error: " . $e->getMessage();
+            // Updated description to reflect age-based timeout rather than continuous polling failure.
+            $plagiarismfile->description = "Document pending for over 48 hours and API poll failed. Last error: " . $e->getMessage();
             $plagiarismfile->timemodified = time();
             $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
 
             mtrace(
                 "Originality API poll timeout for fileid {$plagiarismfile->id}: " .
-                "Aborting after 48 hours. Marked as error."
+                "Document pending for over 48 hours. Aborting and marked as error."
             );
         } else {
             mtrace("Originality API poll error for fileid {$plagiarismfile->id}: " . $e->getMessage());
