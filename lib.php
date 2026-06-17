@@ -2901,7 +2901,6 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
         } else {
             mtrace("Originality API poll error for fileid {$plagiarismfile->id}: " . $e->getMessage());
         }
-        mtrace("Originality API poll error for fileid {$plagiarismfile->id}: " . $e->getMessage());
     }
 }
 
