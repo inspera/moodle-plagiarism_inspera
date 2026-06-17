@@ -211,12 +211,14 @@ final class resubmission_recovery_service_test extends advanced_testcase {
         $clientmock = $this->getMockBuilder(api_client::class)
             ->onlyMethods(['check_document_status'])
             ->getMock();
+        // Use willReturnMap to tie specific external IDs to specific responses,
+        // eliminating any database sorting/ordering dependencies.
         $clientmock->expects($this->exactly(2))
             ->method('check_document_status')
-            ->willReturnOnConsecutiveCalls(
-                (object) ['status' => 1, 'similarity' => 10, 'originality_percentage' => 90],
-                (object) ['status' => -1]
-            );
+            ->willReturnMap([
+                ['doc-bulk-1', (object) ['status' => 1, 'similarity' => 10, 'originality_percentage' => 90]],
+                ['doc-bulk-2', (object) ['status' => -1]],
+            ]);
 
         $service = new resubmission_recovery_service($DB);
         $result = $service->resubmit_bulk(
