@@ -242,13 +242,13 @@ if ($id && ($action === 'resubmit' || $action === 'delete')) {
         $outcome = $recoveryservice->resubmit_single($id, $client);
 
         if ($outcome === 'recovered') {
-            \core\notification::success('Submission recovered immediately via pre-flight check.');
+            \core\notification::success(get_string('resubmit_single_recovered', 'plagiarism_inspera'));
             $executed = true;
         } else if ($outcome === 'queued') {
-            \core\notification::success('Submission queued for a fresh start after pre-flight check.');
+            \core\notification::success(get_string('resubmit_single_queued', 'plagiarism_inspera'));
             $executed = true;
         } else {
-            \core\notification::error('Resubmit is only allowed when status is error.');
+            \core\notification::error(get_string('resubmit_single_not_eligible', 'plagiarism_inspera'));
         }
     } else if ($action === 'delete') {
         $DB->delete_records('plagiarism_inspera_subs', ['id' => $id]);
