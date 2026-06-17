@@ -153,7 +153,7 @@ final class resubmission_recovery_service_test extends advanced_testcase {
     }
 
     /**
-     * Test resubmit_single queues when API returns 0 or -1.
+     * Test resubmit_single queues when there is no externalid (no API poll should be attempted).
      * @covers \plagiarism_inspera\services\resubmission_recovery_service::resubmit_single
      */
     public function test_resubmit_single_queues_when_no_externalid_without_api_call(): void {
