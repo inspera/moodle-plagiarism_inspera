@@ -174,10 +174,10 @@ final class resubmission_recovery_service_test extends advanced_testcase {
     }
 
     /**
-     * Test resubmit_single rejects non-error status.
+     * Test resubmit_single rejects unsupported status like external_error.
      * @covers \plagiarism_inspera\services\resubmission_recovery_service::resubmit_single
      */
-    public function test_resubmit_single_rejects_non_error_status(): void {
+    public function test_resubmit_single_rejects_unsupported_status(): void {
         global $DB;
 
         $record = $this->create_submission_record('external_error', 'doc-nope');
@@ -195,6 +195,54 @@ final class resubmission_recovery_service_test extends advanced_testcase {
         $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id], '*', MUST_EXIST);
         $this->assertEquals('external_error', $updated->status);
         $this->assertEquals('doc-nope', $updated->externalid);
+    }
+
+    /**
+     * Test resubmit_single accepts 'report_requested' if stuck for more than 10 minutes.
+     * @covers \plagiarism_inspera\services\resubmission_recovery_service::is_eligible
+     */
+    public function test_resubmit_single_accepts_stale_report_requested(): void {
+        global $DB;
+
+        $record = $this->create_submission_record('report_requested', null);
+
+        // Force timemodified to 11 minutes ago (660 seconds).
+        $DB->set_field('plagiarism_inspera_subs', 'timemodified', time() - 660, ['id' => $record->id]);
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+
+        // No externalid, so no API call should happen. It should drop straight to queue.
+        $clientmock->expects($this->never())->method('check_document_status');
+
+        $service = new resubmission_recovery_service($DB);
+        $outcome = $service->resubmit_single((int)$record->id, $clientmock);
+
+        $this->assertEquals('queued', $outcome);
+    }
+
+    /**
+     * Test resubmit_single rejects 'report_requested' if it has been less than 10 minutes.
+     * @covers \plagiarism_inspera\services\resubmission_recovery_service::is_eligible
+     */
+    public function test_resubmit_single_rejects_recent_report_requested(): void {
+        global $DB;
+
+        $record = $this->create_submission_record('report_requested', null);
+
+        // Force timemodified to 5 minutes ago (300 seconds).
+        $DB->set_field('plagiarism_inspera_subs', 'timemodified', time() - 300, ['id' => $record->id]);
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+        $clientmock->expects($this->never())->method('check_document_status');
+
+        $service = new resubmission_recovery_service($DB);
+        $outcome = $service->resubmit_single((int)$record->id, $clientmock);
+
+        $this->assertEquals('not_eligible', $outcome);
     }
 
     /**

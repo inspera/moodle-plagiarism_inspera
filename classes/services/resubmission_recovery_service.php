@@ -43,6 +43,27 @@ class resubmission_recovery_service {
     }
 
     /**
+     * Determines if a submission record is eligible for recovery.
+     */
+    public function is_eligible(\stdClass $record): bool {
+        $status = $record->status ?? '';
+
+        if ($status === 'error') {
+            return true;
+        }
+
+        // Allow retry for 'report_requested' if stuck for > 10 minutes.
+        if ($status === 'report_requested') {
+            $lastmodified = (int)($record->timemodified ?? $record->timecreated ?? time());
+            if ((time() - $lastmodified) > 600) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Process one record by id.
      *
      * Returns one of: recovered, queued, not_eligible, not_found.
@@ -57,7 +78,8 @@ class resubmission_recovery_service {
             return 'not_found';
         }
 
-        if (($record->status ?? '') !== 'error') {
+        // Use the unified eligibility check!
+        if (!$this->is_eligible($record)) {
             return 'not_eligible';
         }
 
@@ -87,7 +109,8 @@ class resubmission_recovery_service {
         $records = $this->db->get_records_select('plagiarism_inspera_subs', "id $insql", $inparams);
 
         foreach ($records as $record) {
-            if (($record->status ?? '') !== 'error') {
+            // Use the unified eligibility check here!
+            if (!$this->is_eligible($record)) {
                 $result->skipped++;
                 continue;
             }

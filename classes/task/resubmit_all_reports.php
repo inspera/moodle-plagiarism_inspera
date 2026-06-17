@@ -336,21 +336,10 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             return false;
         }
 
-        $status = $record->status ?? '';
+        // Instantiate the service to check eligibility (or use an injected instance if available).
+        global $DB;
+        $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
 
-        // Always process explicit errors.
-        if ($status === 'error') {
-            return true;
-        }
-
-        // Retry 'report_requested' if stuck for > 10 minutes.
-        if ($status === 'report_requested') {
-            $lastmodified = (int)($record->timemodified ?? $record->timecreated ?? time());
-            if ((time() - $lastmodified) > 600) { // 600 seconds = 10 minutes.
-                return true;
-            }
-        }
-
-        return false;
+        return $recoveryservice->is_eligible($record);
     }
 }
