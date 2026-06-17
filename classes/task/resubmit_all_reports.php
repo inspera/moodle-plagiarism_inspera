@@ -333,9 +333,24 @@ class resubmit_all_reports extends \core\task\adhoc_task {
      */
     private function should_process(?\stdClass $record): bool {
         if (!$record) {
+            return false;
+        }
+
+        $status = $record->status ?? '';
+
+        // Always process explicit errors.
+        if ($status === 'error') {
             return true;
         }
 
-        return ($record->status ?? '') === 'error';
+        // Retry 'report_requested' if stuck for > 10 minutes.
+        if ($status === 'report_requested') {
+            $lastmodified = (int)($record->timemodified ?? $record->timecreated ?? time());
+            if ((time() - $lastmodified) > 600) { // 600 seconds = 10 minutes.
+                return true;
+            }
+        }
+
+        return false;
     }
 }
