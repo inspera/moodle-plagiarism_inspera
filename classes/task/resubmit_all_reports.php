@@ -195,6 +195,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             mtrace("Processing tracking records for Forum CMID: " . $cmid);
 
             $bulkforumfileids = [];
+            $fs = get_file_storage(); // Initialize file storage.
 
             foreach ($recordset as $record) {
                 if ($this->should_process($record)) {
@@ -230,7 +231,13 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                         }
                     } else if ((int)$record->storedfileid > 0) {
                         // 2. Handle File Attachment Resubmission (Batch Processing).
-                        $bulkforumfileids[] = (int)$record->id;
+                        // Verify the physical file still exists before queuing.
+                        if ($fs->get_file_by_id((int)$record->storedfileid)) {
+                            $bulkforumfileids[] = (int)$record->id;
+                        } else {
+                            mtrace("Skipping orphaned Forum File ID {$record->storedfileid} " .
+                                " for Post ID {$postid}: physical file no longer exists.");
+                        }
                     }
                 }
             }
@@ -255,6 +262,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             mtrace("Processing tracking records for Workshop CMID: " . $cmid);
 
             $bulkworkshopfileids = [];
+            $fs = get_file_storage(); // Initialize file storage.
 
             foreach ($recordset as $record) {
                 if ($this->should_process($record)) {
@@ -294,7 +302,13 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                         }
                     } else if ((int)$record->storedfileid > 0) {
                         // 2. Handle File Attachment Resubmission (Batch Processing).
-                        $bulkworkshopfileids[] = (int)$record->id;
+                        // Verify the physical file still exists before queuing.
+                        if ($fs->get_file_by_id((int)$record->storedfileid)) {
+                            $bulkworkshopfileids[] = (int)$record->id;
+                        } else {
+                            mtrace("Skipping orphaned Workshop File ID " .
+                                "{$record->storedfileid} for Submission ID {$submissionid}: physical file no longer exists.");
+                        }
                     }
                 }
             }
