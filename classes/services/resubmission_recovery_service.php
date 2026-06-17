@@ -121,7 +121,7 @@ class resubmission_recovery_service {
                     $this->mark_as_recovered((int)$record->id, $status);
                     return 'recovered';
                 }
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 // Log the network/API failure to Moodle's debug logs and fall back to fresh submission.
                 debugging("Recovery pre-flight failed for fileid {$record->id}: " . $e->getMessage(), DEBUG_DEVELOPER);
             }
