@@ -98,11 +98,7 @@ class resubmission_recovery_service {
             return 'not_found';
         }
 
-        // Use the unified eligibility check!
-        if (!$this->is_eligible($record)) {
-            return 'not_eligible';
-        }
-
+        // Delegate directly; resubmit_record() handles the eligibility check natively.
         return $this->resubmit_record($record, $client);
     }
 
