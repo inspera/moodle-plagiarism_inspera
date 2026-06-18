@@ -167,7 +167,8 @@ class resubmission_recovery_service {
             try {
                 $status = $client->check_document_status($record->externalid);
                 if (!isset($status->status)) {
-                    debugging("Recovery pre-flight failed for fileid {$record->id}: missing status in API response", DEBUG_DEVELOPER);
+                    debugging("Recovery pre-flight failed for fileid {$record->id}: " .
+                        "missing status in API response", DEBUG_DEVELOPER);
                     return 'api_error';
                 }
                 // 1. Finished: Recover completely.
