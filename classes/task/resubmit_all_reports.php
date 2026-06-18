@@ -114,7 +114,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             if (!empty($bulkassignfileids)) {
                 $bulkresult = $recoveryservice->resubmit_bulk($bulkassignfileids, $client);
                 mtrace("Bulk Processed Assignment Files: {$bulkresult->recovered} recovered via pre-flight, " .
-                    "{$bulkresult->queued} queued for fresh submission.");
+                    "{$bulkresult->queued} queued for fresh submission, {$bulkresult->skipped} skipped/aborted.");
             }
 
             // PART B: PROCESS ONLINE TEXT.
@@ -253,7 +253,8 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                 $bulkresult = $recoveryservice->resubmit_bulk($bulkforumfileids, $client);
                 mtrace(
                     "Bulk Processed Forum File Attachments: {$bulkresult->recovered} " .
-                    "recovered via pre-flight, {$bulkresult->queued} queued for fresh submission."
+                    "recovered via pre-flight, {$bulkresult->queued} queued for fresh submission, " .
+                    "{$bulkresult->skipped} skipped/aborted."
                 );
             }
         } else if ($modname === 'workshop') {
@@ -328,7 +329,8 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                 $bulkresult = $recoveryservice->resubmit_bulk($bulkworkshopfileids, $client);
                 mtrace(
                     "Bulk Processed Workshop File Attachments: {$bulkresult->recovered} " .
-                    "recovered via pre-flight, {$bulkresult->queued} queued for fresh submission."
+                    "recovered via pre-flight, {$bulkresult->queued} queued for fresh submission, " .
+                    "{$bulkresult->skipped} skipped/aborted."
                 );
             }
         }
