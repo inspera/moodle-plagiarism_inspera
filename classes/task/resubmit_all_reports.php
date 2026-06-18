@@ -86,7 +86,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             $files = $fs->get_area_files($context->id, 'assignsubmission_file', 'submission_files', false, 'timemodified', false);
             mtrace("Found " . count($files) . " candidate assignment files.");
 
-            $bulkassignfileids = [];
+            $bulkassignrecordids = [];
 
             foreach ($files as $file) {
                 if ($file->get_filename() === '.') {
@@ -108,11 +108,11 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                 }
 
                 if ($this->should_process($record, $recoveryservice)) {
-                    $bulkassignfileids[] = (int)$record->id;
+                    $bulkassignrecordids[] = (int)$record->id;
                 }
             }
-            if (!empty($bulkassignfileids)) {
-                $bulkresult = $recoveryservice->resubmit_bulk($bulkassignfileids, $client);
+            if (!empty($bulkassignrecordids)) {
+                $bulkresult = $recoveryservice->resubmit_bulk($bulkassignrecordids, $client);
                 mtrace("Bulk Processed Assignment Files: {$bulkresult->recovered} recovered via pre-flight, " .
                     "{$bulkresult->queued} queued for fresh submission, {$bulkresult->skipped} skipped/aborted.");
             }
@@ -194,7 +194,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
             mtrace("Processing tracking records for Forum CMID: " . $cmid);
 
-            $bulkforumfileids = [];
+            $bulkforumrecordids = [];
             $fs = get_file_storage(); // Initialize file storage.
 
             foreach ($recordset as $record) {
@@ -237,7 +237,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                         // 2. Handle File Attachment Resubmission (Batch Processing).
                         // Verify the physical file still exists before queuing.
                         if ($fs->get_file_by_id((int)$record->storedfileid)) {
-                            $bulkforumfileids[] = (int)$record->id;
+                            $bulkforumrecordids[] = (int)$record->id;
                         } else {
                             mtrace("Skipping orphaned Forum File ID {$record->storedfileid} " .
                                 " for Post ID {$postid}: physical file no longer exists.");
@@ -249,8 +249,8 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             // Always close recordsets to release database connection locks!
             $recordset->close();
 
-            if (!empty($bulkforumfileids)) {
-                $bulkresult = $recoveryservice->resubmit_bulk($bulkforumfileids, $client);
+            if (!empty($bulkforumrecordids)) {
+                $bulkresult = $recoveryservice->resubmit_bulk($bulkforumrecordids, $client);
                 mtrace(
                     "Bulk Processed Forum File Attachments: {$bulkresult->recovered} " .
                     "recovered via pre-flight, {$bulkresult->queued} queued for fresh submission, " .
@@ -266,7 +266,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
             mtrace("Processing tracking records for Workshop CMID: " . $cmid);
 
-            $bulkworkshopfileids = [];
+            $bulkworkshoprecordids = [];
             $fs = get_file_storage(); // Initialize file storage.
 
             foreach ($recordset as $record) {
@@ -313,7 +313,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                         // 2. Handle File Attachment Resubmission (Batch Processing).
                         // Verify the physical file still exists before queuing.
                         if ($fs->get_file_by_id((int)$record->storedfileid)) {
-                            $bulkworkshopfileids[] = (int)$record->id;
+                            $bulkworkshoprecordids[] = (int)$record->id;
                         } else {
                             mtrace("Skipping orphaned Workshop File ID " .
                                 "{$record->storedfileid} for Submission ID {$submissionid}: physical file no longer exists.");
@@ -325,8 +325,8 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             // Always close recordsets to release database connection locks!
             $recordset->close();
 
-            if (!empty($bulkworkshopfileids)) {
-                $bulkresult = $recoveryservice->resubmit_bulk($bulkworkshopfileids, $client);
+            if (!empty($bulkworkshoprecordids)) {
+                $bulkresult = $recoveryservice->resubmit_bulk($bulkworkshoprecordids, $client);
                 mtrace(
                     "Bulk Processed Workshop File Attachments: {$bulkresult->recovered} " .
                     "recovered via pre-flight, {$bulkresult->queued} queued for fresh submission, " .
