@@ -205,14 +205,13 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
         $deletedcount = count($selectedids);
         \core\notification::success(get_string('recordsdeleted', 'plagiarism_inspera', $deletedcount));
     } else if ($resubmitselected) {
-        $selectedcount = count($selectedids);
         $client = new \plagiarism_inspera\apiclient\api_client();
         $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
         $result = $recoveryservice->resubmit_bulk($selectedids, $client);
 
         if (($result->recovered + $result->queued) > 0) {
             $a = new \stdClass();
-            $a->selected = $selectedcount;
+            $a->selected = $result->selected;
             $a->recovered = $result->recovered;
             $a->queued = $result->queued;
             $a->skipped = $result->skipped;
