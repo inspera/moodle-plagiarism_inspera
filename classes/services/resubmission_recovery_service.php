@@ -166,26 +166,28 @@ class resubmission_recovery_service {
         if (!empty($record->externalid)) {
             try {
                 $status = $client->check_document_status($record->externalid);
-                if (isset($status->status)) {
-                    // 1. Finished: Recover completely.
-                    if ((int)$status->status === 1) {
-                        $this->mark_as_recovered((int)$record->id, $status);
-                        return 'recovered';
-                    }
+                if (!isset($status->status)) {
+                    debugging("Recovery pre-flight failed for fileid {$record->id}: missing status in API response", DEBUG_DEVELOPER);
+                    return 'api_error';
+                }
+                // 1. Finished: Recover completely.
+                if ((int)$status->status === 1) {
+                    $this->mark_as_recovered((int)$record->id, $status);
+                    return 'recovered';
+                }
 
-                    // 2. Processing/Queued: Resume polling, unless stuck for > 48 hours.
-                    if (in_array((int)$status->status, [0, -1], true)) {
-                        $graceperiodreference = (int)($record->timemodified ?? $record->timecreated ?? time());
-                        $elapsedseconds = time() - $graceperiodreference;
+                // 2. Processing/Queued: Resume polling, unless stuck for > 48 hours.
+                if (in_array((int)$status->status, [0, -1], true)) {
+                    $graceperiodreference = (int)($record->timemodified ?? $record->timecreated ?? time());
+                    $elapsedseconds = time() - $graceperiodreference;
 
-                        if ($elapsedseconds < (2 * DAYSECS)) {
-                            $this->resume_polling((int)$record->id);
-                            // Returning 'queued' gracefully increments your existing UI counters.
-                            return 'queued';
-                        }
-                        // If it's older than 48h, Inspera's process is likely dead.
-                        // Fall through to wipe the ID and send a fresh payload.
+                    if ($elapsedseconds < (2 * DAYSECS)) {
+                        $this->resume_polling((int)$record->id);
+                        // Returning 'queued' gracefully increments your existing UI counters.
+                        return 'queued';
                     }
+                    // If it's older than 48h, Inspera's process is likely dead.
+                    // Fall through to wipe the ID and send a fresh payload.
                 }
             } catch (\Throwable $e) {
                 // Log the network/API failure to Moodle's debug logs.
