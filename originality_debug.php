@@ -255,6 +255,8 @@ if ($id && ($action === 'resubmit' || $action === 'delete')) {
         } else {
             \core\notification::error(get_string('resubmit_single_not_eligible', 'plagiarism_inspera'));
         }
+        // Unconditionally trigger the PRG redirect so the URL is cleaned.
+        $executed = true;
     } else if ($action === 'delete') {
         $DB->delete_records('plagiarism_inspera_subs', ['id' => $id]);
         \core\notification::success(get_string('filedeleted', 'plagiarism_inspera'));
