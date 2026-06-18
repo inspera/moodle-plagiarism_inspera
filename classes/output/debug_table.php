@@ -173,7 +173,7 @@ class debug_table extends \table_sql {
             $lastactive = (int)($row->timemodified ?? $row->timecreated ?? time());
             $age = time() - $lastactive;
 
-            if ($age >= (10 * MINUTESECS)) {
+            if ($age > (10 * MINSECS)) {
                 $showresubmit = true;
             }
         }
