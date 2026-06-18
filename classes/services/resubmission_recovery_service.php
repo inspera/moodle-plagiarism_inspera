@@ -70,7 +70,7 @@ class resubmission_recovery_service {
     /**
      * Attempts recovery using an already-loaded submission record to avoid redundant DB reads.
      *
-     *  Returns one of: recovered, queued, api_error, not_eligible.
+     *  Returns one of: recovered, queued, api_error, not_eligible, skipped.
      *
      * @param \stdClass $record Record from {plagiarism_inspera_subs}.
      * @param api_client $client API client.
