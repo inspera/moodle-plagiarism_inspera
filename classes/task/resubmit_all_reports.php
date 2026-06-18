@@ -114,7 +114,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
             if (!empty($bulkassignrecordids)) {
                 $bulkresult = $recoveryservice->resubmit_bulk($bulkassignrecordids, $client);
                 mtrace("Bulk Processed Assignment Files: {$bulkresult->recovered} recovered via pre-flight, " .
-                    "{$bulkresult->queued} queued for fresh submission, {$bulkresult->skipped} skipped/aborted.");
+                    "{$bulkresult->queued} queued/resumed for processing, {$bulkresult->skipped} skipped/aborted.");
             }
 
             // PART B: PROCESS ONLINE TEXT.
