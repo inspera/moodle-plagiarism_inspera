@@ -175,9 +175,10 @@ class resubmission_recovery_service {
 
                     // 2. Processing/Queued: Resume polling, unless stuck for > 48 hours.
                     if (in_array((int)$status->status, [0, -1], true)) {
-                        $age = time() - (int)$record->timecreated;
+                        $graceperiodreference = (int)($record->timemodified ?? $record->timecreated ?? time());
+                        $elapsedseconds = time() - $graceperiodreference;
 
-                        if ($age < (2 * DAYSECS)) { // 48 hours
+                        if ($elapsedseconds < (2 * DAYSECS)) {
                             $this->resume_polling((int)$record->id);
                             // Returning 'queued' gracefully increments your existing UI counters.
                             return 'queued';
