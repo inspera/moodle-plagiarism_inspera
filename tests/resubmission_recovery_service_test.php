@@ -229,7 +229,7 @@ final class resubmission_recovery_service_test extends advanced_testcase {
     }
 
     /**
-     * Test resubmit_single rejects unsupported status like external_error.
+     * Test resubmit_single rejects unsupported status like fatal_error.
      * @covers \plagiarism_inspera\services\resubmission_recovery_service::resubmit_single
      */
     public function test_resubmit_single_rejects_unsupported_status(): void {
