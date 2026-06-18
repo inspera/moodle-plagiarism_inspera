@@ -203,6 +203,13 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
                     // 1. Handle Inline Text Resubmission (Single Processing Required).
                     if ($record->storedfileid === null) {
+                        // Validate source content exists BEFORE altering the tracking record state.
+                        $message = $DB->get_field($posttable, 'message', ['id' => $postid], IGNORE_MISSING);
+                        if ($message === false || trim(strip_tags($message)) === '') {
+                            mtrace("Skipping orphaned Forum Online Text for Post ID {$postid}: content no longer exists.");
+                            continue;
+                        }
+
                         $outcome = $recoveryservice->resubmit_record($record, $client);
 
                         if ($outcome === 'recovered') {
@@ -213,22 +220,19 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                             continue;
                         }
 
-                        $message = $DB->get_field($posttable, 'message', ['id' => $postid], IGNORE_MISSING);
-                        if ($message !== false) {
-                            mtrace("Updating Forum Online Text identifier for Post ID {$postid} after pre-flight fallback.");
-                            $tempfileobject = plagiarism_inspera_create_temp_file(
-                                $cmid,
-                                $cm->course,
-                                $record->userid,
-                                $message,
-                                $postid
-                            );
-                            $updaterecord = new \stdClass();
-                            $updaterecord->id = $record->id;
-                            $updaterecord->identifier = $tempfileobject->filepath;
-                            $updaterecord->timemodified = time();
-                            $DB->update_record('plagiarism_inspera_subs', $updaterecord);
-                        }
+                        mtrace("Updating Forum Online Text identifier for Post ID {$postid} after pre-flight fallback.");
+                        $tempfileobject = plagiarism_inspera_create_temp_file(
+                            $cmid,
+                            $cm->course,
+                            $record->userid,
+                            $message,
+                            $postid
+                        );
+                        $updaterecord = new \stdClass();
+                        $updaterecord->id = $record->id;
+                        $updaterecord->identifier = $tempfileobject->filepath;
+                        $updaterecord->timemodified = time();
+                        $DB->update_record('plagiarism_inspera_subs', $updaterecord);
                     } else if ((int)$record->storedfileid > 0) {
                         // 2. Handle File Attachment Resubmission (Batch Processing).
                         // Verify the physical file still exists before queuing.
@@ -270,6 +274,14 @@ class resubmit_all_reports extends \core\task\adhoc_task {
 
                     // 1. Handle Inline Text Resubmission (Single Processing Required).
                     if ($record->storedfileid === null) {
+                        // Validate source content exists BEFORE altering the tracking record state.
+                        $content = $DB->get_field('workshop_submissions', 'content', ['id' => $submissionid], IGNORE_MISSING);
+                        if ($content === false || trim(strip_tags($content)) === '') {
+                            mtrace("Skipping orphaned Workshop Online Text for Submission ID " .
+                                "{$submissionid}: content no longer exists.");
+                            continue;
+                        }
+
                         $outcome = $recoveryservice->resubmit_record($record, $client);
 
                         if ($outcome === 'recovered') {
@@ -280,26 +292,22 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                             continue;
                         }
 
-                        // Workshop stores online text in the 'content' column of the 'workshop_submissions' table.
-                        $content = $DB->get_field('workshop_submissions', 'content', ['id' => $submissionid], IGNORE_MISSING);
-                        if ($content !== false && trim(strip_tags($content)) !== '') {
-                            mtrace(
-                                "Updating Workshop Online Text identifier for " .
-                                "Submission ID {$submissionid} after pre-flight fallback."
-                            );
-                            $tempfileobject = plagiarism_inspera_create_temp_file(
-                                $cmid,
-                                $cm->course,
-                                $record->userid,
-                                $content,
-                                $submissionid
-                            );
-                            $updaterecord = new \stdClass();
-                            $updaterecord->id = $record->id;
-                            $updaterecord->identifier = $tempfileobject->filepath;
-                            $updaterecord->timemodified = time();
-                            $DB->update_record('plagiarism_inspera_subs', $updaterecord);
-                        }
+                        mtrace(
+                            "Updating Workshop Online Text identifier for " .
+                            "Submission ID {$submissionid} after pre-flight fallback."
+                        );
+                        $tempfileobject = plagiarism_inspera_create_temp_file(
+                            $cmid,
+                            $cm->course,
+                            $record->userid,
+                            $content,
+                            $submissionid
+                        );
+                        $updaterecord = new \stdClass();
+                        $updaterecord->id = $record->id;
+                        $updaterecord->identifier = $tempfileobject->filepath;
+                        $updaterecord->timemodified = time();
+                        $DB->update_record('plagiarism_inspera_subs', $updaterecord);
                     } else if ((int)$record->storedfileid > 0) {
                         // 2. Handle File Attachment Resubmission (Batch Processing).
                         // Verify the physical file still exists before queuing.
