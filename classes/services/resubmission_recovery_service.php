@@ -177,7 +177,7 @@ class resubmission_recovery_service {
                     if (in_array((int)$status->status, [0, -1], true)) {
                         $age = time() - (int)$record->timecreated;
 
-                        if ($age < 172800) { // 48 hours
+                        if ($age < (2 * DAYSECS)) { // 48 hours
                             $this->resume_polling((int)$record->id);
                             // Returning 'queued' gracefully increments your existing UI counters.
                             return 'queued';
