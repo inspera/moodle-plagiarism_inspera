@@ -191,6 +191,19 @@ class resubmission_recovery_service {
                     }
                     // If it's older than 48h, Inspera's process is likely dead.
                     // Fall through to wipe the ID and send a fresh payload.
+                } else {
+                    // 3. Fatal or Unknown Status (e.g., status 2).
+                    // Preserve the externalid and surface the API state/message so admins know exactly WHY it failed.
+                    $updaterecord = (object) [
+                        'id' => (int)$record->id,
+                        'status' => ((int)$status->status === 2) ? 'fatal_error' : 'external_error',
+                        'description' => isset($status->message) ? (string)$status->message : json_encode($status),
+                        'timemodified' => time(),
+                    ];
+                    $this->db->update_record('plagiarism_inspera_subs', $updaterecord);
+
+                    // Return 'skipped' (or 'not_eligible') so the UI/bulk processor knows we aborted.
+                    return 'skipped';
                 }
             } catch (\Throwable $e) {
                 // Log the network/API failure to Moodle's debug logs.
