@@ -186,6 +186,7 @@ $string['resubmit_single_not_eligible'] = 'Resubmit is only allowed when status 
 $string['resubmit_single_not_found'] = 'Cannot resubmit: The tracking record could not be found. It may have already been deleted.';
 $string['resubmit_single_queued'] = 'Submission queued/resumed for processing after pre-flight check.';
 $string['resubmit_single_recovered'] = 'Submission recovered immediately via pre-flight check.';
+$string['resubmit_single_skipped'] = 'Recovery aborted: The Inspera API returned a fatal or unknown status. The tracking record has been updated with the error details from the API.';
 $string['resubmit_tooltip'] = 'Retry report submission using the current originality checking settings.';
 $string['resubmitallfiltered'] = 'Resubmit all filtered files';
 $string['resubmitcheck'] = 'Are you sure you want to resubmit this file?';

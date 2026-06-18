@@ -250,6 +250,10 @@ if ($id && ($action === 'resubmit' || $action === 'delete')) {
         } else if ($outcome === 'not_found') {
             // Handle the specific 'not_found' case.
             \core\notification::error(get_string('resubmit_single_not_found', 'plagiarism_inspera'));
+        } else if ($outcome === 'skipped') {
+            // The API returned a fatal status (e.g., password protected).
+            // We updated the DB but aborted the retry.
+            \core\notification::warning(get_string('resubmit_single_skipped', 'plagiarism_inspera'));
         } else {
             \core\notification::error(get_string('resubmit_single_not_eligible', 'plagiarism_inspera'));
         }
