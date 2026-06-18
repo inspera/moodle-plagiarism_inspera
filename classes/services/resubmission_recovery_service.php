@@ -112,7 +112,10 @@ class resubmission_recovery_service {
      */
     public function resubmit_bulk(array $ids, api_client $client): \stdClass {
         // Normalize to unique integer IDs up-front to prevent duplicate/malformed inputs inflating the skipped counter.
-        $ids = array_values(array_unique(array_map('intval', $ids)));
+        $ids = array_values(array_unique(array_filter(
+            array_map('intval', $ids),
+            fn($id) => $id > 0
+        )));
 
         $result = (object) [
             'selected' => count($ids),
