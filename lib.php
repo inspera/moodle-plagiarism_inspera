@@ -2795,7 +2795,7 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
 
                 if ($elapsedseconds > 2 * DAYSECS) { // 48 hours limit.
                     // Dynamically determine the human-readable state for the admin logs.
-                    $statustext = ($status->status == 0) ? 'queued' : 'processing';
+                    $statustext = ((int)$status->status === 0) ? 'queued' : 'processing';
 
                     $plagiarismfile->status = 'error';
                     $plagiarismfile->description = "API timeout: Stuck in {$statustext} state for over 48 hours.";
