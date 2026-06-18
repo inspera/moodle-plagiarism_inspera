@@ -163,7 +163,7 @@ class debug_table extends \table_sql {
         $output = html_writer::start_div('d-flex justify-content-start align-items-center');
 
         // 1. Reset / Resubmit Button.
-        if ($row->status == 'error') {
+        if (in_array($row->status, ['error', 'external_error'], true)) {
             $output .= $this->render_post_action(
                 $row->id,
                 'resubmit',
