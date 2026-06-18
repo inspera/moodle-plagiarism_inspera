@@ -160,7 +160,7 @@ class resubmission_recovery_service {
      *
      * @param \stdClass $record Record from plagiarism_inspera_subs.
      * @param api_client $client API client.
-     * @return string recovered|queued|api_error
+     * @return string recovered|queued|api_error|skipped
      */
     private function process_eligible_record(\stdClass $record, api_client $client): string {
         if (!empty($record->externalid)) {
