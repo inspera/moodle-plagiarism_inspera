@@ -51,7 +51,8 @@ class resubmission_recovery_service {
     public function is_eligible(\stdClass $record): bool {
         $status = $record->status ?? '';
 
-        if ($status === 'error') {
+        // Allow retry for transient error states. 'fatal_error' requires manual intervention.
+        if (in_array($status, ['error', 'external_error'], true)) {
             return true;
         }
 

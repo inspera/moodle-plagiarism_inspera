@@ -200,7 +200,7 @@ final class resubmission_recovery_service_test extends advanced_testcase {
     public function test_resubmit_single_rejects_unsupported_status(): void {
         global $DB;
 
-        $record = $this->create_submission_record('external_error', 'doc-nope');
+        $record = $this->create_submission_record('fatal_error', 'doc-nope');
 
         $clientmock = $this->getMockBuilder(api_client::class)
             ->onlyMethods(['check_document_status'])
@@ -213,7 +213,7 @@ final class resubmission_recovery_service_test extends advanced_testcase {
 
         $this->assertEquals('not_eligible', $outcome);
         $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id], '*', MUST_EXIST);
-        $this->assertEquals('external_error', $updated->status);
+        $this->assertEquals('fatal_error', $updated->status);
         $this->assertEquals('doc-nope', $updated->externalid);
     }
 
