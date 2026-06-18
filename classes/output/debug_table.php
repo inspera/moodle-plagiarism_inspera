@@ -168,9 +168,11 @@ class debug_table extends \table_sql {
         if (in_array($row->status, ['error', 'external_error'], true)) {
             // Always show the resubmit button for explicit errors.
             $showresubmit = true;
-        } elseif ($row->status === 'report_requested') {
-            // For queued items, only show the button if the 10-minute cooldown has passed.
-            $age = time() - (int)$row->timecreated;
+        } else if ($row->status === 'report_requested') {
+            // Align cooldown logic with the backend: use timemodified as the primary reference.
+            $lastactive = (int)($row->timemodified ?? $row->timecreated ?? time());
+            $age = time() - $lastactive;
+
             if ($age >= (10 * MINUTESECS)) {
                 $showresubmit = true;
             }

@@ -279,7 +279,7 @@ $table = new \plagiarism_inspera\output\debug_table('debugtable');
 $userfieldsapi = \core_user\fields::for_name();
 $userfields = $userfieldsapi->get_sql('u', false, '', '', false)->selects;
 
-$sqlfields = "t.id, t.status, t.timecreated, t.externalid, t.similarity, t.description,
+$sqlfields = "t.id, t.status, t.timecreated, t.timemodified, t.externalid, t.similarity, t.description,
               u.id as userid, $userfields,
               c.id as courseid, c.fullname, c.shortname,
               t.cm as cm, m.name as moduletype";
