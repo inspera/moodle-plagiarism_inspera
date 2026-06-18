@@ -203,15 +203,13 @@ class resubmission_recovery_service {
      * Resumes polling for a document that is actively processing on Inspera's side.
      */
     private function resume_polling(int $recordid): void {
-        global $DB;
-
         $updaterecord = new \stdClass();
         $updaterecord->id = $recordid;
         $updaterecord->status = 'pending';
         $updaterecord->description = 'Document processing found active via pre-flight check. Resumed polling.';
         $updaterecord->timemodified = time();
 
-        $DB->update_record('plagiarism_inspera_subs', $updaterecord);
+        $this->db->update_record('plagiarism_inspera_subs', $updaterecord);
     }
 
     /**
