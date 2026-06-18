@@ -214,6 +214,36 @@ class resubmission_recovery_service {
             }
         }
 
+        // Before wiping the externalid for a fresh submission, ensure online-text payload still exists.
+        if (empty($record->storedfileid)) {
+            $identifier = isset($record->identifier) ? (string)$record->identifier : '';
+            $safebase = make_temp_directory('plagiarism_inspera');
+            $realbase = $identifier !== '' ? realpath($safebase) : false;
+            $realfile = $identifier !== '' ? realpath($identifier) : false;
+
+            $normalizedbase = $realbase !== false ? str_replace('\\', '/', $realbase) : '';
+            if ($normalizedbase !== '' && substr($normalizedbase, -1) !== '/') {
+                $normalizedbase .= '/';
+            }
+
+            $normalizedfile = $realfile !== false ? str_replace('\\', '/', $realfile) : '';
+
+            $missingorunsafe = ($identifier === '') || ($realbase === false) || ($realfile === false) ||
+                (!is_file($realfile)) || (strpos($normalizedfile, $normalizedbase) !== 0);
+
+            if ($missingorunsafe) {
+                $updaterecord = (object) [
+                    'id' => (int)$record->id,
+                    'status' => 'fatal_error',
+                    'description' => 'Recovery aborted: Source online-text payload " .
+                    "is missing or unsafe. Cannot queue a fresh submission.',
+                    'timemodified' => time(),
+                ];
+                $this->db->update_record('plagiarism_inspera_subs', $updaterecord);
+                return 'skipped';
+            }
+        }
+
         $this->queue_for_fresh_submission((int)$record->id);
         return 'queued';
     }

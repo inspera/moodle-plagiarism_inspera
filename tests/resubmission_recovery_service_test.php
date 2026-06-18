@@ -129,6 +129,9 @@ final class resubmission_recovery_service_test extends advanced_testcase {
         $oldtime = time() - 180000;
         $record = $this->create_submission_record('error', 'doc-queued-old', $oldtime);
 
+        // Mock a standard file upload so we bypass the online-text temp file validation.
+        $DB->set_field('plagiarism_inspera_subs', 'storedfileid', 9999, ['id' => $record->id]);
+
         $clientmock = $this->getMockBuilder(api_client::class)->onlyMethods(['check_document_status'])->getMock();
         $clientmock->expects($this->once())->method('check_document_status')->willReturn((object) ['status' => 0]);
 
@@ -141,6 +144,38 @@ final class resubmission_recovery_service_test extends advanced_testcase {
         $this->assertEquals('report_requested', $updated->status);
         $this->assertNull($updated->externalid); // Wiped!
         $this->assertStringContainsString('Queued for fresh submission', (string)$updated->description);
+    }
+
+    /**
+     * Test resubmit_single aborts data wipe and returns skipped if online text temp file is missing (>48h).
+     * @covers \plagiarism_inspera\services\resubmission_recovery_service::process_eligible_record
+     */
+    public function test_resubmit_single_aborts_if_online_text_temp_file_missing(): void {
+        global $DB;
+
+        // Created 50 hours ago (exceeds 172800 seconds).
+        $oldtime = time() - 180000;
+        $record = $this->create_submission_record('error', 'doc-missing-file', $oldtime);
+
+        // Ensure it is treated as an online text submission missing its payload.
+        // make_temp_directory ensures the base folder exists, but the fake txt file won't.
+        $safebase = make_temp_directory('plagiarism_inspera');
+        $DB->set_field('plagiarism_inspera_subs', 'storedfileid', null, ['id' => $record->id]);
+        $DB->set_field('plagiarism_inspera_subs', 'identifier', $safebase . '/fake_deleted_file.txt', ['id' => $record->id]);
+
+        $clientmock = $this->getMockBuilder(api_client::class)->onlyMethods(['check_document_status'])->getMock();
+        $clientmock->expects($this->once())->method('check_document_status')->willReturn((object) ['status' => 0]);
+
+        $service = new resubmission_recovery_service($DB);
+        $outcome = $service->resubmit_single((int)$record->id, $clientmock);
+
+        // Expect the recovery to safely abort.
+        $this->assertEquals('skipped', $outcome);
+
+        $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id], '*', MUST_EXIST);
+        $this->assertEquals('fatal_error', $updated->status);
+        $this->assertEquals('doc-missing-file', $updated->externalid); // Preserved, NOT wiped!
+        $this->assertStringContainsString('is missing or unsafe', (string)$updated->description);
     }
 
     /**
@@ -365,7 +400,7 @@ final class resubmission_recovery_service_test extends advanced_testcase {
             'description' => 'initial',
             'timecreated' => $timecreated ?? (time() - 500),
             'timemodified' => time() - 100,
-            'storedfileid' => null,
+            'storedfileid' => 9999,
             'identifier' => 'resubmit-test-' . random_int(1000, 9999),
         ];
         $record->id = $DB->insert_record('plagiarism_inspera_subs', $record);
