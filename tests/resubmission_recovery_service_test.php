@@ -126,8 +126,10 @@ final class resubmission_recovery_service_test extends advanced_testcase {
         global $DB;
 
         // Created 50 hours ago (exceeds 172800 seconds).
-        $oldtimecreated = time() - 180000;
-        $record = $this->create_submission_record('error', 'doc-queued-old', $oldtimecreated);
+        $oldtime = time() - 180000;
+        $record = $this->create_submission_record('error', 'doc-queued-old', $oldtime);
+        // Force timemodified into the past so the age check exceeds 48 hours!
+        $DB->set_field('plagiarism_inspera_subs', 'timemodified', $oldtime, ['id' => $record->id]);
 
         $clientmock = $this->getMockBuilder(api_client::class)->onlyMethods(['check_document_status'])->getMock();
         $clientmock->expects($this->once())->method('check_document_status')->willReturn((object) ['status' => 0]);
