@@ -179,7 +179,9 @@ class resubmission_recovery_service {
 
                 // 2. Processing/Queued: Resume polling, unless stuck for > 48 hours.
                 if (in_array((int)$status->status, [0, -1], true)) {
-                    $graceperiodreference = (int)($record->timemodified ?? $record->timecreated ?? time());
+                    // Use timecreated as the anchor. If a stuck record was marked as an 'error',
+                    // timemodified would have been updated, which would incorrectly bypass this timeout.
+                    $graceperiodreference = (int)($record->timecreated ?? time());
                     $elapsedseconds = time() - $graceperiodreference;
 
                     if ($elapsedseconds < (2 * DAYSECS)) {
