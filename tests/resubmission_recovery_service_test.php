@@ -94,10 +94,10 @@ final class resubmission_recovery_service_test extends advanced_testcase {
     }
 
     /**
-     * Test resubmit_single queues fresh start when status is queued.
+     * Test resubmit_single queues fresh start when API reports the document is queued.
      * @covers \plagiarism_inspera\services\resubmission_recovery_service::resubmit_single
      */
-    public function test_resubmit_single_queues_fresh_start_when_status_is_queued(): void {
+    public function test_resubmit_single_queues_fresh_start_when_api_reports_queued(): void {
         global $DB;
 
         $oldtimecreated = time() - 2000;
