@@ -235,8 +235,8 @@ class resubmission_recovery_service {
                 $updaterecord = (object) [
                     'id' => (int)$record->id,
                     'status' => 'fatal_error',
-                    'description' => 'Recovery aborted: Source online-text payload " .
-                    "is missing or unsafe. Cannot queue a fresh submission.',
+                    'description' => 'Recovery aborted: Source online-text payload ' .
+                        'is missing or unsafe. Cannot queue a fresh submission.',
                     'timemodified' => time(),
                 ];
                 $this->db->update_record('plagiarism_inspera_subs', $updaterecord);
