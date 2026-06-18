@@ -265,7 +265,7 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                 $bulkresult = $recoveryservice->resubmit_bulk($bulkforumrecordids, $client);
                 mtrace(
                     "Bulk Processed Forum File Attachments: {$bulkresult->recovered} " .
-                    "recovered via pre-flight, {$bulkresult->queued} queued for fresh submission, " .
+                    "recovered via pre-flight, {$bulkresult->queued} queued/resumed for processing, " .
                     "{$bulkresult->skipped} skipped/aborted."
                 );
             }
