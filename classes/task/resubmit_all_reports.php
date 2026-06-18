@@ -165,6 +165,13 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                             continue;
                         }
 
+                        // Queued can mean either "resumed polling" or "queued for fresh submission".
+                        // Only refresh the online-text payload when a fresh submission was actually queued.
+                        $refreshed = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id], 'id,status', MUST_EXIST);
+                        if ($refreshed->status !== 'report_requested') {
+                            continue;
+                        }
+
                         // Refresh online text payload by creating a fresh temp file reference.
                         mtrace("Updating Assignment Online Text identifier for Submission " .
                             "ID {$sub->submissionid} after pre-flight fallback.");
@@ -217,6 +224,11 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                             continue;
                         }
                         if ($outcome !== 'queued') {
+                            continue;
+                        }
+
+                        $refreshed = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id], 'id,status', MUST_EXIST);
+                        if ($refreshed->status !== 'report_requested') {
                             continue;
                         }
 
@@ -290,6 +302,11 @@ class resubmit_all_reports extends \core\task\adhoc_task {
                             continue;
                         }
                         if ($outcome !== 'queued') {
+                            continue;
+                        }
+
+                        $refreshed = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id], 'id,status', MUST_EXIST);
+                        if ($refreshed->status !== 'report_requested') {
                             continue;
                         }
 
