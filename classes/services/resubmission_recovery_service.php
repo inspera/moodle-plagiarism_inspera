@@ -59,7 +59,7 @@ class resubmission_recovery_service {
         // Allow retry for 'report_requested' if stuck for > 10 minutes.
         if ($status === 'report_requested') {
             $lastmodified = (int)($record->timemodified ?? $record->timecreated ?? time());
-            if ((time() - $lastmodified) > 600) {
+            if ((time() - $lastmodified) > (10 * MINUTESECS)) {
                 return true;
             }
         }
