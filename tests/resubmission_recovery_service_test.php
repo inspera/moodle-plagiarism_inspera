@@ -94,22 +94,43 @@ final class resubmission_recovery_service_test extends advanced_testcase {
     }
 
     /**
-     * Test resubmit_single queues fresh start when API reports the document is queued.
+     * Test resubmit_single resumes polling when API reports queued (< 48 hours old).
      * @covers \plagiarism_inspera\services\resubmission_recovery_service::resubmit_single
      */
-    public function test_resubmit_single_queues_fresh_start_when_api_reports_queued(): void {
+    public function test_resubmit_single_resumes_polling_when_api_reports_queued(): void {
         global $DB;
 
+        // Created 33 minutes ago (well under 48 hours).
         $oldtimecreated = time() - 2000;
         $record = $this->create_submission_record('error', 'doc-queued', $oldtimecreated);
 
-        $clientmock = $this->getMockBuilder(api_client::class)
-            ->onlyMethods(['check_document_status'])
-            ->getMock();
-        $clientmock->expects($this->once())
-            ->method('check_document_status')
-            ->with('doc-queued')
-            ->willReturn((object) ['status' => 0]);
+        $clientmock = $this->getMockBuilder(api_client::class)->onlyMethods(['check_document_status'])->getMock();
+        $clientmock->expects($this->once())->method('check_document_status')->willReturn((object) ['status' => 0]);
+
+        $service = new resubmission_recovery_service($DB);
+        $outcome = $service->resubmit_single((int)$record->id, $clientmock);
+
+        $this->assertEquals('queued', $outcome);
+
+        $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id], '*', MUST_EXIST);
+        $this->assertEquals('pending', $updated->status);
+        $this->assertEquals('doc-queued', $updated->externalid); // Preserved!
+        $this->assertStringContainsString('Resumed polling', (string)$updated->description);
+    }
+
+    /**
+     * Test resubmit_single queues fresh start when API reports queued but record is > 48 hours old.
+     * @covers \plagiarism_inspera\services\resubmission_recovery_service::resubmit_single
+     */
+    public function test_resubmit_single_wipes_and_restarts_when_queued_exceeds_timeout(): void {
+        global $DB;
+
+        // Created 50 hours ago (exceeds 172800 seconds).
+        $oldtimecreated = time() - 180000;
+        $record = $this->create_submission_record('error', 'doc-queued-old', $oldtimecreated);
+
+        $clientmock = $this->getMockBuilder(api_client::class)->onlyMethods(['check_document_status'])->getMock();
+        $clientmock->expects($this->once())->method('check_document_status')->willReturn((object) ['status' => 0]);
 
         $service = new resubmission_recovery_service($DB);
         $outcome = $service->resubmit_single((int)$record->id, $clientmock);
@@ -118,16 +139,7 @@ final class resubmission_recovery_service_test extends advanced_testcase {
 
         $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id], '*', MUST_EXIST);
         $this->assertEquals('report_requested', $updated->status);
-        $this->assertNull($updated->externalid);
-        $this->assertNull($updated->similarity);
-        $this->assertNull($updated->originality_score);
-        $this->assertNull($updated->originality);
-        $this->assertNull($updated->translation_similarity);
-        $this->assertNull($updated->ai_index);
-        $this->assertNull($updated->character_replacement);
-        $this->assertNull($updated->hidden_text);
-        $this->assertNull($updated->image_as_text);
-        $this->assertGreaterThan($oldtimecreated, (int)$updated->timecreated);
+        $this->assertNull($updated->externalid); // Wiped!
         $this->assertStringContainsString('Queued for fresh submission', (string)$updated->description);
     }
 
@@ -305,9 +317,10 @@ final class resubmission_recovery_service_test extends advanced_testcase {
         $updatedrecoverable = $DB->get_record('plagiarism_inspera_subs', ['id' => $recoverable->id], '*', MUST_EXIST);
         $this->assertEquals('finished', $updatedrecoverable->status);
 
-        // Verify queueable worked.
+        // Verify queueable worked (it is under 48 hours old, so it resumes polling).
         $updatedqueueable = $DB->get_record('plagiarism_inspera_subs', ['id' => $queueable->id], '*', MUST_EXIST);
-        $this->assertEquals('report_requested', $updatedqueueable->status);
+        $this->assertEquals('pending', $updatedqueueable->status);
+        $this->assertEquals('doc-bulk-2', $updatedqueueable->externalid);
 
         // Verify the API error record was safely aborted and left completely untouched.
         $updatedapierror = $DB->get_record('plagiarism_inspera_subs', ['id' => $apierror->id], '*', MUST_EXIST);

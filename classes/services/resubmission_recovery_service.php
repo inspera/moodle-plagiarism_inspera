@@ -166,9 +166,25 @@ class resubmission_recovery_service {
         if (!empty($record->externalid)) {
             try {
                 $status = $client->check_document_status($record->externalid);
-                if (isset($status->status) && (int)$status->status === 1) {
-                    $this->mark_as_recovered((int)$record->id, $status);
-                    return 'recovered';
+                if (isset($status->status)) {
+                    // 1. Finished: Recover completely.
+                    if ((int)$status->status === 1) {
+                        $this->mark_as_recovered((int)$record->id, $status);
+                        return 'recovered';
+                    }
+
+                    // 2. Processing/Queued: Resume polling, unless stuck for > 48 hours.
+                    if (in_array((int)$status->status, [0, -1], true)) {
+                        $age = time() - (int)$record->timecreated;
+
+                        if ($age < 172800) { // 48 hours
+                            $this->resume_polling((int)$record->id);
+                            // Returning 'queued' gracefully increments your existing UI counters.
+                            return 'queued';
+                        }
+                        // If it's older than 48h, Inspera's process is likely dead.
+                        // Fall through to wipe the ID and send a fresh payload.
+                    }
                 }
             } catch (\Throwable $e) {
                 // Log the network/API failure to Moodle's debug logs and fall back to fresh submission.
@@ -181,6 +197,21 @@ class resubmission_recovery_service {
 
         $this->queue_for_fresh_submission((int)$record->id);
         return 'queued';
+    }
+
+    /**
+     * Resumes polling for a document that is actively processing on Inspera's side.
+     */
+    private function resume_polling(int $recordid): void {
+        global $DB;
+
+        $updaterecord = new \stdClass();
+        $updaterecord->id = $recordid;
+        $updaterecord->status = 'pending';
+        $updaterecord->description = 'Document processing found active via pre-flight check. Resumed polling.';
+        $updaterecord->timemodified = time();
+
+        $DB->update_record('plagiarism_inspera_subs', $updaterecord);
     }
 
     /**
