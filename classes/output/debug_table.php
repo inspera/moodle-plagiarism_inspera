@@ -163,7 +163,22 @@ class debug_table extends \table_sql {
         $output = html_writer::start_div('d-flex justify-content-start align-items-center');
 
         // 1. Reset / Resubmit Button.
-        if ($row->status == 'error' || $row->status == 'external_error') {
+        $showresubmit = false;
+
+        if (in_array($row->status, ['error', 'external_error'], true)) {
+            // Always show the resubmit button for explicit errors.
+            $showresubmit = true;
+        } else if ($row->status === 'report_requested') {
+            // Align cooldown logic with the backend: use timemodified as the primary reference.
+            $lastactive = (int)($row->timemodified ?? $row->timecreated ?? time());
+            $age = time() - $lastactive;
+
+            if ($age > (10 * MINSECS)) {
+                $showresubmit = true;
+            }
+        }
+
+        if ($showresubmit) {
             $output .= $this->render_post_action(
                 $row->id,
                 'resubmit',

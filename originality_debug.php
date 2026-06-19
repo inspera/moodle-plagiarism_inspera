@@ -205,57 +205,25 @@ if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
         $deletedcount = count($selectedids);
         \core\notification::success(get_string('recordsdeleted', 'plagiarism_inspera', $deletedcount));
     } else if ($resubmitselected) {
-        // Use short array destructuring instead of list().
-        [$insql, $inparams] = $DB->get_in_or_equal($selectedids, SQL_PARAMS_NAMED);
-        $selectedcount = count($selectedids);
+        $client = new \plagiarism_inspera\apiclient\api_client();
+        $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
+        $result = $recoveryservice->resubmit_bulk($selectedids, $client);
 
-        // Prevent resubmitting fatal_error files by enforcing status constraint.
-        $eligibilityparams = array_merge(
-            [
-                'staterr' => 'error',
-                'statexterr' => 'external_error',
-            ],
-            $inparams
-        );
-        $eligibilitywhere = "id $insql AND status IN (:staterr, :statexterr)";
-        $eligiblecount = (int)$DB->count_records_select('plagiarism_inspera_subs', $eligibilitywhere, $eligibilityparams);
+        if (($result->recovered + $result->queued) > 0) {
+            $a = new \stdClass();
+            $a->selected = $result->selected;
+            $a->recovered = $result->recovered;
+            $a->queued = $result->queued;
+            $a->skipped = $result->skipped;
 
-        $sqlparams = array_merge(
-            [
-                'status' => 'report_requested',
-                'modtime' => time(),
-            ],
-            $eligibilityparams
-        );
-
-        $sql = "UPDATE {plagiarism_inspera_subs}
-                   SET status = :status,
-                       timemodified = :modtime,
-                       similarity = NULL,
-                       translation_similarity = NULL,
-                       ai_index = NULL,
-                        originality = NULL,
-                        character_replacement = NULL,
-                        hidden_text = NULL,
-                        image_as_text = NULL,
-                        externalid = NULL,
-                        description = NULL
-                  WHERE $eligibilitywhere";
-
-        if ($eligiblecount > 0) {
-            $DB->execute($sql, $sqlparams);
-        }
-
-        if ($eligiblecount === $selectedcount) {
-            \core\notification::success(get_string('filesresubmitted', 'plagiarism_inspera', $eligiblecount));
-        } else if ($eligiblecount > 0) {
-            $messageparams = (object)[
-                'eligible' => $eligiblecount,
-                'selected' => $selectedcount,
-            ];
-            \core\notification::warning(get_string('filesresubmittedpartial', 'plagiarism_inspera', $messageparams));
+            if ($result->skipped > 0) {
+                $message = get_string('resubmit_bulk_success_skipped', 'plagiarism_inspera', $a);
+            } else {
+                $message = get_string('resubmit_bulk_success', 'plagiarism_inspera', $a);
+            }
+            \core\notification::success($message);
         } else {
-            \core\notification::error(get_string('filesresubmittednone', 'plagiarism_inspera'));
+            \core\notification::error(get_string('resubmit_bulk_error', 'plagiarism_inspera'));
         }
     }
 
@@ -268,31 +236,29 @@ if ($id && ($action === 'resubmit' || $action === 'delete')) {
     require_sesskey();
     $executed = false;
     if ($action === 'resubmit') {
-        // Prevent resubmitting fatal_error files manually via URL.
-        $currentrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $id]);
-        if ($currentrecord && in_array($currentrecord->status, ['error', 'external_error'])) {
-            // Reset single file.
-            $record = new stdClass();
-            $record->id = $id;
-            $record->status = 'report_requested';
-            $record->timemodified = time();
-            // Clear scores.
-            $record->similarity = null;
-            $record->translation_similarity = null;
-            $record->ai_index = null;
-            $record->originality = null;
-            $record->character_replacement = null;
-            $record->hidden_text = null;
-            $record->image_as_text = null;
-            $record->externalid = null;
-            $record->description = null;
+        $client = new \plagiarism_inspera\apiclient\api_client();
+        $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
+        $outcome = $recoveryservice->resubmit_single($id, $client);
 
-            $DB->update_record('plagiarism_inspera_subs', $record);
-            \core\notification::success(get_string('fileresubmitted', 'plagiarism_inspera'));
-            $executed = true;
+        if ($outcome === 'recovered') {
+            \core\notification::success(get_string('resubmit_single_recovered', 'plagiarism_inspera'));
+        } else if ($outcome === 'queued') {
+            \core\notification::success(get_string('resubmit_single_queued', 'plagiarism_inspera'));
+        } else if ($outcome === 'api_error') {
+            // Handle the API failure case safely.
+            \core\notification::error(get_string('resubmit_single_api_error', 'plagiarism_inspera'));
+        } else if ($outcome === 'not_found') {
+            // Handle the specific 'not_found' case.
+            \core\notification::error(get_string('resubmit_single_not_found', 'plagiarism_inspera'));
+        } else if ($outcome === 'skipped') {
+            // The API returned a fatal status (e.g., password protected).
+            // We updated the DB but aborted the retry.
+            \core\notification::warning(get_string('resubmit_single_skipped', 'plagiarism_inspera'));
         } else {
-            \core\notification::error(get_string('resubmitnoteligible', 'plagiarism_inspera'));
+            \core\notification::error(get_string('resubmit_single_not_eligible', 'plagiarism_inspera'));
         }
+        // Unconditionally trigger the PRG redirect so the URL is cleaned.
+        $executed = true;
     } else if ($action === 'delete') {
         $DB->delete_records('plagiarism_inspera_subs', ['id' => $id]);
         \core\notification::success(get_string('filedeleted', 'plagiarism_inspera'));
@@ -313,7 +279,7 @@ $table = new \plagiarism_inspera\output\debug_table('debugtable');
 $userfieldsapi = \core_user\fields::for_name();
 $userfields = $userfieldsapi->get_sql('u', false, '', '', false)->selects;
 
-$sqlfields = "t.id, t.status, t.timecreated, t.externalid, t.similarity, t.description,
+$sqlfields = "t.id, t.status, t.timecreated, t.timemodified, t.externalid, t.similarity, t.description,
               u.id as userid, $userfields,
               c.id as courseid, c.fullname, c.shortname,
               t.cm as cm, m.name as moduletype";
