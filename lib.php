@@ -2884,7 +2884,7 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
                 $plagiarismfile->timemodified = time();
                 $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
                 mtrace("Originality API returned status 3 (high resource queue failure) for fileid {$plagiarismfile->id}. " .
-                    "Marked as fatal_error. Response: {$apimsg}");
+                    "Marked as fatal_error. Response: " . json_encode($status));
                 break;
             default:
                 $plagiarismfile->status = 'external_error';
