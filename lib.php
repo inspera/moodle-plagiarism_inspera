@@ -230,6 +230,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
 
         $userid = $eventdata['userid'];
         $relateduserid = !empty($eventdata['relateduserid']) ? $eventdata['relateduserid'] : null;
+        $ownerid = $relateduserid ?: $userid;
         $courseid = $eventdata['courseid'] ?? 0;
 
         // Check to see if restrictcontent is in use.
@@ -289,7 +290,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                 $file = plagiarism_inspera_create_temp_file(
                     $cmid,
                     $courseid,
-                    $userid,
+                    $ownerid,
                     $eventdata['other']['content'],
                     $postid
                 );
@@ -370,7 +371,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                         $file = plagiarism_inspera_create_temp_file(
                             $cmid,
                             $courseid,
-                            $userid,
+                            $ownerid,
                             $submission->onlinetext,
                             $submissionid
                         );
@@ -397,7 +398,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
             $file = plagiarism_inspera_create_temp_file(
                 $cmid,
                 $courseid,
-                $userid,
+                $ownerid,
                 $eventdata['other']['content'],
                 $submissionid
             );
@@ -421,6 +422,7 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
      */
     private function process_quiz_attempt($attemptid, $cmid, $courseid, $userid, $relateduserid) {
         global $CFG, $DB;
+        $ownerid = !empty($relateduserid) ? $relateduserid : $userid;
 
         // 1. Get Unique Usage ID.
         $uniqueid = $DB->get_field('quiz_attempts', 'uniqueid', ['id' => $attemptid], IGNORE_MISSING);
@@ -480,12 +482,12 @@ class plagiarism_plugin_inspera extends plagiarism_plugin {
                         $cleantext = trim(strip_tags($responsetext));
 
                         if (\core_text::strlen($cleantext) >= $charcount) {
-                            $uniquefilename = "quiz_{$cmid}_{$userid}_{$qa->get_database_id()}.html";
+                            $uniquefilename = "quiz_{$cmid}_{$ownerid}_{$qa->get_database_id()}.html";
                             // Note: Passing 0 for submissionid since quizzes don't use assign_submission IDs.
                             $file = plagiarism_inspera_create_temp_file(
                                 $cmid,
                                 $courseid,
-                                $userid,
+                                $ownerid,
                                 $responsetext,
                                 0,
                                 $uniquefilename
