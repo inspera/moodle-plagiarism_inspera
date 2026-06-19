@@ -201,6 +201,7 @@ $string['showstudentreport_not_shared'] = 'Never shared';
 $string['similarity'] = 'Similarity';
 $string['similarity_score'] = 'Similarity';
 $string['status'] = 'Originality status';
+$string['status3highresourcequeuefatal'] = 'Processing failed (High Resource Queue): The file is too large or complex. Automatic retries will not resolve this. Contact Originality support if local processing is required. API Response: {$a}';
 $string['status_error'] = 'Error';
 $string['status_external_error'] = 'External Error';
 $string['status_fatal_error'] = 'Fatal Error';

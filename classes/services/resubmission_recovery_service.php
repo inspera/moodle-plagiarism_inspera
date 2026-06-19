@@ -192,11 +192,12 @@ class resubmission_recovery_service {
                     // If it's older than 48h, Inspera's process is likely dead.
                     // Fall through to wipe the ID and send a fresh payload.
                 } else {
-                    // 3. Fatal or Unknown Status (e.g., status 2).
+                    // 3. Fatal or Unknown Status (e.g., status 2 or 3).
                     // Preserve the externalid and surface the API state/message so admins know exactly WHY it failed.
+                    $apistatus = (int)$status->status;
                     $updaterecord = (object) [
                         'id' => (int)$record->id,
-                        'status' => ((int)$status->status === 2) ? 'fatal_error' : 'external_error',
+                        'status' => in_array($apistatus, [2, 3], true) ? 'fatal_error' : 'external_error',
                         'description' => isset($status->message) ? (string)$status->message : json_encode($status),
                         'timemodified' => time(),
                     ];

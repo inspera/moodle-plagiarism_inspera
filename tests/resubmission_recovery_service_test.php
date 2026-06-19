@@ -147,6 +147,34 @@ final class resubmission_recovery_service_test extends advanced_testcase {
     }
 
     /**
+     * Test resubmit_single maps status 3 to fatal_error to avoid futile retries.
+     * @covers \plagiarism_inspera\services\resubmission_recovery_service::resubmit_single
+     */
+    public function test_resubmit_single_maps_status_3_to_fatal_error(): void {
+        global $DB;
+
+        $record = $this->create_submission_record('error', 'doc-status-3');
+        $apimessage = 'High resource queue failure';
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+        $clientmock->expects($this->once())
+            ->method('check_document_status')
+            ->with('doc-status-3')
+            ->willReturn((object) ['status' => 3, 'message' => $apimessage]);
+
+        $service = new resubmission_recovery_service($DB);
+        $outcome = $service->resubmit_single((int)$record->id, $clientmock);
+
+        $this->assertEquals('skipped', $outcome);
+        $updated = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id], '*', MUST_EXIST);
+        $this->assertEquals('fatal_error', $updated->status);
+        $this->assertEquals($apimessage, $updated->description);
+        $this->assertEquals('doc-status-3', $updated->externalid);
+    }
+
+    /**
      * Test resubmit_single aborts data wipe and returns skipped if online text temp file is missing (>48h).
      * @covers \plagiarism_inspera\services\resubmission_recovery_service::process_eligible_record
      */
