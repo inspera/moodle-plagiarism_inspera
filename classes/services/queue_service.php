@@ -185,6 +185,7 @@ class queue_service {
         ?string $identifier,
         ?int $relateduserid
     ): void {
+        $ownerid = $relateduserid ?: $userid;
         $existingrecord = null;
 
         if ($storedfileid) {
@@ -202,7 +203,7 @@ class queue_service {
                     'plagiarism_inspera_subs',
                     [
                         'cm' => $cmid,
-                        'userid' => $userid,
+                        'userid' => $ownerid,
                         'storedfileid' => $storedfileid,
                     ]
                 );
@@ -214,7 +215,7 @@ class queue_service {
                       ORDER BY timecreated DESC, id DESC";
                 $existingrecord = $this->db->get_record_sql(
                     $sql,
-                    [$cmid, $userid, $submissionid],
+                    [$cmid, $ownerid, $submissionid],
                     IGNORE_MULTIPLE
                 );
             } else {
@@ -223,7 +224,7 @@ class queue_service {
                       ORDER BY timecreated DESC, id DESC";
                 $existingrecord = $this->db->get_record_sql(
                     $sql,
-                    [$cmid, $userid, $identifier],
+                    [$cmid, $ownerid, $identifier],
                     IGNORE_MULTIPLE
                 );
             }
@@ -289,8 +290,7 @@ class queue_service {
         // 3. Create NEW record.
         $record = new \stdClass();
         $record->cm = $cmid;
-        $record->userid = $userid;
-        $record->relateduserid = $relateduserid;
+        $record->userid = $ownerid;
         $record->submissionid = $submissionid;
         $record->storedfileid = $storedfileid;
         $record->identifier = $identifier;
