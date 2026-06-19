@@ -1320,6 +1320,38 @@ final class lib_test extends advanced_testcase {
     }
 
     /**
+     * Test poll marks status 3 as fatal_error with the high-resource queue description.
+     *
+     * @covers ::plagiarism_inspera_poll_file_status
+     */
+    public function test_plagiarism_inspera_poll_file_status_sets_fatal_error_for_status_3(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $record = $this->create_pending_submission(time() - 3600);
+        $apimessage = 'Queue exhausted for this file';
+
+        $clientmock = $this->getMockBuilder(api_client::class)
+            ->onlyMethods(['check_document_status'])
+            ->getMock();
+
+        $clientmock->expects($this->once())
+            ->method('check_document_status')
+            ->willReturn((object) ['status' => 3, 'message' => $apimessage]);
+
+        $this->expectOutputRegex('/status 3 \(high resource queue failure\)/s');
+        \plagiarism_inspera_poll_file_status($record, $clientmock);
+
+        $updatedrecord = $DB->get_record('plagiarism_inspera_subs', ['id' => $record->id]);
+        $this->assertEquals('fatal_error', $updatedrecord->status);
+        $this->assertEquals(
+            get_string('status3highresourcequeuefatal', 'plagiarism_inspera', $apimessage),
+            $updatedrecord->description
+        );
+    }
+
+    /**
      * Test poll handles unknown status codes by mapping to external_error.
      *
      * @covers ::plagiarism_inspera_poll_file_status
