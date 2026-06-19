@@ -210,6 +210,7 @@ $string['status_report_requested'] = 'Queued';
 $string['status_superseded'] = 'Superseded';
 $string['statuserror'] = 'Inspera Originality Report: An error occurred.';
 $string['statuspending'] = 'Inspera Originality Report: Pending...';
+$string['status3highresourcequeuefatal'] = 'Processing failed (High Resource Queue): The file is too large or complex. Automatic retries will not resolve this. Contact Originality support if local processing is required. API Response: {$a}';
 $string['statusrequested'] = 'Inspera Originality Report: Queued';
 $string['submitondraft'] = 'Submit file when first uploaded';
 $string['submitonfinal'] = 'Submit file when student sends for marking';

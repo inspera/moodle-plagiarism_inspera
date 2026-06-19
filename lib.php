@@ -2877,6 +2877,15 @@ function plagiarism_inspera_poll_file_status($plagiarismfile, \plagiarism_insper
                 mtrace("Originality API returned status 2 after grace period for fileid {$plagiarismfile->id}. Response: " .
                     json_encode($status));
                 break;
+            case 3:
+                $plagiarismfile->status = 'fatal_error';
+                $apimsg = isset($status->message) ? (string)$status->message : json_encode($status);
+                $plagiarismfile->description = get_string('status3highresourcequeuefatal', 'plagiarism_inspera', $apimsg);
+                $plagiarismfile->timemodified = time();
+                $DB->update_record('plagiarism_inspera_subs', $plagiarismfile);
+                mtrace("Originality API returned status 3 (high resource queue failure) for fileid {$plagiarismfile->id}. " .
+                    "Marked as fatal_error. Response: {$apimsg}");
+                break;
             default:
                 $plagiarismfile->status = 'external_error';
                 $plagiarismfile->description = isset($status->message) ? (string)$status->message : json_encode($status);
