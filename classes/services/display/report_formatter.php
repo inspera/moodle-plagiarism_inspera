@@ -44,7 +44,7 @@ class report_formatter {
      * @return string HTML output
      */
     public function get_originality_status(\stdClass $record, string $displaytype = 'similarity'): string {
-        global $OUTPUT;
+        global $OUTPUT, $PAGE;
 
         // 1. Establish the base data context.
         $context = [
@@ -54,6 +54,11 @@ class report_formatter {
             'ispending' => false,
             'iserror' => false,
             'ispolling' => false,
+            'canresubmit' => false,
+            'resubmiturl' => null,
+            'resubmitcmid' => null,
+            'resubmitreturnurl' => null,
+            'resubmitsesskey' => null,
             'id' => $record->id,
             'status' => $record->status,
             'displaytype' => $displaytype,
@@ -130,6 +135,15 @@ class report_formatter {
             case 'fatal_error':
                 $context['iserror'] = true;
                 $context['wrapperclass'] .= ' error';
+                $context['canresubmit'] = in_array($record->status, ['error', 'external_error'], true);
+
+                if ($context['canresubmit']) {
+                    $cmid = isset($record->cm) ? (int)$record->cm : (isset($PAGE->cm->id) ? (int)$PAGE->cm->id : 0);
+                    $context['resubmiturl'] = (new \moodle_url('/plagiarism/inspera/resubmit.php'))->out(false);
+                    $context['resubmitcmid'] = $cmid;
+                    $context['resubmitreturnurl'] = $PAGE->url->out(false);
+                    $context['resubmitsesskey'] = sesskey();
+                }
 
                 // Use the specific fatal error string, or fall back to the generic error string.
                 if ($record->status === 'fatal_error') {
