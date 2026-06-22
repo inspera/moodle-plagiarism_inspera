@@ -84,10 +84,21 @@ final class report_formatter_test extends advanced_testcase {
      *
      * @covers \plagiarism_inspera\services\display\report_formatter::get_originality_status
      */
+    /**
+     * Test that an error displays the shortened description.
+     *
+     * @covers \plagiarism_inspera\services\display\report_formatter::get_originality_status
+     */
     public function test_get_originality_status_error(): void {
+        global $PAGE;
+
+        // PHPUnit runs in CLI, so we must mock the page URL to prevent debugging notices
+        // when the formatter builds the returnurl for the resubmit action.
+        $PAGE->set_url(new \moodle_url('/'));
+
         $formatter = new report_formatter();
 
-        $record = new stdClass();
+        $record = new \stdClass();
         $record->id = 123;
         $record->status = 'error';
         $record->description = 'The Inspera API returned a 500 Internal Server Error.';
@@ -96,5 +107,8 @@ final class report_formatter_test extends advanced_testcase {
 
         $this->assertStringContainsString('error', $html);
         $this->assertStringContainsString('The Inspera API returned', $html);
+
+        // Optional but good: Verify the resubmit URL was actually generated!
+        $this->assertStringContainsString('resubmit.php', $html);
     }
 }
