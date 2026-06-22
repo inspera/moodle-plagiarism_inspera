@@ -99,14 +99,14 @@ final class report_formatter_test extends advanced_testcase {
         // 2. Set up the global page context.
         $PAGE->set_url(new \moodle_url('/'));
 
-        // 3. Set a current user context. Admin users automatically pass capability checks.
+        // 3. Set an admin user so that the 'requestallreports' capability check passes.
         $this->setAdminUser();
 
         $formatter = new report_formatter();
 
         $record = new \stdClass();
         $record->id = 123;
-        $record->cm = $cmid;
+        $record->cm = $cmid; // Pass the real generated CM ID here!
         $record->status = 'error';
         $record->description = 'The Inspera API returned a 500 Internal Server Error.';
 
@@ -115,7 +115,7 @@ final class report_formatter_test extends advanced_testcase {
         $this->assertStringContainsString('error', $html);
         $this->assertStringContainsString('The Inspera API returned', $html);
 
-        // Verify the resubmit action is rendered.
+        // Verify the resubmit action is rendered now that capability checks pass.
         $this->assertStringContainsString('resubmit.php', $html);
 
         // Verify the return URL is formatted as a local URL.
