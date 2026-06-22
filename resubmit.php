@@ -37,8 +37,6 @@ $id = required_param('id', PARAM_INT);
 $cmid = required_param('cmid', PARAM_INT);
 $returnurl = required_param('returnurl', PARAM_LOCALURL);
 
-require_sesskey();
-
 $cm = get_coursemodule_from_id('', $cmid, 0, false, MUST_EXIST);
 $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
 
