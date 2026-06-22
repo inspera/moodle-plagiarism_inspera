@@ -52,8 +52,9 @@ if (!isset($gradecapabilities[$cm->modname])) {
 require_capability($gradecapabilities[$cm->modname], $context);
 // Ensure the record being resubmitted belongs to this course module.
 $record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], 'id, cm', IGNORE_MISSING);
-if ($record && (int)$record->cm !== $cmid) {
-    throw new moodle_exception('nopermissions', 'error');
+if (!$record || (int)$record->cm !== $cmid) {
+    \core\notification::error(get_string('resubmit_single_not_found', 'plagiarism_inspera'));
+    redirect(new \moodle_url($returnurl));
 }
 
 $client = new \plagiarism_inspera\apiclient\api_client();
