@@ -109,5 +109,8 @@ final class report_formatter_test extends advanced_testcase {
 
         // This will now pass, because the valid cmid allows the button to render!
         $this->assertStringContainsString('resubmit.php', $html);
+
+        // Verify the return URL is formatted as a local URL (prevents PARAM_LOCALURL exceptions).
+        $this->assertStringContainsString('name="returnurl" value="/"', $html);
     }
 }
