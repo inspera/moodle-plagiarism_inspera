@@ -42,15 +42,22 @@ require_sesskey();
 $cm = get_coursemodule_from_id('', $cmid, 0, false, MUST_EXIST);
 $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
 
+// 1. Authenticate the user first (allows graceful login redirect if timed out).
 require_login($course, false, $cm);
 
 $context = context_module::instance($cm->id);
+
+// 2. Validate structural capabilities.
 $gradecapabilities = plagiarism_inspera_get_grade_capabilities();
 if (!isset($gradecapabilities[$cm->modname])) {
     throw new moodle_exception('nopermissions', 'error');
 }
 require_capability($gradecapabilities[$cm->modname], $context);
 require_capability('plagiarism/inspera:requestallreports', $context);
+
+// 3. Protect against CSRF right before processing state-changing actions.
+require_sesskey();
+
 // Ensure the record being resubmitted belongs to this course module.
 $record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], 'id, cm', IGNORE_MISSING);
 if (!$record || (int)$record->cm !== $cmid) {
