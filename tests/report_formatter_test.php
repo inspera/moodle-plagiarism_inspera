@@ -96,17 +96,20 @@ final class report_formatter_test extends advanced_testcase {
         $assign = $generator->create_module('assign', ['course' => $course->id]);
         $cmid = (int)$assign->cmid;
 
-        // 2. Set up the global page context.
+        // 2. Fully construct the global $PAGE object to mirror an active assignment view.
+        $cm = get_coursemodule_from_id('assign', $cmid, 0, false, MUST_EXIST);
+        $PAGE->set_cm($cm, $course);
+        $PAGE->set_context(\context_module::instance($cmid));
         $PAGE->set_url(new \moodle_url('/'));
 
-        // 3. Set an admin user so that the 'requestallreports' capability check passes.
+        // 3. Set an admin user so that the 'requestallreports' and grading capability checks pass.
         $this->setAdminUser();
 
         $formatter = new report_formatter();
 
         $record = new \stdClass();
         $record->id = 123;
-        $record->cm = $cmid; // Pass the real generated CM ID here!
+        $record->cm = $cmid;
         $record->status = 'error';
         $record->description = 'The Inspera API returned a 500 Internal Server Error.';
 
