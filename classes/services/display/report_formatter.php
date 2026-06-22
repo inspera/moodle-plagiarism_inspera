@@ -141,16 +141,13 @@ class report_formatter {
                 $context['canresubmit'] = ($cmid > 0) && in_array($record->status, ['error', 'external_error'], true);
 
                 if ($context['canresubmit']) {
+                    global $OUTPUT; // Ensure $OUTPUT is available in this scope.
+
                     $context['resubmiturl'] = (new \moodle_url('/plagiarism/inspera/resubmit.php'))->out(false);
                     $context['resubmitcmid'] = $cmid;
 
-                    // Defensively generate the return URL to prevent debugging notices in CLI/AJAX contexts.
-                    if ($PAGE->has_set_url()) {
-                        $context['resubmitreturnurl'] = $PAGE->url->out(false);
-                    } else {
-                        // Safe fallback to the site home if no page URL is active.
-                        $context['resubmitreturnurl'] = (new \moodle_url('/'))->out(false);
-                    }
+                    // Defensively fall back to the site root if $PAGE->url is not initialized.
+                    $context['resubmitreturnurl'] = !empty($PAGE->url) ? $PAGE->url->out(false) : (new \moodle_url('/'))->out(false);
 
                     $context['resubmitsesskey'] = sesskey();
                     $context['resubmiticonhtml'] = $OUTPUT->pix_icon('t/reload', get_string('resubmit', 'plagiarism_inspera'));
