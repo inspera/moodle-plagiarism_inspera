@@ -59,6 +59,7 @@ class report_formatter {
             'resubmitcmid' => null,
             'resubmitreturnurl' => null,
             'resubmitsesskey' => null,
+            'resubmiticonhtml' => null,
             'id' => $record->id,
             'status' => $record->status,
             'displaytype' => $displaytype,
@@ -142,8 +143,17 @@ class report_formatter {
                 if ($context['canresubmit']) {
                     $context['resubmiturl'] = (new \moodle_url('/plagiarism/inspera/resubmit.php'))->out(false);
                     $context['resubmitcmid'] = $cmid;
-                    $context['resubmitreturnurl'] = $PAGE->url->out(false);
+
+                    // Defensively generate the return URL to prevent debugging notices in CLI/AJAX contexts.
+                    if ($PAGE->has_set_url()) {
+                        $context['resubmitreturnurl'] = $PAGE->url->out(false);
+                    } else {
+                        // Safe fallback to the site home if no page URL is active.
+                        $context['resubmitreturnurl'] = (new \moodle_url('/'))->out(false);
+                    }
+
                     $context['resubmitsesskey'] = sesskey();
+                    $context['resubmiticonhtml'] = $OUTPUT->pix_icon('t/reload', get_string('resubmit', 'plagiarism_inspera'));
                 }
 
                 // Use the specific fatal error string, or fall back to the generic error string.
