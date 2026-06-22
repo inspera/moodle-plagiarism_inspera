@@ -87,6 +87,9 @@ final class report_formatter_test extends advanced_testcase {
     public function test_get_originality_status_error(): void {
         global $PAGE;
 
+        // Ensure global state mutations (like $PAGE) are rolled back after this test.
+        $this->resetAfterTest();
+
         // PHPUnit runs in CLI, so we must mock the page URL to prevent debugging notices
         // when the formatter builds the returnurl for the resubmit action.
         $PAGE->set_url(new \moodle_url('/'));
