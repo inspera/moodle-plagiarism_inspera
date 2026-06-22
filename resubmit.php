@@ -64,6 +64,11 @@ if (!$record || (int)$record->cm !== $cmid) {
     redirect(new \moodle_url($returnurl));
 }
 
+if (!in_array($record->status, ['error', 'external_error'], true)) {
+    \core\notification::error(get_string('resubmit_single_not_eligible', 'plagiarism_inspera'));
+    redirect(new \moodle_url($returnurl));
+}
+
 $client = new \plagiarism_inspera\apiclient\api_client();
 $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
 $outcome = $recoveryservice->resubmit_record($record, $client);
