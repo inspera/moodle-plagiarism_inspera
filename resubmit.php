@@ -57,7 +57,8 @@ require_capability('plagiarism/inspera:requestallreports', $context);
 require_sesskey();
 
 // Ensure the record being resubmitted belongs to this course module.
-$record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], 'id, cm', IGNORE_MISSING);
+// We fetch the full record ('*') once to avoid redundant database reads in the recovery service.
+$record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], '*', IGNORE_MISSING);
 if (!$record || (int)$record->cm !== $cmid) {
     \core\notification::error(get_string('resubmit_single_not_found', 'plagiarism_inspera'));
     redirect(new \moodle_url($returnurl));
@@ -65,7 +66,7 @@ if (!$record || (int)$record->cm !== $cmid) {
 
 $client = new \plagiarism_inspera\apiclient\api_client();
 $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
-$outcome = $recoveryservice->resubmit_single($id, $client);
+$outcome = $recoveryservice->resubmit_record($record, $client);
 
 if ($outcome === 'recovered') {
     \core\notification::success(get_string('resubmit_single_recovered', 'plagiarism_inspera'));
