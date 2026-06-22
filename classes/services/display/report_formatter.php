@@ -139,16 +139,29 @@ class report_formatter {
 
                 $cmid = !empty($record->cm) ? (int)$record->cm : 0;
                 $resubmitcontext = null;
-                if ($PAGE->context instanceof \context_module) {
+                $modname = null;
+                // Only trust $PAGE->context when it matches the record CM.
+                if ($PAGE->context instanceof \context_module && (int)$PAGE->context->instanceid === $cmid) {
                     $resubmitcontext = $PAGE->context;
+                    $modname = !empty($PAGE->cm) ? ($PAGE->cm->modname ?? null) : null;
                 } else if ($cmid > 0) {
                     $resubmitcontext = \context_module::instance($cmid, IGNORE_MISSING);
                 }
 
                 $canrequestallreports = $resubmitcontext &&
                     has_capability('plagiarism/inspera:requestallreports', $resubmitcontext);
+
+                $cangrade = false;
+                if ($resubmitcontext && !empty($modname)) {
+                    global $CFG;
+                    require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+                    $gradecapabilities = plagiarism_inspera_get_grade_capabilities();
+                    $gradecapability = $gradecapabilities[$modname] ?? null;
+                    $cangrade = $gradecapability && has_capability($gradecapability, $resubmitcontext);
+                }
                 $context['canresubmit'] = ($cmid > 0) &&
                     $canrequestallreports &&
+                    $cangrade &&
                     in_array($record->status, ['error', 'external_error'], true);
 
                 if ($context['canresubmit']) {
