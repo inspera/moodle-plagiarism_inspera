@@ -74,22 +74,23 @@ $client = new \plagiarism_inspera\apiclient\api_client();
 $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
 $outcome = $recoveryservice->resubmit_record($record, $client);
 
-if ($outcome === 'recovered') {
-    \core\notification::success(get_string('resubmit_single_recovered', 'plagiarism_inspera'));
-} else if ($outcome === 'queued') {
-    \core\notification::success(get_string('resubmit_single_queued', 'plagiarism_inspera'));
-} else if ($outcome === 'api_error') {
-    // Handle the API failure case safely.
-    \core\notification::error(get_string('resubmit_single_api_error', 'plagiarism_inspera'));
-} else if ($outcome === 'not_found') {
-    // Handle the specific 'not_found' case.
-    \core\notification::error(get_string('resubmit_single_not_found', 'plagiarism_inspera'));
-} else if ($outcome === 'skipped') {
-    // The API returned a fatal status (e.g., password protected).
-    // We updated the DB but aborted the retry.
-    \core\notification::warning(get_string('resubmit_single_skipped', 'plagiarism_inspera'));
-} else {
-    \core\notification::error(get_string('resubmit_single_not_eligible', 'plagiarism_inspera'));
+switch ($outcome) {
+    case 'recovered':
+        \core\notification::success(get_string('resubmit_single_recovered', 'plagiarism_inspera'));
+        break;
+    case 'queued':
+        \core\notification::success(get_string('resubmit_single_queued', 'plagiarism_inspera'));
+        break;
+    case 'api_error':
+        \core\notification::error(get_string('resubmit_single_api_error', 'plagiarism_inspera'));
+        break;
+    case 'skipped':
+        \core\notification::warning(get_string('resubmit_single_skipped', 'plagiarism_inspera'));
+        break;
+    case 'not_eligible':
+    default:
+        \core\notification::error(get_string('resubmitnoteligible', 'plagiarism_inspera'));
+        break;
 }
 
 redirect(new moodle_url($returnurl));
