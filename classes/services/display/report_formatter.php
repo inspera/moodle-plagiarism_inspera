@@ -141,8 +141,6 @@ class report_formatter {
                 $context['canresubmit'] = ($cmid > 0) && in_array($record->status, ['error', 'external_error'], true);
 
                 if ($context['canresubmit']) {
-                    global $OUTPUT; // Ensure $OUTPUT is available in this scope.
-
                     $context['resubmiturl'] = (new \moodle_url('/plagiarism/inspera/resubmit.php'))->out(false);
                     $context['resubmitcmid'] = $cmid;
 
