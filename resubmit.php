@@ -30,7 +30,7 @@ global $CFG, $DB;
 require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 if (strtoupper($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    throw new \moodle_exception('invalidrequest');
+    throw new \moodle_exception('invalidrequest', 'error');
 }
 
 $id = required_param('id', PARAM_INT);
