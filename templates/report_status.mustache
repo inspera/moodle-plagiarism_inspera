@@ -60,6 +60,8 @@
                 <input type="hidden" name="returnurl" value="{{resubmitreturnurl}}">
                 <input type="hidden" name="sesskey" value="{{resubmitsesskey}}">
                 <button type="submit" class="btn btn-link p-0 m-0 ms-1" title="{{#str}} resubmit, plagiarism_inspera {{/str}}" aria-label="{{#str}} resubmit, plagiarism_inspera {{/str}}">
+                    {{{resubmiticonhtml}}}
+                </button>
             </form>
         {{/canresubmit}}
         {{#hasdescription}}
