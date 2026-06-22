@@ -118,6 +118,14 @@ $exportfilename = 'OriginalityDebugOutput.csv';
 $limit = 50;
 $filters = ['status' => 0, 'realname' => 0, 'timecreated' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0];
 $ufiltering = new \plagiarism_inspera\output\filtering($filters, $PAGE->url);
+
+// PRG pattern: user_filtering processes filter form POST data in its constructor.
+// When this request is a plain filter update (i.e. not bulk delete/resubmit and not a confirm step),
+// redirect immediately to clear the POST payload so browser refreshes don't resubmit it.
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && !$deleteselected && !$resubmitselected && !$confirm) {
+    redirect($PAGE->url);
+}
+
 [$ufextrasql, $ufparams] = $ufiltering->get_sql_filter();
 
 // Enforce error-only scope for all queries when globally enabled.
