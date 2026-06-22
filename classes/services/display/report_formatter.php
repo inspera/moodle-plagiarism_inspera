@@ -140,12 +140,15 @@ class report_formatter {
                 $cmid = !empty($record->cm) ? (int)$record->cm : 0;
                 $resubmitcontext = null;
                 $modname = null;
+
                 // Only trust $PAGE->context when it matches the record CM.
                 if ($PAGE->context instanceof \context_module && (int)$PAGE->context->instanceid === $cmid) {
                     $resubmitcontext = $PAGE->context;
                     $modname = !empty($PAGE->cm) ? ($PAGE->cm->modname ?? null) : null;
                 } else if ($cmid > 0) {
                     $resubmitcontext = \context_module::instance($cmid, IGNORE_MISSING);
+                    $cm = get_coursemodule_from_id('', $cmid, 0, false, IGNORE_MISSING);
+                    $modname = $cm ? $cm->modname : null;
                 }
 
                 $canrequestallreports = $resubmitcontext &&
