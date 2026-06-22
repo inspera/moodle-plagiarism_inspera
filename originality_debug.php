@@ -118,6 +118,14 @@ $exportfilename = 'OriginalityDebugOutput.csv';
 $limit = 50;
 $filters = ['status' => 0, 'realname' => 0, 'timecreated' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0];
 $ufiltering = new \plagiarism_inspera\output\filtering($filters, $PAGE->url);
+
+// PRG Pattern: Moodle's filtering class processes POST data in its constructor.
+// If a POST request reached this line, it was a filter update. We redirect
+// immediately to clear the POST payload so browser refreshes don't resubmit it.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$deleteselected && !$resubmitselected && !$confirm) {
+    redirect($PAGE->url);
+}
+
 [$ufextrasql, $ufparams] = $ufiltering->get_sql_filter();
 
 // Enforce error-only scope for all queries when globally enabled.
