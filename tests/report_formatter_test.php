@@ -84,11 +84,6 @@ final class report_formatter_test extends advanced_testcase {
      *
      * @covers \plagiarism_inspera\services\display\report_formatter::get_originality_status
      */
-    /**
-     * Test that an error displays the shortened description.
-     *
-     * @covers \plagiarism_inspera\services\display\report_formatter::get_originality_status
-     */
     public function test_get_originality_status_error(): void {
         global $PAGE;
 
