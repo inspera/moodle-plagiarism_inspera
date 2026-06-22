@@ -80,7 +80,7 @@ final class report_formatter_test extends advanced_testcase {
     }
 
     /**
-     * Test that an error displays the shortened description.
+     * Test that an error displays the shortened description and resubmit button.
      *
      * @covers \plagiarism_inspera\services\display\report_formatter::get_originality_status
      */
@@ -95,6 +95,7 @@ final class report_formatter_test extends advanced_testcase {
 
         $record = new \stdClass();
         $record->id = 123;
+        $record->cm = 456;
         $record->status = 'error';
         $record->description = 'The Inspera API returned a 500 Internal Server Error.';
 
@@ -103,7 +104,7 @@ final class report_formatter_test extends advanced_testcase {
         $this->assertStringContainsString('error', $html);
         $this->assertStringContainsString('The Inspera API returned', $html);
 
-        // Optional but good: Verify the resubmit URL was actually generated!
+        // This will now pass, because the valid cmid allows the button to render!
         $this->assertStringContainsString('resubmit.php', $html);
     }
 }

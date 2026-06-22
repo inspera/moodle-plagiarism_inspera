@@ -147,7 +147,8 @@ class report_formatter {
                     $context['resubmitcmid'] = $cmid;
 
                     // Defensively fall back to the site root if $PAGE->url is not initialized.
-                    $context['resubmitreturnurl'] = !empty($PAGE->url) ? $PAGE->url->out(false) : (new \moodle_url('/'))->out(false);
+                    $context['resubmitreturnurl'] = !empty($PAGE->url) ?
+                        $PAGE->url->out(false) : (new \moodle_url('/'))->out(false);
 
                     $context['resubmitsesskey'] = sesskey();
                     $context['resubmiticonhtml'] = $OUTPUT->pix_icon('t/reload', get_string('resubmit', 'plagiarism_inspera'));
