@@ -135,10 +135,11 @@ class report_formatter {
             case 'fatal_error':
                 $context['iserror'] = true;
                 $context['wrapperclass'] .= ' error';
-                $context['canresubmit'] = in_array($record->status, ['error', 'external_error'], true);
+
+                $cmid = !empty($record->cm) ? (int)$record->cm : 0;
+                $context['canresubmit'] = ($cmid > 0) && in_array($record->status, ['error', 'external_error'], true);
 
                 if ($context['canresubmit']) {
-                    $cmid = isset($record->cm) ? (int)$record->cm : (isset($PAGE->cm->id) ? (int)$PAGE->cm->id : 0);
                     $context['resubmiturl'] = (new \moodle_url('/plagiarism/inspera/resubmit.php'))->out(false);
                     $context['resubmitcmid'] = $cmid;
                     $context['resubmitreturnurl'] = $PAGE->url->out(false);
