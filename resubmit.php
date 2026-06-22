@@ -66,6 +66,7 @@ if (!$record || (int)$record->cm !== $cmid) {
 
 if (!in_array($record->status, ['error', 'external_error'], true)) {
     \core\notification::error(get_string('resubmit_single_not_eligible', 'plagiarism_inspera'));
+    \core\notification::error(get_string('resubmitnoteligible', 'plagiarism_inspera'));
     redirect(new \moodle_url($returnurl));
 }
 
