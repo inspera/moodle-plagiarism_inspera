@@ -50,6 +50,7 @@ if (!isset($gradecapabilities[$cm->modname])) {
     throw new moodle_exception('nopermissions', 'error');
 }
 require_capability($gradecapabilities[$cm->modname], $context);
+require_capability('plagiarism/inspera:requestallreports', $context);
 // Ensure the record being resubmitted belongs to this course module.
 $record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], 'id, cm', IGNORE_MISSING);
 if (!$record || (int)$record->cm !== $cmid) {

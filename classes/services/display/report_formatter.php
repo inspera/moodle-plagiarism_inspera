@@ -138,7 +138,18 @@ class report_formatter {
                 $context['wrapperclass'] .= ' error';
 
                 $cmid = !empty($record->cm) ? (int)$record->cm : 0;
-                $context['canresubmit'] = ($cmid > 0) && in_array($record->status, ['error', 'external_error'], true);
+                $resubmitcontext = null;
+                if ($PAGE->context instanceof \context_module) {
+                    $resubmitcontext = $PAGE->context;
+                } else if ($cmid > 0) {
+                    $resubmitcontext = \context_module::instance($cmid, IGNORE_MISSING);
+                }
+
+                $canrequestallreports = $resubmitcontext &&
+                    has_capability('plagiarism/inspera:requestallreports', $resubmitcontext);
+                $context['canresubmit'] = ($cmid > 0) &&
+                    $canrequestallreports &&
+                    in_array($record->status, ['error', 'external_error'], true);
 
                 if ($context['canresubmit']) {
                     $context['resubmiturl'] = (new \moodle_url('/plagiarism/inspera/resubmit.php'))->out(false);
