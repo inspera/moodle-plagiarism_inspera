@@ -26,7 +26,8 @@ require_once(__DIR__ . '/../../config.php');
 
 defined('MOODLE_INTERNAL') || die();
 
-global $DB;
+global $CFG, $DB;
+require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 if (strtoupper($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     throw new \moodle_exception('invalidrequest');
@@ -44,7 +45,16 @@ $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
 require_login($course, false, $cm);
 
 $context = context_module::instance($cm->id);
-require_capability('moodle/grade:manage', $context);
+$gradecapabilities = plagiarism_inspera_get_grade_capabilities();
+if (!isset($gradecapabilities[$cm->modname])) {
+    throw new moodle_exception('nopermissions', 'error');
+}
+require_capability($gradecapabilities[$cm->modname], $context);
+// Ensure the record being resubmitted belongs to this course module.
+$record = $DB->get_record('plagiarism_inspera_subs', ['id' => $id], 'id, cm', IGNORE_MISSING);
+if ($record && (int)$record->cm !== $cmid) {
+    throw new moodle_exception('nopermissions', 'error');
+}
 
 $client = new \plagiarism_inspera\apiclient\api_client();
 $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
