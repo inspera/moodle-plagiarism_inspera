@@ -87,16 +87,26 @@ final class report_formatter_test extends advanced_testcase {
     public function test_get_originality_status_error(): void {
         global $PAGE;
 
-        // Ensure global state mutations (like $PAGE) are rolled back after this test.
+        // Ensure global state mutations are rolled back after this test.
         $this->resetAfterTest();
 
+        // 1. Generate a real course and module instance in the test database.
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $assign = $generator->create_module('assign', ['course' => $course->id]);
+        $cmid = (int)$assign->cmid;
+
+        // 2. Set up the global page context.
         $PAGE->set_url(new \moodle_url('/'));
+
+        // 3. Set a current user context. Admin users automatically pass capability checks.
+        $this->setAdminUser();
 
         $formatter = new report_formatter();
 
         $record = new \stdClass();
         $record->id = 123;
-        $record->cm = 456;
+        $record->cm = $cmid;
         $record->status = 'error';
         $record->description = 'The Inspera API returned a 500 Internal Server Error.';
 
@@ -105,10 +115,10 @@ final class report_formatter_test extends advanced_testcase {
         $this->assertStringContainsString('error', $html);
         $this->assertStringContainsString('The Inspera API returned', $html);
 
-        // This will now pass, because the valid cmid allows the button to render!
+        // Verify the resubmit action is rendered.
         $this->assertStringContainsString('resubmit.php', $html);
 
-        // Verify the return URL is formatted as a local URL (prevents PARAM_LOCALURL exceptions).
+        // Verify the return URL is formatted as a local URL.
         $this->assertStringContainsString('name="returnurl" value="/"', $html);
     }
 }
