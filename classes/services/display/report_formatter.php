@@ -146,9 +146,9 @@ class report_formatter {
 
                     // Defensively fall back to the site root if $PAGE->url is not initialized.
                     // We must use out_as_local_url() because resubmit.php expects a PARAM_LOCALURL.
-                    $context['resubmitreturnurl'] = !empty($PAGE->url) ?
-                        $PAGE->url->out_as_local_url(false) : (new \moodle_url('/'))->out_as_local_url(false);
-
+                    $context['resubmitreturnurl'] = (method_exists($PAGE, 'has_set_url') && $PAGE->has_set_url())
+                        ? $PAGE->url->out_as_local_url(false)
+                        : (new \moodle_url('/'))->out_as_local_url(false);
                     $context['resubmitsesskey'] = sesskey();
                     $context['resubmiticonhtml'] = $OUTPUT->pix_icon('t/reload', get_string('resubmit', 'plagiarism_inspera'));
                 }
