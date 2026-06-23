@@ -44,7 +44,7 @@ class report_formatter {
      * @return string HTML output
      */
     public function get_originality_status(\stdClass $record, string $displaytype = 'similarity'): string {
-        global $OUTPUT;
+        global $OUTPUT, $PAGE;
 
         // 1. Establish the base data context.
         $context = [
@@ -54,6 +54,12 @@ class report_formatter {
             'ispending' => false,
             'iserror' => false,
             'ispolling' => false,
+            'canresubmit' => false,
+            'resubmiturl' => null,
+            'resubmitcmid' => null,
+            'resubmitreturnurl' => null,
+            'resubmitsesskey' => null,
+            'resubmiticonhtml' => null,
             'id' => $record->id,
             'status' => $record->status,
             'displaytype' => $displaytype,
@@ -130,6 +136,48 @@ class report_formatter {
             case 'fatal_error':
                 $context['iserror'] = true;
                 $context['wrapperclass'] .= ' error';
+
+                $cmid = !empty($record->cm) ? (int)$record->cm : 0;
+                $resubmitcontext = null;
+
+                // Only trust $PAGE->context when it matches the record CM.
+                if ($PAGE->context instanceof \context_module && (int)$PAGE->context->instanceid === $cmid) {
+                    $resubmitcontext = $PAGE->context;
+                } else if ($cmid > 0) {
+                    $resubmitcontext = \context_module::instance($cmid, IGNORE_MISSING);
+                }
+
+                global $CFG;
+                require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+                $gradecapabilities = plagiarism_inspera_get_grade_capabilities();
+
+                // Explicitly fetch the course module to guarantee we have the correct modname.
+                $cm = ($cmid > 0) ? get_coursemodule_from_id('', $cmid, 0, false, IGNORE_MISSING) : null;
+
+                $canrequestallreports = $resubmitcontext &&
+                    has_capability('plagiarism/inspera:requestallreports', $resubmitcontext);
+
+                $cangrade = $cm && $resubmitcontext &&
+                    isset($gradecapabilities[$cm->modname]) &&
+                    has_capability($gradecapabilities[$cm->modname], $resubmitcontext);
+
+                $context['canresubmit'] = ($cmid > 0) &&
+                    $canrequestallreports &&
+                    $cangrade &&
+                    in_array($record->status, ['error', 'external_error'], true);
+
+                if ($context['canresubmit']) {
+                    $context['resubmiturl'] = (new \moodle_url('/plagiarism/inspera/resubmit.php'))->out(false);
+                    $context['resubmitcmid'] = $cmid;
+
+                    // Defensively fall back to the site root if $PAGE->url is not initialized.
+                    // We must use out_as_local_url() because resubmit.php expects a PARAM_LOCALURL.
+                    $context['resubmitreturnurl'] = (method_exists($PAGE, 'has_set_url') && $PAGE->has_set_url())
+                        ? $PAGE->url->out_as_local_url(false)
+                        : (new \moodle_url('/'))->out_as_local_url(false);
+                    $context['resubmitsesskey'] = sesskey();
+                    $context['resubmiticonhtml'] = $OUTPUT->pix_icon('t/reload', get_string('resubmit', 'plagiarism_inspera'));
+                }
 
                 // Use the specific fatal error string, or fall back to the generic error string.
                 if ($record->status === 'fatal_error') {

@@ -80,15 +80,36 @@ final class report_formatter_test extends advanced_testcase {
     }
 
     /**
-     * Test that an error displays the shortened description.
+     * Test that an error displays the shortened description and resubmit button.
      *
      * @covers \plagiarism_inspera\services\display\report_formatter::get_originality_status
      */
     public function test_get_originality_status_error(): void {
+        global $PAGE;
+
+        // Ensure global state mutations are rolled back after this test.
+        $this->resetAfterTest();
+
+        // 1. Generate a real course and module instance in the test database.
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $assign = $generator->create_module('assign', ['course' => $course->id]);
+        $cmid = (int)$assign->cmid;
+
+        // 2. Fully construct the global $PAGE object to mirror an active assignment view.
+        $cm = get_coursemodule_from_id('assign', $cmid, 0, false, MUST_EXIST);
+        $PAGE->set_cm($cm, $course);
+        $PAGE->set_context(\context_module::instance($cmid));
+        $PAGE->set_url(new \moodle_url('/'));
+
+        // 3. Set an admin user so that the 'requestallreports' and grading capability checks pass.
+        $this->setAdminUser();
+
         $formatter = new report_formatter();
 
-        $record = new stdClass();
+        $record = new \stdClass();
         $record->id = 123;
+        $record->cm = $cmid;
         $record->status = 'error';
         $record->description = 'The Inspera API returned a 500 Internal Server Error.';
 
@@ -96,5 +117,11 @@ final class report_formatter_test extends advanced_testcase {
 
         $this->assertStringContainsString('error', $html);
         $this->assertStringContainsString('The Inspera API returned', $html);
+
+        // Verify the resubmit action is rendered now that capability checks pass.
+        $this->assertStringContainsString('resubmit.php', $html);
+
+        // Verify the return URL is formatted as a local URL.
+        $this->assertStringContainsString('name="returnurl" value="/"', $html);
     }
 }
