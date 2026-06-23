@@ -5,7 +5,7 @@
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" NEXT="cm"/>
                 <FIELD NAME="cm" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" PREVIOUS="id" NEXT="submissionid"/>
-                <FIELD NAME="submissionid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Link to mdl_assign_submission.id" PREVIOUS="cm" NEXT="userid"/>
+                <FIELD NAME="submissionid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Polymorphic link to the parent submission ID (assign_submission, forum_posts, workshop_submissions, etc.)" PREVIOUS="cm" NEXT="userid"/>
                 <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="The specific user who uploaded this version (Audit trail only)" PREVIOUS="submissionid" NEXT="identifier"/>
                 <FIELD NAME="identifier" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" PREVIOUS="userid" NEXT="status"/>
                 <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="pending" PREVIOUS="identifier" NEXT="timecreated"/>
@@ -27,13 +27,14 @@
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
                 <KEY NAME="cm" TYPE="foreign" FIELDS="cm" REFTABLE="course_modules" REFFIELDS="id"/>
                 <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
-                <KEY NAME="submissionid" TYPE="foreign" FIELDS="submissionid" REFTABLE="assign_submission" REFFIELDS="id"/>
             </KEYS>
             <INDEXES>
                 <INDEX NAME="submission_file" UNIQUE="false" FIELDS="submissionid, storedfileid" COMMENT="Fast lookup for group reports"/>
                 <INDEX NAME="cm_userid_storedfile" UNIQUE="false" FIELDS="cm, userid, storedfileid" COMMENT="Legacy Find records by cm, user, and file"/>
                 <INDEX NAME="cm_userid_identifier" UNIQUE="false" FIELDS="cm, userid, identifier" COMMENT="Legacy Find records by cm, user, and identifier"/>
                 <INDEX NAME="status" UNIQUE="false" FIELDS="status" COMMENT="Query by status"/>
+                <INDEX NAME="submissionid" UNIQUE="false" FIELDS="submissionid"/>
+                <INDEX NAME="cm_userid_sub_stored_ix" UNIQUE="false" FIELDS="cm, userid, submissionid, storedfileid"/>
             </INDEXES>
         </TABLE>
 

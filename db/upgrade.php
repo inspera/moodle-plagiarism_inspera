@@ -18,7 +18,7 @@
  * Originality upgrade tasks.
  *
  * @package    plagiarism_inspera
- * @copyright  2025 Inspera AS
+ * @copyright  2026 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -67,6 +67,52 @@ function xmldb_plagiarism_inspera_upgrade($oldversion) {
 
         // Plagiarism savepoint reached.
         upgrade_plugin_savepoint(true, 2026031601, 'plagiarism', 'inspera');
+    }
+
+    // REPLACE STRICT FOREIGN KEY WITH INDEX FOR SUBMISSIONID.
+    // This allows submissionid to safely store Forum Post IDs and Quiz Attempt IDs
+    // without triggering database constraint errors against the assign_submission table.
+    if ($oldversion < 2026060501) {
+        $table = new xmldb_table('plagiarism_inspera_subs');
+
+        // 1. Define the old strict foreign key so Moodle can find it.
+        $key = new xmldb_key('submissionid', XMLDB_KEY_FOREIGN, ['submissionid'], 'assign_submission', ['id']);
+
+        // Moodle requires find_key_name() to check if a key exists!
+        // Capture the actual physical name of the constraint to handle schema drift safely.
+        $keyname = $dbman->find_key_name($table, $key);
+        if ($keyname) {
+            $key->setName($keyname);
+            $dbman->drop_key($table, $key);
+        }
+
+        // 2. Define the new flexible index for fast searching.
+        $index = new xmldb_index('submissionid', XMLDB_INDEX_NOTUNIQUE, ['submissionid']);
+
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        // Plagiarism savepoint reached.
+        upgrade_plugin_savepoint(true, 2026060501, 'plagiarism', 'inspera');
+    }
+
+    if ($oldversion < 2026060800) {
+        // Define index cm_userid_sub_stored_ix to be added to plagiarism_inspera_subs.
+        $table = new xmldb_table('plagiarism_inspera_subs');
+        $index = new xmldb_index(
+            'cm_userid_sub_stored_ix',
+            XMLDB_INDEX_NOTUNIQUE,
+            ['cm', 'userid', 'submissionid', 'storedfileid']
+        );
+
+        // Conditionally launch add index cm_userid_sub_stored_ix.
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        // Inspera savepoint reached.
+        upgrade_plugin_savepoint(true, 2026060800, 'plagiarism', 'inspera');
     }
 
     return true;

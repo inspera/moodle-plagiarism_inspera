@@ -46,7 +46,7 @@ $currenttab = 'originalityettings';
 require_once('originality_tabs.php');
 if (($data = $mform->get_data()) && confirm_sesskey()) {
     if (!isset($data->enabled)) {
-        $data->enabled = 0;
+        $data->enabled = '0';
     }
 
     $supportedmodules = plagiarism_inspera_supported_modules();
@@ -59,12 +59,19 @@ if (($data = $mform->get_data()) && confirm_sesskey()) {
         }
     }
 
+    if (!isset($data->errorsonlymanagement)) {
+        $data->errorsonlymanagement = '0';
+    }
+
     foreach ($data as $field => $value) {
-        if ($field != 'submitbutton') { // Ignore the button.
-            $value = trim($value); // Strip trailing spaces.
+        // Defensively guard against arrays/objects and enforce string typing for PHP 8+.
+        if (is_scalar($value)) {
+            $value = trim((string)$value); // Strip trailing spaces safely.
+
             if ($field == 'baseurl') { // Strip trailing slash from api.
                 $value = rtrim($value, '/');
             }
+
             set_config($field, $value, 'plagiarism_inspera');
         }
     }

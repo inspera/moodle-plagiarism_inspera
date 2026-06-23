@@ -16,123 +16,159 @@
 
 namespace plagiarism_inspera;
 
-defined('MOODLE_INTERNAL') || die();
-
 use advanced_testcase;
-use ReflectionMethod; // THIS FIXES THE ERROR.
 use stdClass;
-
-global $CFG;
-require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+use plagiarism_inspera\services\display\report_formatter;
 
 /**
- * PHPUnit tests for the originality_display_type score selection logic.
+ * PHPUnit tests for the score selection logic within the report_formatter.
  *
  * @package    plagiarism_inspera
  * @category   test
- * @copyright  2025 Inspera AS
+ * @copyright  2026 Inspera AS
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class score_display_test extends advanced_testcase {
-    /** @var plagiarism_plugin_inspera */
-    private $plugin;
-
-    /** @var ReflectionMethod */
-    private $getoriginalitystatus;
+    /** @var report_formatter */
+    private $formatter;
 
     protected function setUp(): void {
         parent::setUp();
         $this->resetAfterTest();
-
-        $this->plugin = new \plagiarism_plugin_inspera();
-
-        $this->getoriginalitystatus = new ReflectionMethod(
-            \plagiarism_plugin_inspera::class,
-            'get_originality_status'
-        );
-        $this->getoriginalitystatus->setAccessible(true);
+        // Instantiate our new service.
+        $this->formatter = new report_formatter();
     }
 
     /**
      * Build a minimal record object that satisfies get_originality_status().
-     *
-     * @param int        $cmid             Course-module ID stored in the config table.
-     * @param float      $similarity       Similarity percentage.
-     * @param float|null $originalityscore Originality percentage, or NULL for legacy rows.
-     * @return stdClass
      */
     private function make_sub_record(int $cmid, float $similarity, ?float $originalityscore): stdClass {
         $record = new stdClass();
-        // Use a high integer for the record ID so the redirect URL is deterministic.
-        // This value is never inserted into the DB and cannot conflict with real records.
+        // FIX: Ensure ID is present as the new formatter uses it for polling attributes.
         $record->id               = 99999;
         $record->cm               = $cmid;
         $record->status           = 'finished';
         $record->similarity       = $similarity;
         $record->originality_score = $originalityscore;
-        $record->originality      = 'Low'; // Determines risk CSS class.
+        $record->originality      = 'Low';
         return $record;
     }
 
     /**
      * Test: when displaytype = similarity the similarity score is rendered.
-     * @covers \plagiarism_plugin_inspera::get_originality_status
+     * @covers \plagiarism_inspera\services\display\report_formatter::get_originality_status
      */
     public function test_score_display_similarity_type(): void {
-        $cmid = 6001; // Unique cmid avoids static-cache collision with other tests.
-
+        $cmid = 6001;
         $record = $this->make_sub_record($cmid, 45.0, 78.0);
-        $html = $this->getoriginalitystatus->invoke($this->plugin, $record, 'similarity');
 
-        $this->assertStringContainsString(
-            '45%',
-            $html,
-            'Expected similarity score (45%) in the rendered output.'
-        );
-        $this->assertStringNotContainsString(
-            '78%',
-            $html,
-            'Originality score (78%) must not appear when displaytype is similarity.'
-        );
+        // Call the public method directly.
+        $html = $this->formatter->get_originality_status($record, 'similarity');
+
+        $this->assertStringContainsString('45%', $html);
+        $this->assertStringNotContainsString('78%', $html);
     }
 
     /**
      * Test: when displaytype = originality and originality_score is present.
-     * @covers \plagiarism_plugin_inspera::get_originality_status
+     * @covers \plagiarism_inspera\services\display\report_formatter::get_originality_status
      */
     public function test_score_display_originality_type_with_score(): void {
         $cmid = 6002;
-
         $record = $this->make_sub_record($cmid, 45.0, 78.0);
-        $html = $this->getoriginalitystatus->invoke($this->plugin, $record, 'originality');
 
-        $this->assertStringContainsString(
-            '78%',
-            $html,
-            'Expected originality score (78%) in the rendered output.'
-        );
-        $this->assertStringNotContainsString(
-            '45%',
-            $html,
-            'Similarity score (45%) must not appear when displaytype is originality and originality_score is set.'
-        );
+        $html = $this->formatter->get_originality_status($record, 'originality');
+
+        $this->assertStringContainsString('78%', $html);
+        $this->assertStringNotContainsString('45%', $html);
     }
 
     /**
      * Test: fallback to similarity when originality_score is NULL.
-     * @covers \plagiarism_plugin_inspera::get_originality_status
+     * @covers \plagiarism_inspera\services\display\report_formatter::get_originality_status
      */
     public function test_score_display_originality_type_null_fallback(): void {
         $cmid = 6003;
-
-        // NULL originality_score simulates a legacy submission that pre-dates the column.
         $record = $this->make_sub_record($cmid, 33.0, null);
-        $html = $this->getoriginalitystatus->invoke($this->plugin, $record, 'originality');
 
-        $this->assertStringContainsString(
-            '33%',
-            $html,
-            'Expected similarity score (33%) as fallback when originality_score is NULL.'
-        );
+        $html = $this->formatter->get_originality_status($record, 'originality');
+
+        $this->assertStringContainsString('33%', $html);
+    }
+
+    /**
+     * Test the color range logic when displaytype is similarity.
+     * @covers \plagiarism_inspera\services\display\report_formatter::get_originality_status
+     * @dataProvider similarity_range_provider
+     */
+    public function test_similarity_color_ranges(float $score, string $expectedclass): void {
+        $cmid = 700000 + (int)round($score * 100);
+        $record = $this->make_sub_record($cmid, $score, null);
+
+        $html = $this->formatter->get_originality_status($record, 'similarity');
+
+        $this->assertStringContainsString("originality-score $expectedclass", $html);
+    }
+
+    /**
+     * Data provider for similarity range testing.
+     *
+     * @return array
+     */
+    public static function similarity_range_provider(): array {
+        return [
+            'Boundary Low (20.0)'          => [20.0, 'low'],
+            'Coherence check (20.49)'      => [20.49, 'low'],
+            'Coherence check (20.5)'       => [20.5, 'medium'],
+            'Boundary Medium (80.0)'       => [80.0, 'medium'],
+            'Coherence check (80.49)'      => [80.49, 'medium'],
+            'Coherence check (80.5)'       => [80.5, 'high'],
+            'Boundary High (100)'          => [100.0, 'high'],
+        ];
+    }
+
+    /**
+     * Test the color logic when displaytype is originality.
+     * @covers \plagiarism_inspera\services\display\report_formatter::get_originality_status
+     */
+    public function test_originality_color_logic(): void {
+        $cmid = 8000;
+        $record = $this->make_sub_record($cmid, 10.0, 99.0);
+        $record->originality = 'Low risk';
+
+        $html = $this->formatter->get_originality_status($record, 'originality');
+
+        $this->assertStringContainsString('originality-score low', $html);
+    }
+
+    /**
+     * Test the color range logic for the originality fallback path.
+     * @covers \plagiarism_inspera\services\display\report_formatter::get_originality_status
+     * @dataProvider originality_fallback_range_provider
+     */
+    public function test_originality_fallback_color_ranges(float $similarity, string $expectedclass): void {
+        $cmid = 900000 + (int)round($similarity * 100);
+        $record = $this->make_sub_record($cmid, $similarity, null);
+
+        $html = $this->formatter->get_originality_status($record, 'originality');
+
+        $this->assertStringContainsString("originality-score $expectedclass", $html);
+    }
+
+    /**
+     * Data provider for originality fallback range testing.
+     *
+     * @return array
+     */
+    public static function originality_fallback_range_provider(): array {
+        return [
+            'Fallback boundary Low (20.0)'     => [20.0, 'low'],
+            'Fallback coherence check (20.49)' => [20.49, 'low'],
+            'Fallback coherence check (20.5)'  => [20.5, 'medium'],
+            'Fallback boundary Medium (80.0)'  => [80.0, 'medium'],
+            'Fallback coherence check (80.49)' => [80.49, 'medium'],
+            'Fallback coherence check (80.5)'  => [80.5, 'high'],
+            'Fallback boundary High (100)'     => [100.0, 'high'],
+        ];
     }
 }

@@ -1,0 +1,66 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template plagiarism_inspera/debug_page
+
+    Submissions Management Page Template.
+
+    Context variables required for this template:
+    * filterhtml - HTML string for the filter bar.
+    * posturl - Target URL for the bulk action form.
+    * sesskey - The user session key.
+    * tablehtml - The rendered Moodle table.
+    * deletelabel - Text for the delete button.
+    * resubmitlabel - Text for the resubmit button.
+
+    Example context (json):
+    {
+        "filterhtml": "<div>Filter Placeholder</div>",
+        "posturl": "originality_debug.php",
+        "sesskey": "abcde12345",
+        "tablehtml": "<table><tr><td>Example Table</td></tr></table>",
+        "deletelabel": "Delete Selected",
+        "resubmitlabel": "Resubmit Selected"
+    }
+}}
+<div class="plagiarism_inspera_debug_page">
+    <div class="filter-container mb-4">
+        {{{filterhtml}}}
+    </div>
+    <form action="{{posturl}}" method="post" id="debugform">
+        <input type="hidden" name="sesskey" value="{{sesskey}}">
+    </form>
+
+    <div class="submissions-table-container">
+        {{{tablehtml}}}
+    </div>
+
+    <div class="p-3 mt-3 border-top d-flex align-items-center justify-content-between bg-white">
+        <div class="text-muted small text-uppercase fw-bold"> {{#str}} bulkactions, plagiarism_inspera {{/str}}
+        </div>
+        <div class="buttons">
+            <button name="deleteselectedfiles" value="1" type="submit" id="deleteallselected"
+                    class="btn btn-outline-danger btn-sm" form="debugform">
+                <i class="icon fa fa-trash" aria-hidden="true"></i> {{deletelabel}}
+            </button>
+
+            <button name="resubmitselectedfiles" value="1" type="submit" id="resubmitselected"
+                    class="btn btn-outline-primary btn-sm ms-2" form="debugform"> <i class="icon fa fa-refresh" aria-hidden="true"></i> {{resubmitlabel}}
+            </button>
+        </div>
+    </div>
+</div>
