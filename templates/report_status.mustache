@@ -1,0 +1,81 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template plagiarism_inspera/report_status
+
+    Example context (json):
+    {
+        "wrapperclass": "plagiarism-originality-reportlink",
+        "status": "finished",
+        "id": 123,
+        "displaytype": "similarity",
+        "isfinished": true,
+        "url": "https://example.com/report/123",
+        "iconhtml": "<img src='#' class='originality-logo-icon' alt='logo'>",
+        "linkprefix": "Originality Report",
+        "riskclass": "medium",
+        "scoretext": "45%"
+    }
+}}
+<div class="{{wrapperclass}}"
+     data-inspera-status="{{status}}"
+     data-recordid="{{id}}"
+     data-displaytype="{{displaytype}}">
+
+    {{#isfinished}}
+        <a href="{{url}}" target="_blank" rel="noopener noreferrer">
+            {{{iconhtml}}} {{linkprefix}}
+            <span class="originality-score {{riskclass}}">{{scoretext}}</span>
+        </a>
+    {{/isfinished}}
+
+    {{#isrequested}}
+        {{statustext}}
+    {{/isrequested}}
+
+    {{#ispending}}
+        {{statustext}}
+    {{/ispending}}
+
+    {{#iserror}}
+        {{statustext}}
+        {{#canresubmit}}
+            <form action="{{resubmiturl}}" method="post" class="d-inline m-0 p-0">
+                <input type="hidden" name="id" value="{{id}}">
+                <input type="hidden" name="cmid" value="{{resubmitcmid}}">
+                <input type="hidden" name="returnurl" value="{{resubmitreturnurl}}">
+                <input type="hidden" name="sesskey" value="{{resubmitsesskey}}">
+                <button type="submit" class="btn btn-link p-0 m-0 ms-1" title="{{#str}} resubmit, plagiarism_inspera {{/str}}" aria-label="{{#str}} resubmit, plagiarism_inspera {{/str}}">
+                    {{{resubmiticonhtml}}}
+                </button>
+            </form>
+        {{/canresubmit}}
+        {{#hasdescription}}
+            <div class="originality-error-desc small text-muted mt-1" title="{{rawdescription}}">
+                {{shortdescription}}
+            </div>
+        {{/hasdescription}}
+    {{/iserror}}
+
+    {{#ispolling}}
+        {{#js}}
+            require(['plagiarism_inspera/polling'], function(polling) {
+                polling.init();
+            });
+        {{/js}}
+    {{/ispolling}}
+</div>

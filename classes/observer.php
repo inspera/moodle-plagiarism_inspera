@@ -26,6 +26,7 @@ namespace plagiarism_inspera;
 
 defined('MOODLE_INTERNAL') || die();
 
+global $CFG;
 require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 /**
@@ -43,42 +44,9 @@ class observer {
     public static function assignsubmission_file_uploaded(
         \assignsubmission_file\event\assessable_uploaded $event
     ) {
-        global $CFG;
         if (!empty(get_config('plagiarism_inspera', 'enable_mod_assign'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'assignsubmission_file_uploaded';
-            $originality = new \plagiarism_plugin_inspera();
-            $originality->event_handler($eventdata);
-        }
-    }
-
-    /**
-     * Observer function to handle the assessable_uploaded event in mod_forum.
-     * @param \mod_forum\event\assessable_uploaded $event
-     */
-    public static function forum_file_uploaded(
-        \mod_forum\event\assessable_uploaded $event
-    ) {
-        global $CFG;
-        if (!empty(get_config('plagiarism_inspera', 'enable_mod_forum'))) {
-            $eventdata = $event->get_data();
-            $eventdata['eventtype'] = 'forum_file_uploaded';
-            $originality = new \plagiarism_plugin_inspera();
-            $originality->event_handler($eventdata);
-        }
-    }
-
-    /**
-     * Observer function to handle the assessable_uploaded event in mod_workshop.
-     * @param \mod_workshop\event\assessable_uploaded $event
-     */
-    public static function workshop_file_uploaded(
-        \mod_workshop\event\assessable_uploaded $event
-    ) {
-        global $CFG;
-        if (!empty(get_config('plagiarism_inspera', 'enable_mod_workshop'))) {
-            $eventdata = $event->get_data();
-            $eventdata['eventtype'] = 'workshop_file_uploaded';
             $originality = new \plagiarism_plugin_inspera();
             $originality->event_handler($eventdata);
         }
@@ -92,7 +60,6 @@ class observer {
         \assignsubmission_onlinetext\event\assessable_uploaded $event
     ) {
         if (!empty(get_config('plagiarism_inspera', 'enable_mod_assign'))) {
-            global $CFG;
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'assignsubmission_onlinetext_uploaded';
             $originality = new \plagiarism_plugin_inspera();
@@ -107,7 +74,6 @@ class observer {
     public static function assignsubmission_submitted(
         \mod_assign\event\assessable_submitted $event
     ) {
-        global $CFG;
         if (!empty(get_config('plagiarism_inspera', 'enable_mod_assign'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'assignsubmission_submitted';
@@ -121,10 +87,43 @@ class observer {
      * @param \mod_quiz\event\attempt_submitted $event
      */
     public static function quiz_submitted(\mod_quiz\event\attempt_submitted $event) {
-        global $CFG;
         if (!empty(get_config('plagiarism_inspera', 'enable_mod_quiz'))) {
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'quiz_submitted';
+            $originality = new \plagiarism_plugin_inspera();
+            $originality->event_handler($eventdata);
+        }
+    }
+
+    /**
+     * Observer function to handle the assessable_uploaded event in mod_forum.
+     * @param \mod_forum\event\assessable_uploaded $event
+     */
+    public static function forum_file_uploaded(
+        \mod_forum\event\assessable_uploaded $event
+    ) {
+        if (!empty(get_config('plagiarism_inspera', 'enable_mod_forum'))) {
+            global $DB;
+
+            $editorid = (int)$event->userid;
+            $postid = (int)$event->objectid; // For assessable_uploaded in forums, objectid is the post ID.
+
+            // GATEKEEPER: Fetch the actual author of the post.
+            $authorid = $DB->get_field('forum_posts', 'userid', ['id' => $postid], IGNORE_MISSING);
+
+            // If the post no longer exists (race condition/deleted), abort.
+            if ($authorid === false) {
+                return;
+            }
+
+            if ($editorid !== (int)$authorid) {
+                // An admin or teacher is editing a student's post.
+                // Abort immediately to prevent queuing the teacher's edit as a new submission.
+                return;
+            }
+
+            $eventdata = $event->get_data();
+            $eventdata['eventtype'] = 'forum_file_uploaded';
             $originality = new \plagiarism_plugin_inspera();
             $originality->event_handler($eventdata);
         }
@@ -137,12 +136,144 @@ class observer {
     public static function hsuforum_file_uploaded(
         \mod_hsuforum\event\assessable_uploaded $event
     ) {
-        global $CFG;
         if (!empty(get_config('plagiarism_inspera', 'enable_mod_hsuforum'))) {
+            global $DB;
+
+            $editorid = (int)$event->userid;
+            $postid = (int)$event->objectid;
+
+            // GATEKEEPER: Fetch the actual author of the hsuforum post.
+            $authorid = $DB->get_field('hsuforum_posts', 'userid', ['id' => $postid], IGNORE_MISSING);
+
+            // If the post no longer exists (race condition/deleted), abort.
+            if ($authorid === false) {
+                return;
+            }
+
+            if ($editorid !== (int)$authorid) {
+                // An admin or teacher is editing a student's post.
+                // Abort immediately.
+                return;
+            }
+
             $eventdata = $event->get_data();
             $eventdata['eventtype'] = 'hsuforum_file_uploaded';
             $originality = new \plagiarism_plugin_inspera();
             $originality->event_handler($eventdata);
+        }
+    }
+
+    /**
+     * Observer to handle the workshop phase switch.
+     *
+     * @param \core\event\base $event
+     * @return void
+     */
+    public static function workshop_phase_switched(\core\event\base $event): void {
+        global $CFG, $DB;
+
+        if (empty($CFG->enableplagiarism)) {
+            return;
+        }
+
+        require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+        $plugin = new \plagiarism_plugin_inspera();
+        $settings = $plugin->get_settings();
+
+        if (empty($settings['enabled'])) {
+            return;
+        }
+
+        // Check if plugin is globally enabled for workshops before doing any logic.
+        if (empty(get_config('plagiarism_inspera', 'enable_mod_workshop'))) {
+            return;
+        }
+
+        $newphase = $event->other['workshopphase'] ?? null;
+        $workshopid = (int) $event->objectid;
+        $cmid = (int) $event->contextinstanceid;
+
+        if (empty($cmid) || !$DB->record_exists('course_modules', ['id' => $cmid])) {
+            return;
+        }
+
+        // Defensive check: Explicitly look for the '1' value to avoid issues with duplicate config rows.
+        // Use the deterministic helper to ensure we respect the LATEST configuration row.
+        $cmsettings = plagiarism_inspera_get_cm_settings($cmid);
+        if (empty($cmsettings['use_originality'])) {
+            return;
+        }
+
+        // Only proceed if the new phase is 30 (PHASE_ASSESSMENT).
+        if ($newphase === \plagiarism_inspera\services\workshop_service::PHASE_ASSESSMENT) {
+            // Queue an ad-hoc task to prevent blocking the teacher's web request.
+            $task = new \plagiarism_inspera\task\process_workshop_phase();
+            $task->set_custom_data([
+                'workshopid' => $workshopid,
+                'cmid' => $cmid,
+            ]);
+            \core\task\manager::queue_adhoc_task($task);
+        }
+    }
+
+    /**
+     * Observer to handle late submissions in the workshop Assessment phase.
+     *
+     * @param \core\event\base $event
+     * @return void
+     */
+    public static function workshop_assessable_uploaded(\core\event\base $event): void {
+        global $CFG, $DB;
+
+        if (empty($CFG->enableplagiarism)) {
+            return;
+        }
+
+        require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+        $plugin = new \plagiarism_plugin_inspera();
+        $settings = $plugin->get_settings();
+
+        if (empty($settings['enabled'])) {
+            return;
+        }
+
+        if (empty(get_config('plagiarism_inspera', 'enable_mod_workshop'))) {
+            return;
+        }
+
+        $submissionid = (int) $event->objectid;
+        $cmid = (int) $event->contextinstanceid;
+
+        // 4. Instance Switch: Does this specific CM exist and have originality enabled?
+        if (empty($cmid) || !$DB->record_exists('course_modules', ['id' => $cmid])) {
+            return;
+        }
+
+        // Defensive check: Explicitly look for the '1' value to avoid issues with duplicate config rows.
+        // Use the deterministic helper to ensure we respect the LATEST configuration row.
+        $cmsettings = plagiarism_inspera_get_cm_settings($cmid);
+        if (empty($cmsettings['use_originality'])) {
+            return;
+        }
+
+        // Fallback logic for workshopid.
+        $workshopid = $event->other['workshopid'] ?? $event->other['instanceid'] ?? 0;
+
+        // If still 0, look it up via the Submission record.
+        if (!$workshopid && $submissionid) {
+            $workshopid = $DB->get_field('workshop_submissions', 'workshopid', ['id' => $submissionid]);
+        }
+
+        if (!$workshopid) {
+            return;
+        }
+
+        $workshop = $DB->get_record('workshop', ['id' => $workshopid], 'id, phase');
+
+        if ($workshop && (int)$workshop->phase === \plagiarism_inspera\services\workshop_service::PHASE_ASSESSMENT) {
+            $queueservice = new \plagiarism_inspera\services\queue_service($DB);
+            $workshopservice = new \plagiarism_inspera\services\workshop_service($DB, $queueservice);
+            $workshopservice->process_late_submission((int)$workshopid, $cmid, $submissionid);
         }
     }
 }

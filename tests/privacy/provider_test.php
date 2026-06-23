@@ -27,7 +27,6 @@ namespace plagiarism_inspera\privacy;
 
 use core_privacy\tests\provider_testcase;
 use context_module;
-use context_user;
 
 /**
  * Privacy Provider testcase for plagiarism_inspera.
@@ -35,7 +34,6 @@ use context_user;
 final class provider_test extends provider_testcase {
     /**
      * Test getting the metadata.
-     * Ensures the plugin correctly declares what data it stores and where.
      * @covers \plagiarism_inspera\privacy\provider::get_metadata
      */
     public function test_get_metadata(): void {
@@ -43,12 +41,12 @@ final class provider_test extends provider_testcase {
         $newcollection = provider::get_metadata($collection);
         $itemlist = $newcollection->get_collection();
 
-        // We expect the collection to contain our table and the external link definitions.
         $this->assertNotEmpty($itemlist);
     }
 
     /**
-     * Test that all plagiarism data for a specific user in a context is deleted.
+     * Test that all plagiarism data for a specific user is deleted,
+     * and that associated temp files are safely unlinked.
      * @covers \plagiarism_inspera\privacy\provider::delete_plagiarism_for_user
      */
     public function test_delete_plagiarism_for_user(): void {
@@ -60,23 +58,33 @@ final class provider_test extends provider_testcase {
         $course = $this->getDataGenerator()->create_course();
         $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('assign', $assign->id);
-        $context = \context_module::instance($cm->id);
 
-        // 2. Insert a dummy record.
+        // Utilized the imported context_module class here.
+        $context = context_module::instance($cm->id);
+
+        // 2. Setup Dummy File.
+        $tempdir = make_temp_directory('plagiarism_inspera');
+        $filepath = $tempdir . '/dummy_privacy_test.html';
+        file_put_contents($filepath, 'dummy data');
+        $this->assertFileExists($filepath);
+
+        // 3. Insert record.
         $DB->insert_record('plagiarism_inspera_subs', [
             'cm' => $cm->id,
             'userid' => $user->id,
             'submissionid' => 10,
+            'identifier' => $filepath,
             'timecreated' => time(),
         ]);
 
         $this->assertEquals(1, $DB->count_records('plagiarism_inspera_subs', ['userid' => $user->id]));
 
-        // 3. Trigger the deletion.
+        // 4. Trigger the deletion.
         provider::delete_plagiarism_for_user($user->id, $context);
 
-        // 4. Verify the record is gone.
+        // 5. Verify record is gone AND file is unlinked.
         $this->assertEquals(0, $DB->count_records('plagiarism_inspera_subs', ['userid' => $user->id]));
+        $this->assertFileDoesNotExist($filepath);
     }
 
     /**
@@ -93,24 +101,39 @@ final class provider_test extends provider_testcase {
         $course = $this->getDataGenerator()->create_course();
         $assign = $this->getDataGenerator()->create_module('assign', ['course' => $course->id]);
         $cm = get_coursemodule_from_instance('assign', $assign->id);
-        $context = \context_module::instance($cm->id);
 
-        // 2. Insert records for both users in the same context.
-        foreach ([$user1, $user2] as $user) {
-            $DB->insert_record('plagiarism_inspera_subs', [
-                'cm' => $cm->id,
-                'userid' => $user->id,
-                'submissionid' => 20,
-                'timecreated' => time(),
-            ]);
-        }
+        // Utilized the imported context_module class here.
+        $context = context_module::instance($cm->id);
+
+        // 2. Setup Dummy File.
+        $tempdir = make_temp_directory('plagiarism_inspera');
+        $filepath = $tempdir . '/dummy_context_test.html';
+        file_put_contents($filepath, 'dummy data');
+
+        // 3. Insert records.
+        $DB->insert_record('plagiarism_inspera_subs', [
+            'cm' => $cm->id,
+            'userid' => $user1->id,
+            'submissionid' => 20,
+            'identifier' => $filepath,
+            'timecreated' => time(),
+        ]);
+
+        $DB->insert_record('plagiarism_inspera_subs', [
+            'cm' => $cm->id,
+            'userid' => $user2->id,
+            'submissionid' => 21,
+            'timecreated' => time(),
+        ]);
 
         $this->assertEquals(2, $DB->count_records('plagiarism_inspera_subs', ['cm' => $cm->id]));
+        $this->assertFileExists($filepath);
 
-        // 3. Trigger deletion for the entire context.
+        // 4. Trigger deletion for the entire context.
         provider::delete_plagiarism_for_context($context);
 
-        // 4. Verify all records for that context are gone.
+        // 5. Verify records are gone and file is deleted.
         $this->assertEquals(0, $DB->count_records('plagiarism_inspera_subs', ['cm' => $cm->id]));
+        $this->assertFileDoesNotExist($filepath);
     }
 }

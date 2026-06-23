@@ -35,12 +35,15 @@ require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
 
 global $OUTPUT, $CFG, $PAGE, $DB, $SITE;
 
+// 1. PREPARE PARAMETERS.
 $id = optional_param('id', 0, PARAM_INT);
-$action = optional_param('action', '', PARAM_ALPHA); // Unified action param.
-$resubmitselected = optional_param('resubmitselectedfiles', 0, PARAM_TEXT);
-$confirm = optional_param('confirm', 0, PARAM_INT);
-$deleteselected = optional_param('deleteselectedfiles', 0, PARAM_TEXT);
-$fileids = optional_param('fileids', '', PARAM_TEXT);
+$action = optional_param('action', '', PARAM_ALPHA);
+
+// Use PARAM_BOOL for buttons. If clicked, they return true.
+$deleteselected   = optional_param('deleteselectedfiles', false, PARAM_BOOL);
+$resubmitselected = optional_param('resubmitselectedfiles', false, PARAM_BOOL);
+$confirm          = optional_param('confirm', 0, PARAM_INT);
+$fileidsparam     = optional_param('fileids', '', PARAM_SEQUENCE);
 
 require_login();
 
@@ -56,141 +59,224 @@ if (!empty($SITE)) {
 }
 require_capability('moodle/site:config', $context);
 
+$errorsonly = (bool)get_config('plagiarism_inspera', 'errorsonlymanagement');
+if (
+    $errorsonly &&
+    !$deleteselected &&
+    !$resubmitselected &&
+    !$id &&
+    $action === '' &&
+    !empty($SESSION->user_filtering) &&
+    is_array($SESSION->user_filtering)
+) {
+    $allowedstatuses = plagiarism_inspera_errors_only_status_map();
+    $sessionchanged = false;
+
+    $sanitizefilters = function (array &$filters) use ($allowedstatuses, &$sessionchanged): void {
+        if (empty($filters['status']) || !is_array($filters['status'])) {
+            return;
+        }
+
+        $filteredstatusrules = [];
+        foreach ($filters['status'] as $rule) {
+            $value = plagiarism_inspera_extract_status_rule_value($rule);
+
+            if ($value !== null && isset($allowedstatuses[$value])) {
+                $filteredstatusrules[] = $rule;
+            }
+        }
+
+        if (count($filteredstatusrules) !== count($filters['status'])) {
+            $sessionchanged = true;
+        }
+
+        if (empty($filteredstatusrules)) {
+            unset($filters['status']);
+        } else {
+            $filters['status'] = $filteredstatusrules;
+        }
+    };
+
+    if (array_key_exists('status', $SESSION->user_filtering)) {
+        $sanitizefilters($SESSION->user_filtering);
+    } else {
+        foreach ($SESSION->user_filtering as &$filtersession) {
+            if (is_array($filtersession) && array_key_exists('status', $filtersession)) {
+                $sanitizefilters($filtersession);
+            }
+        }
+        unset($filtersession);
+    }
+
+    if ($sessionchanged) {
+        redirect($url);
+    }
+}
+
 $exportfilename = 'OriginalityDebugOutput.csv';
 
 $limit = 50;
-$filters = ['realname' => 0, 'timesubmitted' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0];
+$filters = ['status' => 0, 'realname' => 0, 'timecreated' => 0, 'course' => 0, 'externalid' => 0, 'description' => 0];
 $ufiltering = new \plagiarism_inspera\output\filtering($filters, $PAGE->url);
+
+// PRG pattern: user_filtering processes filter form POST data in its constructor.
+// When this request is a plain filter update (i.e. not bulk delete/resubmit and not a confirm step),
+// redirect immediately to clear the POST payload so browser refreshes don't resubmit it.
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && !$deleteselected && !$resubmitselected && !$confirm) {
+    redirect($PAGE->url);
+}
+
 [$ufextrasql, $ufparams] = $ufiltering->get_sql_filter();
 
-$defaultstatusapplied = false;
-if (empty($ufextrasql)) {
-    $ufextrasql = "t.status IN (:defaultstatus1, :defaultstatus2)";
-    $ufparams['defaultstatus1'] = 'error';
-    $ufparams['defaultstatus2'] = 'external_error';
-    $defaultstatusapplied = true;
+// Enforce error-only scope for all queries when globally enabled.
+if ($errorsonly) {
+    $erroronlystatuses = plagiarism_inspera_errors_only_statuses();
+    $statusplaceholders = [];
+    foreach ($erroronlystatuses as $idx => $statusvalue) {
+        $paramname = "defaultstatus{$idx}";
+        $statusplaceholders[] = ':' . $paramname;
+        $ufparams[$paramname] = $statusvalue;
+    }
+    $erroronlysql = 't.status IN (' . implode(', ', $statusplaceholders) . ')';
+    if (!empty($ufextrasql)) {
+        $ufextrasql = "({$ufextrasql}) AND {$erroronlysql}";
+    } else {
+        $ufextrasql = $erroronlysql;
+    }
 }
+
 
 $plagiarismsettings = plagiarism_plugin_inspera::get_settings();
 
-// 1. HANDLE BULK DELETE (Selected via Checkboxes).
-if (!empty($deleteselected)) {
-    if (empty($fileids)) {
-        $fileids = [];
-        // Check for checkbox data.
-        $post = data_submitted();
-        foreach ($post as $k => $v) {
-            if (preg_match('/^item(\d+)$/', $k, $m)) {
-                $fileids[] = $m[1];
+// 2. HANDLE BULK ACTIONS.
+if (($deleteselected || $resubmitselected) && confirm_sesskey()) {
+    // Step A: Collect IDs from the initial POSTed checkboxes or the hidden fileids field in the confirmation form.
+    if (empty($fileidsparam)) {
+        $selectedids = [];
+        $submitteddata = data_submitted();
+        if (!empty($submitteddata)) {
+            foreach ($submitteddata as $key => $value) {
+                if (preg_match('/^item(\d+)$/', $key, $matches)) {
+                    $selectedids[] = $matches[1];
+                }
             }
         }
+    } else {
+        $selectedids = explode(',', $fileidsparam);
+    }
+    // Normalise IDs: Ensure they are unique, cleaned to integers, and re-indexed.
+    $selectedids = array_values(array_unique(array_map('intval', $selectedids)));
 
-        if (empty($fileids)) {
-            redirect($url, get_string('nofilesselected', 'plagiarism_inspera'));
+    // Error if nothing selected.
+    if (empty($selectedids)) {
+        redirect(
+            new moodle_url('/plagiarism/inspera/originality_debug.php'),
+            get_string('nofilesselected', 'plagiarism_inspera'),
+            null,
+            \core\output\notification::NOTIFY_WARNING
+        );
+    }
+
+    // Step B: Confirmation Stage.
+    if (!$confirm) {
+        echo $OUTPUT->header();
+
+        // 1. Determine message and action parameter.
+        if ($deleteselected) {
+            $actionparam = 'deleteselectedfiles';
+            $message = get_string('areyousurebulk', 'plagiarism_inspera', count($selectedids));
+        } else {
+            $actionparam = 'resubmitselectedfiles';
+            $message = get_string('areyousurebulkresubmit', 'plagiarism_inspera', count($selectedids));
         }
 
-        // Display confirmation box.
-        $params = ['deleteselectedfiles' => 1, 'confirm' => 1, 'fileids' => implode(',', $fileids)];
-        $deleteurl = new moodle_url($PAGE->url, $params);
-        $numfiles = count($fileids);
-        echo $OUTPUT->header();
-        echo $OUTPUT->confirm(
-            get_string('areyousurebulk', 'plagiarism_inspera', $numfiles),
-            $deleteurl,
-            $CFG->wwwroot . '/plagiarism/inspera/originality_debug.php'
-        );
+        // 2. Prepare context for the Mustache template.
+        $context = [
+            'message' => $message,
+            'posturl' => (new moodle_url('/plagiarism/inspera/originality_debug.php'))->out(false),
+            'sesskey' => sesskey(),
+            'fileids' => implode(',', $selectedids),
+            'actionparam' => $actionparam,
+            'cancelurl' => (new moodle_url('/plagiarism/inspera/originality_debug.php'))->out(false),
+        ];
+
+        // 3. Render the template.
+        echo $OUTPUT->render_from_template('plagiarism_inspera/bulk_confirm', $context);
 
         echo $OUTPUT->footer();
-        exit;
-    } else if ($confirm && confirm_sesskey()) {
-        $count = 0;
-        $fileids = explode(',', $fileids);
-        foreach ($fileids as $fid) {
-            $DB->delete_records('plagiarism_inspera_subs', ['id' => $fid]);
-            $count++;
-        }
-        \core\notification::success(get_string('recordsdeleted', 'plagiarism_inspera', $count));
+        die();
     }
-} else if (!empty($resubmitselected)) {
-    // 2. HANDLE BULK RESUBMIT (Selected via Checkboxes).
-    if (empty($fileids)) {
-        $fileids = [];
-        // Check for checkbox data.
-        $post = data_submitted();
-        foreach ($post as $k => $v) {
-            if (preg_match('/^item(\d+)$/', $k, $m)) {
-                $fileids[] = $m[1];
+
+    // Step C: Execution Stage (After "Yes" is clicked).
+    if ($deleteselected) {
+        $DB->delete_records_list('plagiarism_inspera_subs', 'id', $selectedids);
+        $deletedcount = count($selectedids);
+        \core\notification::success(get_string('recordsdeleted', 'plagiarism_inspera', $deletedcount));
+    } else if ($resubmitselected) {
+        $client = new \plagiarism_inspera\apiclient\api_client();
+        $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
+        $result = $recoveryservice->resubmit_bulk($selectedids, $client);
+
+        if (($result->recovered + $result->queued) > 0) {
+            $a = new \stdClass();
+            $a->selected = $result->selected;
+            $a->recovered = $result->recovered;
+            $a->queued = $result->queued;
+            $a->skipped = $result->skipped;
+
+            if ($result->skipped > 0) {
+                $message = get_string('resubmit_bulk_success_skipped', 'plagiarism_inspera', $a);
+            } else {
+                $message = get_string('resubmit_bulk_success', 'plagiarism_inspera', $a);
             }
+            \core\notification::success($message);
+        } else {
+            \core\notification::error(get_string('resubmit_bulk_error', 'plagiarism_inspera'));
         }
-
-        if (empty($fileids)) {
-            redirect($url, get_string('nofilesselected', 'plagiarism_inspera'));
-        }
-
-        // Display confirmation box for resubmit selected.
-        $params = ['resubmitselectedfiles' => 1, 'confirm' => 1, 'fileids' => implode(',', $fileids)];
-        $resubmiturl = new moodle_url($PAGE->url, $params);
-        $numfiles = count($fileids);
-        echo $OUTPUT->header();
-        echo $OUTPUT->confirm(
-            get_string('areyousurebulkresubmit', 'plagiarism_inspera', $numfiles),
-            $resubmiturl,
-            $CFG->wwwroot . '/plagiarism/inspera/originality_debug.php'
-        );
-
-        echo $OUTPUT->footer();
-        exit;
-    } else if ($confirm && confirm_sesskey()) {
-        $fileids = explode(',', $fileids);
-        // Update selected records for resubmission.
-        [$insql, $inparams] = $DB->get_in_or_equal($fileids, SQL_PARAMS_NAMED);
-        $params = array_merge([
-            'status' => 'report_requested',
-            'modtime' => time(),
-        ], $inparams);
-
-        $sql = "UPDATE {plagiarism_inspera_subs}
-                SET status = :status,
-                    timemodified = :modtime,
-                    similarity = NULL,
-                    translation_similarity = NULL,
-                    ai_index = NULL,
-                    originality = NULL,
-                    character_replacement = NULL,
-                    hidden_text = NULL,
-                    image_as_text = NULL,
-                    description = NULL
-                WHERE id $insql";
-
-        $DB->execute($sql, $params);
-        \core\notification::success(get_string('filesresubmitted', 'plagiarism_inspera', count($fileids)));
     }
+
+    // Final Redirect (Clean URL).
+    redirect(new moodle_url('/plagiarism/inspera/originality_debug.php'));
 }
 
 // 3. HANDLE SINGLE ACTIONS (Row Links).
-if ($id && confirm_sesskey()) {
+if ($id && ($action === 'resubmit' || $action === 'delete')) {
+    require_sesskey();
+    $executed = false;
     if ($action === 'resubmit') {
-        // Reset single file.
-        $record = new stdClass();
-        $record->id = $id;
-        $record->status = 'report_requested';
-        $record->timemodified = time();
-        // Clear scores.
-        $record->similarity = null;
-        $record->translation_similarity = null;
-        $record->ai_index = null;
-        $record->originality = null;
-        $record->character_replacement = null;
-        $record->hidden_text = null;
-        $record->image_as_text = null;
-        $record->externalid = null;
-        $record->description = null;
+        $client = new \plagiarism_inspera\apiclient\api_client();
+        $recoveryservice = new \plagiarism_inspera\services\resubmission_recovery_service($DB);
+        $outcome = $recoveryservice->resubmit_single($id, $client);
 
-        $DB->update_record('plagiarism_inspera_subs', $record);
-        \core\notification::success(get_string('fileresubmitted', 'plagiarism_inspera'));
-    } else if ($action === 'delete' || !empty($delete)) { // Support both legacy $delete param and new action.
+        if ($outcome === 'recovered') {
+            \core\notification::success(get_string('resubmit_single_recovered', 'plagiarism_inspera'));
+        } else if ($outcome === 'queued') {
+            \core\notification::success(get_string('resubmit_single_queued', 'plagiarism_inspera'));
+        } else if ($outcome === 'api_error') {
+            // Handle the API failure case safely.
+            \core\notification::error(get_string('resubmit_single_api_error', 'plagiarism_inspera'));
+        } else if ($outcome === 'not_found') {
+            // Handle the specific 'not_found' case.
+            \core\notification::error(get_string('resubmit_single_not_found', 'plagiarism_inspera'));
+        } else if ($outcome === 'skipped') {
+            // The API returned a fatal status (e.g., password protected).
+            // We updated the DB but aborted the retry.
+            \core\notification::warning(get_string('resubmit_single_skipped', 'plagiarism_inspera'));
+        } else {
+            \core\notification::error(get_string('resubmit_single_not_eligible', 'plagiarism_inspera'));
+        }
+        // Unconditionally trigger the PRG redirect so the URL is cleaned.
+        $executed = true;
+    } else if ($action === 'delete') {
         $DB->delete_records('plagiarism_inspera_subs', ['id' => $id]);
         \core\notification::success(get_string('filedeleted', 'plagiarism_inspera'));
+        $executed = true;
+    }
+    // REDIRECT (Post-Redirect-Get Pattern).
+    // Only redirect if we actually performed an action to avoid infinite loops.
+    if ($executed) {
+        // Redirect to a clean URL (stripping action, id, and sesskey).
+        redirect(new \moodle_url('/plagiarism/inspera/originality_debug.php'));
     }
 }
 
@@ -201,7 +287,7 @@ $table = new \plagiarism_inspera\output\debug_table('debugtable');
 $userfieldsapi = \core_user\fields::for_name();
 $userfields = $userfieldsapi->get_sql('u', false, '', '', false)->selects;
 
-$sqlfields = "t.id, t.status, t.timecreated, t.externalid, t.similarity, t.description,
+$sqlfields = "t.id, t.status, t.timecreated, t.timemodified, t.externalid, t.similarity, t.description,
               u.id as userid, $userfields,
               c.id as courseid, c.fullname, c.shortname,
               t.cm as cm, m.name as moduletype";
@@ -218,53 +304,26 @@ if (!empty($ufextrasql)) {
     $sqlwhere .= " AND " . $ufextrasql;
 }
 
-// Only load submissions that are 6 months old (from now).
-$sixmonthscutoff = strtotime('-6 months');
-if ($sixmonthscutoff === false) {
-    // Fallback in the unlikely event strtotime fails; approx 6 months as 182 days.
-    $sixmonthscutoff = time() - (182 * 24 * 60 * 60);
+// Only load submissions from the last 2 months to keep the list manageable.
+$twomonthscutoff = strtotime('-2 months');
+if ($twomonthscutoff === false) {
+    // Fallback in the unlikely event strtotime fails; approx 2 months as 60 days.
+    $twomonthscutoff = time() - (60 * 24 * 60 * 60);
 }
 $sqlwhere .= " AND t.timecreated >= :timesince";
-$ufparams['timesince'] = $sixmonthscutoff;
+$ufparams['timesince'] = $twomonthscutoff;
 
 $table->set_sql($sqlfields, $sqlfrom, $sqlwhere, $ufparams);
 
-if (!$table->is_downloading()) {
-    echo $OUTPUT->header();
-    $currenttab = 'originalitydebug';
-
-    require_once('originality_tabs.php');
-
-    echo $OUTPUT->heading(get_string('originalityfiles', 'plagiarism_inspera'));
-
-    $ufiltering->display_add();
-    $ufiltering->display_active();
-
-    echo '<form action="originality_debug.php" method="post" id="debugform">';
-    echo html_writer::start_div();
-    echo html_writer::tag('input', '', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
-    echo html_writer::tag('input', '', ['type' => 'hidden', 'name' => 'returnto', 'value' => s($PAGE->url->out(false))]);
-}
-
-$table->out($limit, false);
+// 4. PREPARE OUTPUT.
+$renderer = $PAGE->get_renderer('plagiarism_inspera');
 
 if (!$table->is_downloading()) {
-    echo html_writer::tag('input', "", [
-        'name' => 'deleteselectedfiles',
-        'type' => 'submit',
-        'id' => 'deleteallselected',
-        'class' => 'btn btn-secondary',
-        'value' => get_string('deleteselectedfiles', 'plagiarism_inspera')]);
+    $renderable = new \plagiarism_inspera\output\debug_page($table, $ufiltering, $limit);
 
-    echo html_writer::span(' ');
-    echo html_writer::tag('input', "", [
-        'name' => 'resubmitselectedfiles',
-        'type' => 'submit',
-        'id' => 'resubmitselected',
-        'class' => 'btn btn-secondary',
-        'value' => get_string('resubmitselectedfiles', 'plagiarism_inspera')]);
-    echo html_writer::end_tag('form');
-    echo html_writer::end_div();
-    echo html_writer::empty_tag('hr');
-    echo $OUTPUT->footer();
+    // Standard Page Render.
+    echo $renderer->render_debug_page($renderable);
+} else {
+    // CSV Download bypasses rendering.
+    $table->out($limit, false);
 }
