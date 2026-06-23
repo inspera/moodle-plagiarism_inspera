@@ -147,10 +147,23 @@ class report_formatter {
                     $resubmitcontext = \context_module::instance($cmid, IGNORE_MISSING);
                 }
 
+                global $CFG;
+                require_once($CFG->dirroot . '/plagiarism/inspera/lib.php');
+                $gradecapabilities = plagiarism_inspera_get_grade_capabilities();
+
+                // Explicitly fetch the course module to guarantee we have the correct modname.
+                $cm = ($cmid > 0) ? get_coursemodule_from_id('', $cmid, 0, false, IGNORE_MISSING) : null;
+
                 $canrequestallreports = $resubmitcontext &&
                     has_capability('plagiarism/inspera:requestallreports', $resubmitcontext);
+
+                $cangrade = $cm && $resubmitcontext &&
+                    isset($gradecapabilities[$cm->modname]) &&
+                    has_capability($gradecapabilities[$cm->modname], $resubmitcontext);
+
                 $context['canresubmit'] = ($cmid > 0) &&
                     $canrequestallreports &&
+                    $cangrade &&
                     in_array($record->status, ['error', 'external_error'], true);
 
                 if ($context['canresubmit']) {
