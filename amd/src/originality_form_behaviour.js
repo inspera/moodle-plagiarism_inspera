@@ -151,27 +151,32 @@ const handleViewMode = (configDiv) => {
     }
 };
 
-// Restrict the Moodle autocomplete input for Whitelist Characters to 2 chars.
+// Restrict all Moodle autocomplete inputs for Whitelist Characters to 2 chars.
 const enforceWhitelistMaxLength = (attempts = 0) => {
-    // Max 10 attempts (2 seconds total). Stop trying if it never renders.
+    // Max 10 attempts (2 seconds total). Stop trying if fields never render.
     if (attempts >= 10) {
         return;
     }
 
-    const container = document.querySelector('#fitem_id_originality_whitelist_characters');
-    if (!container) {
-        // Container not rendered yet, try again in 200ms.
+    const containers = document.querySelectorAll('[id^="fitem_id_originality_whitelist_characters"]');
+    if (!containers.length) {
+        // Containers not rendered yet, try again in 200ms.
         setTimeout(() => enforceWhitelistMaxLength(attempts + 1), 200);
         return;
     }
 
-    // Broadened selector to catch Moodle's dynamic input field safely
-    const typingInput = container.querySelector('input.form-autocomplete-original-text-fallback, input[type="text"]');
+    let allInputsReady = true;
+    containers.forEach((container) => {
+        const typingInput = container.querySelector('input.form-autocomplete-original-text-fallback, input[type="text"]');
+        if (typingInput) {
+            typingInput.setAttribute('maxlength', '2');
+        } else {
+            allInputsReady = false;
+        }
+    });
 
-    if (typingInput) {
-        typingInput.setAttribute('maxlength', '2');
-    } else {
-        // Container exists but input isn't rendered yet, try again.
+    if (!allInputsReady) {
+        // Some containers exist but their inputs are not rendered yet, try again.
         setTimeout(() => enforceWhitelistMaxLength(attempts + 1), 200);
     }
 };
