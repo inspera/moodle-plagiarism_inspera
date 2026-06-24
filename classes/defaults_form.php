@@ -437,6 +437,9 @@ class plagiarism_inspera_defaults_form extends moodleform {
         }
 
         $this->add_action_buttons(true);
+
+        global $PAGE;
+        $PAGE->requires->js_call_amd('plagiarism_inspera/originality_form_behaviour', 'init');
     }
 
     /**
