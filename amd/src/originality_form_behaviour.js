@@ -165,17 +165,18 @@ const enforceWhitelistMaxLength = (attempts = 0) => {
         return;
     }
 
-    let foundInput = false;
+    let allInputsReady = true;
     containers.forEach((container) => {
         const typingInput = container.querySelector('input.form-autocomplete-original-text-fallback, input[type="text"]');
         if (typingInput) {
             typingInput.setAttribute('maxlength', '2');
-            foundInput = true;
+        } else {
+            allInputsReady = false;
         }
     });
 
-    if (!foundInput) {
-        // Containers exist but inputs are not rendered yet, try again.
+    if (!allInputsReady) {
+        // Some containers exist but their inputs are not rendered yet, try again.
         setTimeout(() => enforceWhitelistMaxLength(attempts + 1), 200);
     }
 };
