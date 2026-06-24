@@ -886,24 +886,24 @@ function plagiarism_inspera_coursemodule_edit_post_actions($data, $course) {
         // Moodle's hideIf only hides fields visually. If a parent toggle is disabled,
         // we must manually wipe the dependent child data before it hits the database.
 
-        // 1. Whitelist Characters.
+        // 1. Whitelist Characters (PARAM_TAGLIST).
         if (empty($data->originality_enable_whitelist_characters)) {
-            $data->originality_whitelist_characters = [];
+            $data->originality_whitelist_characters = '';
         }
 
-        // 2. Translations.
+        // 2. Translations (PARAM_TAGLIST).
         if (empty($data->originality_enable_translations)) {
-            $data->originality_translation_languages = [];
+            $data->originality_translation_languages = '';
         }
 
-        // 3. Exclude Source Criteria.
+        // 3. Exclude Source Criteria (PARAM_INT)
         if (empty($data->originality_enable_exclude_source_criteria)) {
             $data->originality_exclude_source_threshold = 5; // Reset to default.
         }
 
-        // 4. File Types (Hidden when "Allow all supported file types" is YES/1).
+        // 4. File Types (PARAM_TAGLIST).
         if (!empty($data->originality_allowallfile)) {
-            $data->originality_selectfiletypes = [];
+            $data->originality_selectfiletypes = '';
         }
 
         // Array of possible plagiarism config options.
